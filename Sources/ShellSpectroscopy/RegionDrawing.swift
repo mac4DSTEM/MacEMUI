@@ -63,6 +63,13 @@ public nonisolated enum RegionDrawing {
     }
 }
 
+/// What the pointer is doing to a region while it is dragged: a new shape being drawn (`id` nil) or the selected region being moved or resized, with the geometry so far.
+public struct RegionDragUpdate: Equatable, Sendable {
+    public var id: UUID?
+    public var geometry: RegionGeometry
+    public init(id: UUID?, geometry: RegionGeometry) { self.id = id; self.geometry = geometry }
+}
+
 /// The layer over a tile's picture. It is as large as the picture; `scanWidth` x `scanHeight` pixels map to its frame.
 public struct RegionDrawingLayer: View {
     private let tool: RegionTool
@@ -76,6 +83,7 @@ public struct RegionDrawingLayer: View {
     private let onLine: (RegionPoint, RegionPoint) -> Void
     private let onHover: ((x: Int, y: Int)?) -> Void
     private let onEdit: (UUID, RegionGeometry) -> Void
+    private let onDrag: (RegionDragUpdate?) -> Void
 
     @State private var dragging: CGRect?
     /// A handle or the body of the selected region being dragged: the region, where it started, what the press landed on and the geometry shown meanwhile.
@@ -105,9 +113,10 @@ public struct RegionDrawingLayer: View {
     public init(tool: RegionTool, set: SpectralRegionSet, scanWidth: Int, scanHeight: Int, pointer: (x: Int, y: Int)? = nil,
                 onRectangle: @escaping (Int, Int, Int, Int) -> Void, onEllipse: @escaping (Int, Int, Int, Int) -> Void,
                 onPolygon: @escaping ([RegionPoint]) -> Void, onLine: @escaping (RegionPoint, RegionPoint) -> Void,
-                onHover: @escaping ((x: Int, y: Int)?) -> Void, onEdit: @escaping (UUID, RegionGeometry) -> Void = { _, _ in }) {
+                onHover: @escaping ((x: Int, y: Int)?) -> Void, onEdit: @escaping (UUID, RegionGeometry) -> Void = { _, _ in },
+                onDrag: @escaping (RegionDragUpdate?) -> Void = { _ in }) {
         self.tool = tool; self.set = set; self.scanWidth = scanWidth; self.scanHeight = scanHeight; self.pointer = pointer
-        self.onRectangle = onRectangle; self.onEllipse = onEllipse; self.onPolygon = onPolygon; self.onLine = onLine; self.onHover = onHover; self.onEdit = onEdit
+        self.onRectangle = onRectangle; self.onEllipse = onEllipse; self.onPolygon = onPolygon; self.onLine = onLine; self.onHover = onHover; self.onEdit = onEdit; self.onDrag = onDrag
     }
 
     public var body: some View {
@@ -175,17 +184,26 @@ public struct RegionDrawingLayer: View {
                     case .handle(let h):
                         editing?.shown = RegionEditing.resized(current.original, handle: h, to: here, scanWidth: scanWidth, scanHeight: scanHeight)
                     }
+                    if let shown = editing?.shown { onDrag(RegionDragUpdate(id: current.id, geometry: shown)) }
                     return
                 }
                 if tool == .polygon { return }
                 if tool == .line {
                     draggingLine = (clamp(v.startLocation, size), clamp(v.location, size))
+                    onDrag(RegionDragUpdate(id: nil, geometry: .line(RegionDrawing.scanPoint(v.startLocation, in: size, scanWidth: scanWidth, scanHeight: scanHeight),
+                                                                     RegionDrawing.scanPoint(v.location, in: size, scanWidth: scanWidth, scanHeight: scanHeight))))
                 } else {
                     dragging = CGRect(x: min(v.startLocation.x, v.location.x), y: min(v.startLocation.y, v.location.y),
                                       width: abs(v.location.x - v.startLocation.x), height: abs(v.location.y - v.startLocation.y))
+                    if let box = RegionDrawing.spannedBox(from: v.startLocation, to: v.location, in: size, scanWidth: scanWidth, scanHeight: scanHeight) {
+                        let g = RegionGeometry.rectangle(x0: Double(box.x0), y0: Double(box.y0), x1: Double(box.x1), y1: Double(box.y1))
+                        if tool == .ellipse { onDrag(RegionDragUpdate(id: nil, geometry: .ellipse(x0: Double(box.x0), y0: Double(box.y0), x1: Double(box.x1), y1: Double(box.y1)))) }
+                        else { onDrag(RegionDragUpdate(id: nil, geometry: g)) }
+                    }
                 }
             }
             .onEnded { v in
+                onDrag(nil)
                 if let done = editing {
                     editing = nil
                     if done.shown != done.original { onEdit(done.id, done.shown) }

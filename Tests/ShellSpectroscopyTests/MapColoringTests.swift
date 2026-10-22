@@ -63,3 +63,33 @@ nonisolated final class MapColoringTests: XCTestCase {
         XCTAssertEqual(MapColoring.colormap(.gray).endColor.red, 1, accuracy: 0.02)
     }
 }
+
+nonisolated final class MapAdjustmentTests: XCTestCase {
+    /// The window clamps below `low` and above `high`, the gamma bends the middle, the default changes nothing, and a default adjustment is not kept.
+    func testTheWindowAndTheGamma() {
+        let a = MapAdjustment(low: 0.2, high: 0.6, gamma: 1)
+        XCTAssertEqual(a.apply(0.1), 0); XCTAssertEqual(a.apply(0.7), 1)
+        XCTAssertEqual(a.apply(0.4), 0.5, accuracy: 1e-12)
+        XCTAssertEqual(MapAdjustment(gamma: 2).apply(0.25), 0.5, accuracy: 1e-12, "gamma above 1 brightens the middle")
+        XCTAssertEqual(MapAdjustment().apply(0.37), 0.37)
+        var appearance = MapAppearance()
+        appearance.setAdjustment(a, for: "Mg")
+        XCTAssertEqual(appearance.adjustment(for: "Mg"), a)
+        appearance.setAdjustment(MapAdjustment(), for: "Mg")
+        XCTAssertTrue(appearance.adjustments.isEmpty)
+        appearance.setAdjustment(a, for: "Al"); appearance.reset()
+        XCTAssertTrue(appearance.adjustments.isEmpty, "reset clears the adjustments too")
+    }
+
+    /// The pixels follow the adjustment: a half-scale value under a 0.5...1 window is black.
+    func testThePixelsFollowTheAdjustment() throws {
+        let c = RegionColor(red: 1, green: 0, blue: 0)
+        let plain = MapRaster.rgba(values: [5, 10], coloring: .color(c))
+        let windowed = MapRaster.rgba(values: [5, 10], coloring: .color(c), adjustment: MapAdjustment(low: 0.5, high: 1))
+        XCTAssertEqual(plain[0], 128); XCTAssertEqual(windowed[0], 0); XCTAssertEqual(windowed[4], 255)
+        let mixed = MapRaster.mix([MapRaster.MixLayer(values: [5, 10], color: c, adjustment: MapAdjustment(low: 0.5, high: 1))], count: 2)
+        XCTAssertEqual(mixed[0], 0); XCTAssertEqual(mixed[4], 255)
+        let old = try JSONDecoder().decode(MapAppearance.self, from: Data(#"{"colorings":{},"mix":{"isOn":false,"members":[]}}"#.utf8))
+        XCTAssertEqual(old, MapAppearance(), "an appearance saved before adjustments existed still reads")
+    }
+}

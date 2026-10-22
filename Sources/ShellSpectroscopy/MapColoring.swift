@@ -5,6 +5,7 @@
 //        own colour. Pixels are made here from a map's values (pure, tested); what the values are is the room's.
 //
 
+import ShellInspector
 import ShellMetal
 import SwiftUI
 
@@ -41,6 +42,25 @@ public nonisolated enum MapColoring: Equatable, Hashable, Sendable, Codable {
     }
 }
 
+/// A map's contrast and gamma, as fractions of its own scale: values below `low` are the bottom colour, above `high` the top, and `gamma` bends what is between (above 1
+/// brightens the middle). The default leaves the map as it is.
+public nonisolated struct MapAdjustment: Equatable, Sendable, Codable {
+    public var low = 0.0
+    public var high = 1.0
+    public var gamma = 1.0
+
+    public init(low: Double = 0, high: Double = 1, gamma: Double = 1) { self.low = low; self.high = high; self.gamma = gamma }
+
+    public var isDefault: Bool { self == MapAdjustment() }
+
+    /// The fraction `f` (0...1 of the map's scale) after the window and the gamma.
+    public func apply(_ f: Double) -> Double {
+        let span = max(high - low, 1e-6)
+        let windowed = min(max((f - low) / span, 0), 1)
+        return gamma > 0 && gamma != 1 ? pow(windowed, 1 / gamma) : windowed
+    }
+}
+
 /// The maps added into one composite tile.
 public nonisolated struct ColorMix: Equatable, Sendable, Codable {
     public var isOn = false
@@ -62,16 +82,32 @@ public nonisolated struct ColorMix: Equatable, Sendable, Codable {
 /// session; remembered per document by the room.
 public nonisolated struct MapAppearance: Equatable, Sendable, Codable {
     public var colorings: [String: MapColoring] = [:]
+    public var adjustments: [String: MapAdjustment] = [:]
     public var mix = ColorMix()
 
     public init() {}
+
+    private enum CodingKeys: String, CodingKey { case colorings, adjustments, mix }
+
+    /// Tolerant: an appearance saved before adjustments existed has no `adjustments` key.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        colorings = try c.decodeIfPresent([String: MapColoring].self, forKey: .colorings) ?? [:]
+        adjustments = try c.decodeIfPresent([String: MapAdjustment].self, forKey: .adjustments) ?? [:]
+        mix = try c.decodeIfPresent(ColorMix.self, forKey: .mix) ?? ColorMix()
+    }
+
+    public func adjustment(for id: String) -> MapAdjustment { adjustments[id] ?? MapAdjustment() }
+
+    /// Sets a map's contrast and gamma; the default is not kept.
+    public mutating func setAdjustment(_ adjustment: MapAdjustment, for id: String) { adjustments[id] = adjustment.isDefault ? nil : adjustment }
 
     public func coloring(for id: String, default fallback: MapColoring) -> MapColoring { colorings[id] ?? fallback }
 
     /// Sets a map's colouring, or with nil returns it to its default.
     public mutating func set(_ coloring: MapColoring?, for id: String) { colorings[id] = coloring }
 
-    public mutating func reset() { colorings = [:]; mix = ColorMix() }
+    public mutating func reset() { colorings = [:]; adjustments = [:]; mix = ColorMix() }
 }
 
 /// A map the controls list: its id, its words and the colouring it has until the person changes it.
@@ -89,7 +125,7 @@ public struct MapColorItem: Identifiable, Equatable, Sendable {
 public nonisolated enum MapRaster {
     /// Row-major RGBA, opaque. A value maps to `f = v / upper` clamped to 0...1 (`upper` nil: the largest finite value; a map with no positive pixel is black): black to
     /// the colour at f for `.color`, the colormap at f for `.colormap`. With `width` a NaN pixel (a value the kit could not make) is hatched in grey stripes, not drawn as zero.
-    public static func rgba(values: [Double], coloring: MapColoring, upper: Double? = nil, width: Int? = nil) -> [UInt8] {
+    public static func rgba(values: [Double], coloring: MapColoring, upper: Double? = nil, width: Int? = nil, adjustment: MapAdjustment = MapAdjustment()) -> [UInt8] {
         let top = upper ?? values.reduce(0.0) { max($0, $1.isFinite ? $1 : 0) }
         let lut: [UInt8]? = if case .colormap(let kind) = coloring { Colormaps.lutRGBA(kind) } else { nil }
         let base: RegionColor? = if case .color(let c) = coloring { c } else { nil }
@@ -100,7 +136,7 @@ public nonisolated enum MapRaster {
                 out[4 * i] = g; out[4 * i + 1] = g; out[4 * i + 2] = g
                 continue
             }
-            let f = top > 0 && v.isFinite ? min(max(v / top, 0), 1) : 0
+            let f = top > 0 && v.isFinite ? adjustment.apply(min(max(v / top, 0), 1)) : 0
             if let base {
                 out[4 * i] = byte(base.red * f); out[4 * i + 1] = byte(base.green * f); out[4 * i + 2] = byte(base.blue * f)
             } else if let lut {
@@ -116,7 +152,10 @@ public nonisolated enum MapRaster {
         public var values: [Double]
         public var color: RegionColor
         public var upper: Double?
-        public init(values: [Double], color: RegionColor, upper: Double? = nil) { self.values = values; self.color = color; self.upper = upper }
+        public var adjustment: MapAdjustment
+        public init(values: [Double], color: RegionColor, upper: Double? = nil, adjustment: MapAdjustment = MapAdjustment()) {
+            self.values = values; self.color = color; self.upper = upper; self.adjustment = adjustment
+        }
     }
 
     /// The layers added into one picture: each map's fraction of its own full scale times its colour, summed per channel and clamped (the Velox colour mix). All layers
@@ -127,7 +166,7 @@ public nonisolated enum MapRaster {
             let top = layer.upper ?? layer.values.reduce(0.0) { max($0, $1.isFinite ? $1 : 0) }
             guard top > 0 else { continue }
             for (i, v) in layer.values.enumerated() where v.isFinite {
-                let f = min(max(v / top, 0), 1)
+                let f = layer.adjustment.apply(min(max(v / top, 0), 1))
                 sum[3 * i] += layer.color.red * f; sum[3 * i + 1] += layer.color.green * f; sum[3 * i + 2] += layer.color.blue * f
             }
         }
@@ -144,6 +183,7 @@ public struct MapColorControls: View {
     @Binding private var appearance: MapAppearance
     private let items: [MapColorItem]
     @Environment(\.self) private var environment
+    @State private var adjusting: Set<String> = []
 
     public init(appearance: Binding<MapAppearance>, items: [MapColorItem]) {
         self._appearance = appearance
@@ -152,7 +192,10 @@ public struct MapColorControls: View {
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            ForEach(items) { item in row(item) }
+            ForEach(items) { item in
+                row(item)
+                if adjusting.contains(item.id) { adjustControls(item) }
+            }
             if items.count >= 2 {
                 Toggle("Colour mix", isOn: $appearance.mix.isOn)
                     .toggleStyle(.switch)
@@ -201,7 +244,38 @@ public struct MapColorControls: View {
             .help("Colour this map in one colour, or on a colormap")
             .accessibilityLabel("Colouring of \(item.title)")
             .accessibilityIdentifier("maps.coloring.\(item.id)")
+            Button {
+                if adjusting.contains(item.id) { adjusting.remove(item.id) } else { adjusting.insert(item.id) }
+            } label: {
+                Image(systemName: appearance.adjustment(for: item.id).isDefault ? "slider.horizontal.3" : "slider.horizontal.below.square.filled.and.square")
+            }
+            .buttonStyle(.borderless)
+            .help("Contrast and gamma of \(item.title)")
+            .accessibilityLabel("Contrast and gamma of \(item.title)")
+            .accessibilityIdentifier("maps.adjust.\(item.id)")
         }
+    }
+
+    /// Low and high of the window (fractions of the map's scale, never crossing) and the gamma.
+    private func adjustControls(_ item: MapColorItem) -> some View {
+        let binding = { (keyPath: WritableKeyPath<MapAdjustment, Double>) in
+            Binding<Double>(get: { appearance.adjustment(for: item.id)[keyPath: keyPath] },
+                            set: { value in
+                                var a = appearance.adjustment(for: item.id)
+                                a[keyPath: keyPath] = value
+                                if keyPath == \MapAdjustment.low { a.low = min(a.low, a.high - 0.01) }
+                                if keyPath == \MapAdjustment.high { a.high = max(a.high, a.low + 0.01) }
+                                appearance.setAdjustment(a, for: item.id)
+                            })
+        }
+        return VStack(alignment: .leading, spacing: 4) {
+            AdjustmentSlider("Low", value: binding(\.low), in: 0...1, defaultValue: 0)
+            AdjustmentSlider("High", value: binding(\.high), in: 0...1, defaultValue: 1)
+            AdjustmentSlider("Gamma", value: binding(\.gamma), in: 0.2...3, defaultValue: 1)
+        }
+        .padding(.leading, 8)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("maps.adjustments.\(item.id)")
     }
 }
 
