@@ -36,6 +36,17 @@ public nonisolated enum MapTileSize: String, CaseIterable, Identifiable, Sendabl
     }
 }
 
+private struct MapTileMaxHeightKey: EnvironmentKey { static let defaultValue: CGFloat? = nil }
+
+extension EnvironmentValues {
+    /// The tallest a tile's picture may be, set by `MapTileGrid`: in the grid a little over the tile's widest width (a very tall map, a 215 x 926 scan, is fitted into it
+    /// instead of running past the block), and in solo the height of the block. A tile applies it with `.frame(maxHeight:)` around its aspect-fitted picture. nil outside a grid.
+    public var mapTileMaxHeight: CGFloat? {
+        get { self[MapTileMaxHeightKey.self] }
+        set { self[MapTileMaxHeightKey.self] = newValue }
+    }
+}
+
 /// The size choice as one inspector row's control: a three-segment picker.
 public struct MapTileSizePicker: View {
     @Binding private var selection: MapTileSize
@@ -75,6 +86,8 @@ public struct MapTileGrid<Item: Identifiable, Tile: View>: View {
     private let soloEnabled: Bool
     @Binding private var solo: Item.ID?
     private let tile: (Item) -> Tile
+    /// The height a tile's title, colour bar and footer take around its picture, taken off the block's height in solo.
+    private static var tileChrome: CGFloat { 90 }
 
     /// `soloEnabled: false` leaves the double click to the tile (a polygon tool's vertices are clicks); an open solo tile still returns on a double click.
     public init(items: [Item], size: MapTileSize, solo: Binding<Item.ID?>, soloEnabled: Bool = true, spacing: CGFloat = 8,
@@ -89,18 +102,22 @@ public struct MapTileGrid<Item: Identifiable, Tile: View>: View {
 
     public var body: some View {
         if let id = solo, let item = items.first(where: { $0.id == id }) {
-            tile(item)
-                .padding(spacing)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                .contentShape(Rectangle())   // a double click anywhere in the block returns the grid, not only on the (square) picture
-                .simultaneousGesture(TapGesture(count: 2).onEnded { solo = nil })
-                .accessibilityHint("Double click to show all maps")
+            GeometryReader { geo in
+                tile(item)
+                    .environment(\.mapTileMaxHeight, max(geo.size.height - 2 * spacing - Self.tileChrome, 80))
+                    .padding(spacing)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    .contentShape(Rectangle())   // a double click anywhere in the block returns the grid, not only on the (square) picture
+                    .simultaneousGesture(TapGesture(count: 2).onEnded { solo = nil })
+                    .accessibilityHint("Double click to show all maps")
+            }
         } else {
             ScrollView {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: size.widths.min, maximum: size.widths.max), spacing: spacing, alignment: .top)],
                           alignment: .leading, spacing: spacing) {
                     ForEach(items) { item in
                         tile(item)
+                            .environment(\.mapTileMaxHeight, size.widths.max * 1.25)
                             .simultaneousGesture(TapGesture(count: 2).onEnded { if soloEnabled { solo = item.id } })
                     }
                 }
