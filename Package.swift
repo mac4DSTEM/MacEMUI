@@ -3,7 +3,6 @@
 // An app package, not a kit: it has UI, Metal and (named, minimal) AppKit. Kits stay pure Swift and are not imported here
 // except ImagoCore for `ScaleBarMath` (ShellControls). No numerics live here.
 // Settings: Swift 6 language mode and MainActor default isolation, as macTEM; mac4DSTEM (Swift 5 mode) consumes it unchanged.
-// NOT BUILT: this manifest and everything under Sources/ was written in the cloud, which has no Swift. See docs/split-plan.md.
 import PackageDescription
 
 let shellSettings: [SwiftSetting] = [
@@ -22,6 +21,7 @@ let package = Package(
         .library(name: "ShellControls", targets: ["ShellControls"]),
         .library(name: "ShellInspector", targets: ["ShellInspector"]),
         .library(name: "ShellLayout", targets: ["ShellLayout"]),
+        .library(name: "ShellSpectroscopy", targets: ["ShellSpectroscopy"]),
     ],
     dependencies: [
         // ScaleBarMath (PaneFooter/ScaleBar). `from:` so the 0.7.0 tag and the apps' pins both resolve; the apps pin exact.
@@ -36,9 +36,11 @@ let package = Package(
                 swiftSettings: shellSettings),
         .target(name: "ShellInspector", dependencies: ["ShellControls"], swiftSettings: shellSettings),
         .target(name: "ShellLayout", dependencies: ["ShellControls"], swiftSettings: shellSettings),
+        .target(name: "ShellSpectroscopy", dependencies: ["ShellControls", "ShellInspector", "ShellLayout"], swiftSettings: shellSettings),
         .testTarget(name: "ShellMetalTests", dependencies: ["ShellMetal"], swiftSettings: shellSettings),
         .testTarget(name: "ShellControlsTests", dependencies: ["ShellControls"], swiftSettings: shellSettings),
         .testTarget(name: "ShellInspectorTests", dependencies: ["ShellInspector"], swiftSettings: shellSettings),
         .testTarget(name: "ShellLayoutTests", dependencies: ["ShellLayout"], swiftSettings: shellSettings),
+        .testTarget(name: "ShellSpectroscopyTests", dependencies: ["ShellSpectroscopy"], swiftSettings: shellSettings),
     ]
 )

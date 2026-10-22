@@ -2,6 +2,14 @@
 
 MacEMUI follows semantic versioning; before 1.0.0 a minor version may break the API, and its Migration paragraph says how.
 
+## Unreleased (0.2.0)
+
+The spectroscopy rooms' shared chrome, built on what is new (design 2026-10-22): module `ShellSpectroscopy`.
+
+### Added
+- `VerticalPaneSplit`: maps over spectrum with a stored, keyboard-nudgeable, VoiceOver-adjustable divider.
+- `MapTileGrid`, `MapTileSize`, `MapTileSizePicker`: the maps block reflows to a chosen tile size and shows one tile alone on a double click; `hoverChip(_:)` puts the pointer's value on a tile.
+
 ## 0.1.0 (2026-10-22)
 
 The shared window shell of mac4DSTEM and macTEM, cut from mac4DSTEM `8c4c06d` and macTEM `51c944c`, compiled and adopted by both apps
