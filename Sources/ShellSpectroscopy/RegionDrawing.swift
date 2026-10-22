@@ -75,21 +75,39 @@ public struct RegionDrawingLayer: View {
     private let onPolygon: ([RegionPoint]) -> Void
     private let onLine: (RegionPoint, RegionPoint) -> Void
     private let onHover: ((x: Int, y: Int)?) -> Void
+    private let onEdit: (UUID, RegionGeometry) -> Void
 
     @State private var dragging: CGRect?
+    /// A handle or the body of the selected region being dragged: the region, where it started, what the press landed on and the geometry shown meanwhile.
+    @State private var editing: (id: UUID, original: RegionGeometry, hit: RegionHit, shown: RegionGeometry)?
     @State private var draggingLine: (CGPoint, CGPoint)?
     @State private var vertices: [RegionPoint] = []
 
     private static let vertexSize: CGFloat = 7
     private static let firstVertexSize: CGFloat = 11
     private static let closeRadius: CGFloat = 9
+    private static let handleSize: CGFloat = 7
+    private static let handleRadius: CGFloat = 8
+
+    /// The set with the region being edited at its dragged geometry.
+    private var shownSet: SpectralRegionSet {
+        guard let editing else { return set }
+        var copy = set
+        copy.setGeometry(editing.id, editing.shown)
+        return copy
+    }
+
+    private var shownSelected: SpectralRegion? {
+        guard let selected = shownSet.selected, selected.isVisible else { return nil }
+        return selected
+    }
 
     public init(tool: RegionTool, set: SpectralRegionSet, scanWidth: Int, scanHeight: Int, pointer: (x: Int, y: Int)? = nil,
                 onRectangle: @escaping (Int, Int, Int, Int) -> Void, onEllipse: @escaping (Int, Int, Int, Int) -> Void,
                 onPolygon: @escaping ([RegionPoint]) -> Void, onLine: @escaping (RegionPoint, RegionPoint) -> Void,
-                onHover: @escaping ((x: Int, y: Int)?) -> Void) {
+                onHover: @escaping ((x: Int, y: Int)?) -> Void, onEdit: @escaping (UUID, RegionGeometry) -> Void = { _, _ in }) {
         self.tool = tool; self.set = set; self.scanWidth = scanWidth; self.scanHeight = scanHeight; self.pointer = pointer
-        self.onRectangle = onRectangle; self.onEllipse = onEllipse; self.onPolygon = onPolygon; self.onLine = onLine; self.onHover = onHover
+        self.onRectangle = onRectangle; self.onEllipse = onEllipse; self.onPolygon = onPolygon; self.onLine = onLine; self.onHover = onHover; self.onEdit = onEdit
     }
 
     public var body: some View {
@@ -98,9 +116,16 @@ public struct RegionDrawingLayer: View {
             let sx = size.width / CGFloat(max(scanWidth, 1)), sy = size.height / CGFloat(max(scanHeight, 1))
             ZStack {
                 Color.clear.contentShape(Rectangle())
-                    .gesture(drag(size: size), including: tool == .polygon ? .none : .all)
+                    .gesture(drag(size: size))
                     .gesture(tap(size: size), including: tool == .polygon ? .all : .none)
-                RegionOverlay(set: set, scanWidth: scanWidth, scanHeight: scanHeight, pixel: pointer)
+                RegionOverlay(set: shownSet, scanWidth: scanWidth, scanHeight: scanHeight, pixel: pointer)
+                if let region = shownSelected {
+                    ForEach(Array(RegionEditing.handles(of: region.geometry).enumerated()), id: \.offset) { _, h in
+                        Rectangle().fill(.white).frame(width: Self.handleSize, height: Self.handleSize)
+                            .overlay { Rectangle().stroke(.black.opacity(0.7), lineWidth: 1) }
+                            .position(x: h.point.x * sx, y: h.point.y * sy).allowsHitTesting(false)
+                    }
+                }
                 if let dragging {
                     let shape = tool == .ellipse ? Path(ellipseIn: dragging) : Path(dragging)
                     shape.fill(.white.opacity(0.12)).allowsHitTesting(false)
@@ -136,6 +161,23 @@ public struct RegionDrawingLayer: View {
     private func drag(size: CGSize) -> some Gesture {
         DragGesture(minimumDistance: 4, coordinateSpace: .local)
             .onChanged { v in
+                let sx = size.width / CGFloat(max(scanWidth, 1)), sy = size.height / CGFloat(max(scanHeight, 1))
+                if editing == nil, dragging == nil, draggingLine == nil, let selected = shownSelected,
+                   let hit = RegionEditing.hit(selected.geometry, at: v.startLocation, sx: sx, sy: sy, radius: Self.handleRadius) {
+                    editing = (selected.id, selected.geometry, hit, selected.geometry)
+                }
+                if let current = editing {
+                    let here = RegionDrawing.scanPoint(v.location, in: size, scanWidth: scanWidth, scanHeight: scanHeight)
+                    let there = RegionDrawing.scanPoint(v.startLocation, in: size, scanWidth: scanWidth, scanHeight: scanHeight)
+                    switch current.hit {
+                    case .body:
+                        editing?.shown = RegionEditing.moved(current.original, dx: here.x - there.x, dy: here.y - there.y, scanWidth: scanWidth, scanHeight: scanHeight)
+                    case .handle(let h):
+                        editing?.shown = RegionEditing.resized(current.original, handle: h, to: here, scanWidth: scanWidth, scanHeight: scanHeight)
+                    }
+                    return
+                }
+                if tool == .polygon { return }
                 if tool == .line {
                     draggingLine = (clamp(v.startLocation, size), clamp(v.location, size))
                 } else {
@@ -144,7 +186,13 @@ public struct RegionDrawingLayer: View {
                 }
             }
             .onEnded { v in
+                if let done = editing {
+                    editing = nil
+                    if done.shown != done.original { onEdit(done.id, done.shown) }
+                    return
+                }
                 dragging = nil; draggingLine = nil
+                if tool == .polygon { return }
                 if tool == .line {
                     onLine(RegionDrawing.scanPoint(v.startLocation, in: size, scanWidth: scanWidth, scanHeight: scanHeight),
                            RegionDrawing.scanPoint(v.location, in: size, scanWidth: scanWidth, scanHeight: scanHeight))

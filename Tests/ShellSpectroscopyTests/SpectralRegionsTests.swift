@@ -108,3 +108,52 @@ nonisolated final class RegionDrawingTests: XCTestCase {
         XCTAssertEqual(RegionTool.allCases.map(\.title), ["Rectangle", "Ellipse", "Polygon", "Line"])
     }
 }
+
+nonisolated final class RegionEditingTests: XCTestCase {
+    private let box = RegionGeometry.rectangle(x0: 2, y0: 3, x1: 6, y1: 7)
+
+    /// A box has eight handles, a polygon one per vertex, a line two.
+    func testHandles() {
+        XCTAssertEqual(RegionEditing.handles(of: box).count, 8)
+        XCTAssertEqual(RegionEditing.handles(of: .polygon([RegionPoint(x: 0, y: 0), RegionPoint(x: 4, y: 0), RegionPoint(x: 2, y: 3)])).count, 3)
+        XCTAssertEqual(RegionEditing.handles(of: .line(RegionPoint(x: 0, y: 0), RegionPoint(x: 5, y: 5))).count, 2)
+    }
+
+    /// A press on a handle resizes, inside moves, outside is nothing; a line is hit within the tolerance and a closed shape by its inside.
+    func testHits() {
+        // 10 points per pixel
+        XCTAssertEqual(RegionEditing.hit(box, at: CGPoint(x: 21, y: 31), sx: 10, sy: 10, radius: 8), .handle(.box(x: -1, y: -1)))
+        XCTAssertEqual(RegionEditing.hit(box, at: CGPoint(x: 60, y: 50), sx: 10, sy: 10, radius: 8), .handle(.box(x: 1, y: 0)))
+        XCTAssertEqual(RegionEditing.hit(box, at: CGPoint(x: 40, y: 50), sx: 10, sy: 10, radius: 8), .body)
+        XCTAssertNil(RegionEditing.hit(box, at: CGPoint(x: 150, y: 150), sx: 10, sy: 10, radius: 8))
+        let circle = RegionGeometry.ellipse(x0: 0, y0: 0, x1: 10, y1: 10)
+        XCTAssertTrue(RegionEditing.contains(circle, RegionPoint(x: 5, y: 5), tolerance: 0))
+        XCTAssertFalse(RegionEditing.contains(circle, RegionPoint(x: 0.5, y: 0.5), tolerance: 0), "a corner of the box is outside the ellipse")
+        let line = RegionGeometry.line(RegionPoint(x: 0, y: 0), RegionPoint(x: 10, y: 0))
+        XCTAssertTrue(RegionEditing.contains(line, RegionPoint(x: 5, y: 0.5), tolerance: 0.8))
+        XCTAssertFalse(RegionEditing.contains(line, RegionPoint(x: 5, y: 2), tolerance: 0.8))
+        let tri = RegionGeometry.polygon([RegionPoint(x: 0, y: 0), RegionPoint(x: 8, y: 0), RegionPoint(x: 4, y: 6)])
+        XCTAssertTrue(RegionEditing.contains(tri, RegionPoint(x: 4, y: 2), tolerance: 0))
+        XCTAssertFalse(RegionEditing.contains(tri, RegionPoint(x: 0.5, y: 5), tolerance: 0))
+    }
+
+    /// Moving keeps the shape inside the grid by shifting back, and boxes move in whole pixels.
+    func testMovingStaysInsideTheGrid() {
+        XCTAssertEqual(RegionEditing.moved(box, dx: 1.4, dy: -1.6, scanWidth: 16, scanHeight: 16), .rectangle(x0: 3, y0: 1, x1: 7, y1: 5))
+        XCTAssertEqual(RegionEditing.moved(box, dx: 100, dy: 100, scanWidth: 16, scanHeight: 16), .rectangle(x0: 12, y0: 12, x1: 16, y1: 16))
+        XCTAssertEqual(RegionEditing.moved(box, dx: -100, dy: 0, scanWidth: 16, scanHeight: 16), .rectangle(x0: 0, y0: 3, x1: 4, y1: 7))
+        let poly = RegionGeometry.polygon([RegionPoint(x: 1, y: 1), RegionPoint(x: 3, y: 1), RegionPoint(x: 2, y: 3)])
+        XCTAssertEqual(RegionEditing.moved(poly, dx: 0.25, dy: 0, scanWidth: 8, scanHeight: 8), .polygon([RegionPoint(x: 1.25, y: 1), RegionPoint(x: 3.25, y: 1), RegionPoint(x: 2.25, y: 3)]), "a polygon moves continuously")
+    }
+
+    /// A corner moves two edges to whole pixels, an edge one; a box never closes below a pixel; vertices follow the point inside the grid.
+    func testResizing() {
+        XCTAssertEqual(RegionEditing.resized(box, handle: .box(x: 1, y: 1), to: RegionPoint(x: 8.4, y: 9.6), scanWidth: 16, scanHeight: 16), .rectangle(x0: 2, y0: 3, x1: 8, y1: 10))
+        XCTAssertEqual(RegionEditing.resized(box, handle: .box(x: -1, y: 0), to: RegionPoint(x: 0.2, y: 99), scanWidth: 16, scanHeight: 16), .rectangle(x0: 0, y0: 3, x1: 6, y1: 7), "an edge leaves the other axis alone")
+        XCTAssertEqual(RegionEditing.resized(box, handle: .box(x: 1, y: 0), to: RegionPoint(x: -5, y: 0), scanWidth: 16, scanHeight: 16), .rectangle(x0: 2, y0: 3, x1: 3, y1: 7), "at least one pixel")
+        let circle = RegionGeometry.ellipse(x0: 0, y0: 0, x1: 4, y1: 4)
+        XCTAssertEqual(RegionEditing.resized(circle, handle: .box(x: 1, y: 1), to: RegionPoint(x: 9, y: 9), scanWidth: 16, scanHeight: 16), .ellipse(x0: 0, y0: 0, x1: 9, y1: 9))
+        let line = RegionGeometry.line(RegionPoint(x: 0, y: 0), RegionPoint(x: 5, y: 5))
+        XCTAssertEqual(RegionEditing.resized(line, handle: .vertex(1), to: RegionPoint(x: 99, y: 3.5), scanWidth: 8, scanHeight: 8), .line(RegionPoint(x: 0, y: 0), RegionPoint(x: 8, y: 3.5)))
+    }
+}
