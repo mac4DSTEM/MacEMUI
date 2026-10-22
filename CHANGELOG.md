@@ -2,9 +2,9 @@
 
 MacEMUI follows semantic versioning; before 1.0.0 a minor version may break the API, and its Migration paragraph says how.
 
-## Unreleased (0.2.0)
+## 0.2.0 (2026-10-22)
 
-The spectroscopy rooms' shared chrome, built on what is new (design 2026-10-22): module `ShellSpectroscopy`.
+The spectroscopy rooms' shared chrome (design 2026-10-22): a new product `ShellSpectroscopy`, built in macTEM's EDS and EELS rooms and offered to mac4DSTEM's Spectroscopy room. Nothing of 0.1.0 changed.
 
 ### Added
 - `VerticalPaneSplit`: maps over spectrum with a stored, keyboard-nudgeable, VoiceOver-adjustable divider.
@@ -14,6 +14,9 @@ The spectroscopy rooms' shared chrome, built on what is new (design 2026-10-22):
 - `RegionTool` and `RegionDrawingLayer`: the drawing gestures over a map tile (drag a rectangle, ellipse or line, click a polygon's vertices) that hand back what was drawn in scan pixels and mark the pointer's pixel; `RegionDrawing` holds the pure geometry.
 - `RegionEditing` and the layer's `onEdit`: the selected region shows handles (eight on a rectangle or ellipse, a vertex each on a polygon, the two ends of a line); a drag on a handle resizes, a drag inside moves; boxes snap to whole pixels. Editing a polygon works under every tool.
 - `MapTileGrid`, `MapTileSize`, `MapTileSizePicker` (a segmented control that becomes a menu in a column too narrow for it): the maps block reflows to a chosen tile size and shows one tile alone on a double click; `hoverChip(_:)` puts the pointer's value on a tile.
+
+### Migration
+An app adds the product `ShellSpectroscopy` to its target and imports it where it uses a piece; no call site of 0.1.0 changes. The region model is plain values in scan pixels (the app maps its own regions to `SpectralRegionSet`, and a drawn `RegionGeometry` to the kit's shape); `docs/macemui.md` in macEM-suite lists the pieces.
 
 ## 0.1.0 (2026-10-22)
 
