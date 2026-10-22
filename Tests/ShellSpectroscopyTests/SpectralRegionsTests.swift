@@ -63,3 +63,15 @@ nonisolated final class SpectralRegionsTests: XCTestCase {
         XCTAssertEqual(back, set)
     }
 }
+
+nonisolated final class SpectralRegionSetRebuildTests: XCTestCase {
+    /// An app can rebuild a set from its own regions; an unknown selection is dropped.
+    func testASetRebuiltFromRegionsKeepsThemAndDropsAnUnknownSelection() {
+        let r = SpectralRegion(name: "Grain", color: RegionPalette.color(at: 4), geometry: .rectangle(x0: 0, y0: 0, x1: 1, y1: 1))
+        var set = SpectralRegionSet(regions: [r], selectedID: r.id)
+        XCTAssertEqual(set.selectedID, r.id)
+        XCTAssertNil(SpectralRegionSet(regions: [r], selectedID: UUID()).selectedID)
+        set.add(.rectangle(x0: 0, y0: 0, x1: 2, y1: 2))
+        XCTAssertEqual(set.regions.last?.name, "Region 2", "numbering continues after the rebuilt regions")
+    }
+}

@@ -117,6 +117,13 @@ public nonisolated struct SpectralRegionSet: Equatable, Sendable, Codable {
 
     public init() {}
 
+    /// A set an app rebuilds from its own model (ids, names, colours and flags are the app's); names and colours the set hands out next continue after these.
+    public init(regions: [SpectralRegion], selectedID: UUID? = nil) {
+        self.regions = regions
+        self.selectedID = regions.contains { $0.id == selectedID } ? selectedID : nil
+        self.issued = regions.count
+    }
+
     public var selected: SpectralRegion? { regions.first { $0.id == selectedID } }
     public var visible: [SpectralRegion] { regions.filter(\.isVisible) }
     /// The regions that pool a spectrum (everything but lines), visible or not: a hidden region is still compared when the person turns it on.
