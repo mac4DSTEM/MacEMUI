@@ -15,10 +15,10 @@ import SwiftUI
 ///   when it is over the pane, else about the pane's centre.
 /// - VoiceOver's zoom and pan actions, and a double-click, which fits the image to the pane again.
 ///
-/// **A mouse wheel does not zoom.** An earlier version of this comment said macOS synthesises magnification from the wheel with
+/// **A mouse wheel does not zoom through `zoomPan`.** An earlier version of this comment said macOS synthesises magnification from the wheel with
 /// a modifier. Nothing documents that: Apple describes `MagnifyGesture` as tracking a magnification event sequence, and a search of
 /// the SwiftUI documentation (2026-10-14) finds no scroll-wheel hook either. The claim is withdrawn rather than relied on, and
-/// the menu is the mouse's route. Only the old monitor bought a wheel route, at the cost of the global event trap above. (The
+/// the menu is the mouse's route; `zoomPanWheel` is the opt-in wheel, through `onScrollWheel` (bounded to the pane). Only the old monitor bought a wheel route, at the cost of the global event trap above. (The
 /// same sentence is in `SpectrumStripView`'s header comment.)
 ///
 /// The clamp is the science-relevant part. The views scale the image about
@@ -88,6 +88,13 @@ public nonisolated struct ZoomPan: Equatable, Sendable {
     /// A point of the box, as a screen-point offset from the box's centre (what `anchor` takes).
     public static func anchor(for point: CGPoint, in box: CGSize) -> CGPoint {
         CGPoint(x: point.x - box.width / 2, y: point.y - box.height / 2)
+    }
+
+    /// One scroll event of the wheel or a two-finger scroll: a zoom about the pointer by `ScrollZoom.factor`, through the same clamp
+    /// as a pinch. `location` is the pointer in the box's points from its top-leading corner. Continuous: every event of a gesture
+    /// steps, so a trackpad's small deltas zoom smoothly and a wheel click steps by about 10 %.
+    public mutating func wheel(delta: CGFloat, isPrecise: Bool, at location: CGPoint, in box: CGSize) {
+        step(by: ScrollZoom.factor(delta: delta, isPrecise: isPrecise), in: box, anchor: Self.anchor(for: location, in: box))
     }
 
     /// A pinch in flight: the live zoom and the live offset that keep `anchor` still. The zoom is clamped as the commit will
@@ -317,7 +324,26 @@ private struct ZoomPanAccessibilityActions: ViewModifier {
     }
 }
 
+private struct ZoomPanWheelModifier: ViewModifier {
+    let model: PaneZoomModel
+    let box: CGSize
+
+    func body(content: Content) -> some View {
+        // The one AppKit route (`onScrollWheel`, a bounded local monitor; never the old application-wide one).
+        content.onScrollWheel { event in
+            guard event.delta != 0 else { return }
+            model.update { $0.wheel(delta: event.delta, isPrecise: event.isPrecise, at: event.location, in: box) }
+        }
+    }
+}
+
 extension View {
+    /// The wheel and a two-finger scroll zoom about the pointer, as a pinch does. Apply it to the same view as `zoomPan`, with
+    /// the same `box`. Separate from `zoomPan` so a pane that already routes the wheel (or that wants it for scrolling) opts in.
+    public func zoomPanWheel(_ model: PaneZoomModel, box: CGSize) -> some View {
+        modifier(ZoomPanWheelModifier(model: model, box: box))
+    }
+
     /// "Zoom in", "Zoom out", "Pan left/right/up/down" and "Reset zoom" as accessibility actions, for the
     /// same `model` and `box` the pane's `.zoomPan` uses.
     public func zoomPanAccessibilityActions(_ model: PaneZoomModel, box: CGSize) -> some View {

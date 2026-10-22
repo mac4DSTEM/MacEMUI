@@ -101,8 +101,8 @@ public nonisolated struct ColorMix: Equatable, Sendable, Codable {
         isCustom = true
     }
 
-    /// The mix is shown when it is on and holds at least two maps in the listed members.
-    public var isShown: Bool { isOn && members.count >= 2 }
+    /// The mix is shown when it is on and holds at least two of the maps `all` (the default mix holds every one of them).
+    public func isShown(among all: [String]) -> Bool { isOn && selection(among: all).count >= 2 }
 }
 
 /// A document's map appearance: the colouring the person chose per map (by the map's id; a map with none keeps its default) and the colour mix. Codable for the

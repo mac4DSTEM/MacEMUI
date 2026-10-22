@@ -33,6 +33,18 @@ public nonisolated enum MapHistogram {
     }
 }
 
+/// The histogram section of the popover: the bins over the map's range, the footer's statistics, the section's title and the value a bin of 1.0 stands for.
+public struct MapDisplayHistogram: Sendable, Equatable {
+    public var counts: [Int]
+    public var statistics: HistogramStatistics
+    public var title: String
+    public var scale: Float
+
+    public init(counts: [Int], statistics: HistogramStatistics, title: String, scale: Float = 1) {
+        self.counts = counts; self.statistics = statistics; self.title = title; self.scale = scale
+    }
+}
+
 public struct MapDisplayPopover: View {
     public enum Kind {
         case element(color: Binding<RegionColor>)
@@ -41,7 +53,7 @@ public struct MapDisplayPopover: View {
     }
 
     private let kind: Kind
-    private let histogram: (counts: [Int], statistics: HistogramStatistics, title: String, scale: Float)?
+    private let histogram: MapDisplayHistogram?
     private let low: Binding<Double>
     private let high: Binding<Double>
     private let gamma: Binding<Double>
@@ -49,7 +61,7 @@ public struct MapDisplayPopover: View {
     @Environment(\.self) private var environment
 
     /// `low`, `high`, `gamma`: the map's `MapAdjustment` fields (the window as fractions of the histogram's range). `reset`: what Reset Range does (nil: the full range).
-    public init(kind: Kind, histogram: (counts: [Int], statistics: HistogramStatistics, title: String, scale: Float)?,
+    public init(kind: Kind, histogram: MapDisplayHistogram?,
                 low: Binding<Double>, high: Binding<Double>, gamma: Binding<Double>, reset: (() -> Void)? = nil) {
         self.kind = kind; self.histogram = histogram; self.low = low; self.high = high; self.gamma = gamma; self.reset = reset
     }

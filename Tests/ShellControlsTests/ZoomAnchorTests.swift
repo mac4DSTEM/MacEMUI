@@ -167,4 +167,32 @@ nonisolated final class ZoomAnchorTests: XCTestCase {
         for _ in 0..<20 { model.zoomOut() }
         XCTAssertEqual(model.state.zoom, ZoomPan.minimumZoom)
     }
+
+    // MARK: The wheel (zoomPanWheel)
+
+    /// A wheel step zooms by `ScrollZoom.factor` and keeps the image point under the pointer where it was. Red under: the wheel
+    /// zooming about the centre, the factor not applied, or the sign reversed (scrolling up zooms in).
+    func testTheWheelZoomsAboutThePointer() {
+        let pointer = CGPoint(x: 300, y: 80)
+        var z = ZoomPan()
+        let before = imagePoint(at: pointer, z)
+        z.wheel(delta: 3, isPrecise: false, at: pointer, in: box)
+        XCTAssertEqual(z.zoom, ScrollZoom.factor(delta: 3, isPrecise: false), accuracy: 1e-12)
+        XCTAssertGreaterThan(z.zoom, 1)
+        assertSame(imagePoint(at: pointer, z), before)
+        let afterIn = z.zoom
+        z.wheel(delta: -3, isPrecise: false, at: pointer, in: box)
+        XCTAssertLessThan(z.zoom, afterIn)
+    }
+
+    /// Many small trackpad events compound smoothly and stay inside the zoom clamp. Red under: a per-gesture step, no clamp.
+    func testTheWheelIsContinuousAndClamped() {
+        var z = ZoomPan()
+        for _ in 0..<20 { z.wheel(delta: 5, isPrecise: true, at: centre, in: box) }
+        XCTAssertEqual(z.zoom, exp(0.01 * 5 * 20), accuracy: 1e-9)
+        for _ in 0..<2000 { z.wheel(delta: 50, isPrecise: false, at: centre, in: box) }
+        XCTAssertEqual(z.zoom, ZoomPan.maximumZoom)
+        for _ in 0..<2000 { z.wheel(delta: -50, isPrecise: false, at: centre, in: box) }
+        XCTAssertEqual(z.zoom, ZoomPan.minimumZoom)
+    }
 }

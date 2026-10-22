@@ -11,7 +11,7 @@ final home (own repo or this folder) and the tag are Paul's.
 | `ShellInspector` | the `InspectorRows` kit |
 | `ShellLayout` | `LayoutPolicy`, `PanelNavigation`, `WorkspaceRoom`, window, toolbar, sidebar, inspector frame, centre column, `MenuActionRelay`, `ActivityLog`, `SystemMonitor` |
 
-Status: written in the cloud from mac4DSTEM `8c4c06d` and macTEM `51c944c`, **never compiled**. The first Mac session
+Status: compiled and tested on the Mac since 2026-10-21 (0.2.0 tagged; 0.3.0 on local main, `docs/status.md`). Written in the cloud from mac4DSTEM `8c4c06d` and macTEM `51c944c`; the first Mac session
 follows `docs/split-plan.md` in the macEM-suite repo.
 
 ```sh

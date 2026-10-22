@@ -14,6 +14,7 @@ control in the inspector, the scale bar as the way into a map's colour, an eleme
   `PeriodicTableGrid` holds the symbols and the shape.
 - `MapMixControls`: which maps are in the colour mix. `MapColorControls` can open with its sliders expanded and without the mix switch (a one-map popover).
 - `MapAppearance.reset(maps:)`: returns only the listed maps to their default colouring and adjustment, leaving other maps and the colour mix.
+- `zoomPanWheel(_:box:)` and `ZoomPan.wheel(delta:isPrecise:at:in:)` (ShellControls): the wheel and a two-finger scroll zoom a pane about the pointer by `ScrollZoom.factor`, every event, through the pinch's clamp; opt-in beside `zoomPan`, through the bounded `onScrollWheel` (no application-wide monitor).
 - `SegmentedControl` and `SegmentedPicker` (ShellControls): the inspector's one segmented control, always the full width it is given (`NSSegmentedControl` with `.fillEqually`, named as the one AppKit piece: SwiftUI's segmented `Picker` keeps its intrinsic width on macOS), titles or SF symbols per segment, a tooltip and an accessibility label each; a selection not among the items shows none.
 - `MapDisplayPopover` and `MapHistogram` (pure bins and statistics): the display popover a tile's scale bar opens, the one both apps show (the Spectroscopy room's): an element map's colour, the reference image's colormap or the colour mix's members, then the map's histogram with its contrast-window handles, Reset Range and a gamma slider. Values and bindings in, no model.
 - `MapTileView(filteredTag:)`: a small "filtered" tag beside the title while the picture is drawn through a display filter.
@@ -25,17 +26,17 @@ control in the inspector, the scale bar as the way into a map's colour, an eleme
 - The scroll wheel reaches a view under SwiftUI content: `onScrollWheel` uses a local event monitor bounded to its own window and view (call sites unchanged).
 - The one-map colour popover: no toggle icon (the sliders are always shown), and Reset acts on that map only and leaves the colour mix untouched.
 
-### Superseded
-- `MapTileGrid`, `MapTileSize` and `MapTileSizePicker` (a size to choose): the fitted grid scales with the panes instead. They stay until 0.4.0 so mac4DSTEM can move; macTEM no longer uses them.
-
-### Migration
-No call site of 0.2.0 changes, but a tile no longer shows the pointer's value or a colour scale: a room puts the value in its status line (`onHover`) and opens `MapDisplayPopover` from the scale bar (`controls:`); `colorbar:` and `valueText:` are ignored until 0.4.0 removes them. A room that wants the corrected layout builds `AnchoredMapsBlock` of `MapTileView`s (macTEM's `EDXMapsBlock` is the reference wiring), puts the region tool, the maps' quantity and the lower pane's choices in its inspector instead of a strip above the maps, and answers
-`PeriodicTable` from its model.
-
 ### Added (from 0.2.1)
 - `MapColoring` (black to one colour, or one of the shared colormaps), `MapAppearance` (the person's choice per map and the colour mix; Codable), `ColorMix`, `MapRaster` (`rgba` for one map, `mix` for the colour mix of several, pure) and `MapColorControls`, the Maps section's rows: a colour or colormap per map and the Colour mix with the maps in it. `ColormapKind` is Codable.
 - `MapAdjustment` (a map's contrast window as fractions of its scale, and its gamma) kept in `MapAppearance.adjustments`, applied by `MapRaster.rgba(…adjustment:)` and each `MixLayer`, and set by a slider disclosure on every row of `MapColorControls`; an appearance saved before it still decodes.
 - `RegionDrawingLayer(onDrag:)`: the geometry so far while a region is being drawn (`id` nil) or moved or resized (`id` set), nil when the drag ends, so a room can follow the pointer with its spectrum.
+
+### Superseded
+- `MapTileGrid`, `MapTileSize` and `MapTileSizePicker` (a size to choose): the fitted grid scales with the panes instead. They stay until 0.4.0 so mac4DSTEM can move; macTEM no longer uses them.
+
+### Migration
+`RegionTool` gained `.pointer` as its FIRST case: `allCases` starts with it and a stored tool decodes by its raw value (the strings are unchanged), so a room that indexed the cases by position re-reads them by case; the default tool of a room is its own choice (macTEM's rooms start on `.pointer`). `ColorMix.isShown` (members only) is gone: `isShown(among:)` takes the maps, so the default mix (every map in) counts. `MapDisplayPopover` takes a `MapDisplayHistogram` value, not a tuple. A tile no longer shows the pointer's value or a colour scale: a room puts the value in its status line (`onHover`) and opens `MapDisplayPopover` from the scale bar (`controls:`); `colorbar:` and `valueText:` are ignored until 0.4.0 removes them. A room that wants the corrected layout builds `AnchoredMapsBlock` of `MapTileView`s (macTEM's `EDXMapsBlock` is the reference wiring), puts the region tool, the maps' quantity and the lower pane's choices in its inspector instead of a strip above the maps, and answers
+`PeriodicTable` from its model.
 
 ## 0.2.0 (2026-10-22)
 
