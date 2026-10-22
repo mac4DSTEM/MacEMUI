@@ -219,7 +219,7 @@ public struct MapColorControls: View {
     private let showsMix: Bool
     private let alwaysExpanded: Bool
 
-    /// `startExpanded`: the contrast and gamma sliders of every row open from the start (a popover of one map); `showsMix`: the Colour mix switch and its members under the rows.
+    /// `startExpanded`: kept only for the EELS room's popover; delete when it adopts `MapDisplayPopover`. (Its sliders open from the start; `showsMix`: the Colour mix switch and its members under the rows.)
     public init(appearance: Binding<MapAppearance>, items: [MapColorItem], startExpanded: Bool = false, showsMix: Bool = true) {
         self._appearance = appearance
         self.items = items

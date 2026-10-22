@@ -1,8 +1,9 @@
 //
 //  MapTileView.swift
 //  Role: one map of a spectroscopy room as the corrected design draws it (2026-10-22): the picture at the size the grid gives it, its name in the corner, a calibrated scale bar that opens
-//        the map's colour controls, the colour scale and the pointer's value while the pointer is over it, ONE cursor (only the tile under the pointer marks the pixel), and, on the anchor
-//        tile only, the regions and the tools that draw and edit them. The picture itself (the pixels) and the numbers are the app's; this is the frame.
+//        the map's colour controls, ONE cursor (only the tile under the pointer marks the pixel), and, on the anchor
+//        tile only, the regions and the tools that draw and edit them. Nothing is drawn over a picture but the cursor (no chip, no hover colour scale): the status line
+//        carries the value, the histogram in the popover the scale. The picture itself (the pixels) and the numbers are the app's; this is the frame.
 //
 
 import ShellControls
@@ -55,11 +56,10 @@ public struct MapTileView<Controls: View>: View {
     private let scanHeight: Int
     private let pixelSize: Double?
     private let pixelUnit: String?
-    private let colorbar: MapColorbarSpec?
+    private let filteredTag: Bool
     private let regions: MapTileRegions?
     private let inMix: Bool?
     private let onToggleMix: (() -> Void)?
-    private let valueText: (Int, Int) -> String?
     private let onHover: ((x: Int, y: Int)?) -> Void
     private let controls: Controls
     private let placeholder: String?
@@ -71,24 +71,25 @@ public struct MapTileView<Controls: View>: View {
 
     /// - `pixelSize` / `pixelUnit`: the scan's real-space step ("nm") for the scale bar; nil draws the bar in scan pixels.
     /// - `inMix` / `onToggleMix`: on an element map, whether the map is in the colour mix (a ring on the tile) and the click that adds it or takes it out; nil on tiles that are not selectable.
-    /// - `regions`: set on the anchor tile only. `valueText`: the pointer's value as the chip words it ("Mg 36.2 net counts"); nil where the pixel has none.
+    /// - `regions`: set on the anchor tile only. `filteredTag`: the picture is drawn through a display filter; a small tag beside the name says so.
+    /// - `colorbar`, `valueText`: no longer drawn (the status line carries the value); kept so mac4DSTEM compiles. delete at MacEMUI 0.4.0
     /// - `controls`: the content of the popover the scale bar opens (the map's colour, histogram and gamma).
     public init(title: String, detail: String? = nil, image: CGImage?, size: CGSize, scanWidth: Int, scanHeight: Int,
-                pixelSize: Double? = nil, pixelUnit: String? = nil, colorbar: MapColorbarSpec? = nil, regions: MapTileRegions? = nil,
+                pixelSize: Double? = nil, pixelUnit: String? = nil, colorbar: MapColorbarSpec? = nil, regions: MapTileRegions? = nil, filteredTag: Bool = false,
                 inMix: Bool? = nil, onToggleMix: (() -> Void)? = nil, placeholder: String? = nil, transform: Binding<MapViewTransform> = .constant(MapViewTransform()),
-                valueText: @escaping (Int, Int) -> String?, onHover: @escaping ((x: Int, y: Int)?) -> Void,
+                valueText: @escaping (Int, Int) -> String? = { _, _ in nil }, onHover: @escaping ((x: Int, y: Int)?) -> Void,
                 @ViewBuilder controls: () -> Controls) {
         self.placeholder = placeholder; self._transform = transform
         self.title = title; self.detail = detail; self.image = image; self.size = size; self.scanWidth = scanWidth; self.scanHeight = scanHeight
-        self.pixelSize = pixelSize; self.pixelUnit = pixelUnit; self.colorbar = colorbar; self.regions = regions; self.inMix = inMix; self.onToggleMix = onToggleMix
-        self.valueText = valueText; self.onHover = onHover; self.controls = controls()
+        self.pixelSize = pixelSize; self.pixelUnit = pixelUnit; self.filteredTag = filteredTag; self.regions = regions; self.inMix = inMix; self.onToggleMix = onToggleMix
+        self.onHover = onHover; self.controls = controls()
     }
 
     public var body: some View {
         let place = transform.placement(in: size)
         ZStack(alignment: .topLeading) {
             Color.black
-            // The picture and what is drawn on it zoom and pan together; the name, scale bar, colour scale and chip stay at the tile's corners.
+            // The picture and what is drawn on it zoom and pan together; the name and scale bar stay at the tile's corners.
             ZStack(alignment: .topLeading) {
                 if let image { Image(decorative: image, scale: 1).interpolation(.none).resizable() }
                 // The regions and their tools (anchor tile) or just the hover (every other tile). Only the tile under the pointer draws the cursor.
@@ -110,29 +111,26 @@ public struct MapTileView<Controls: View>: View {
                     .frame(width: size.width, height: size.height).allowsHitTesting(false)
                     .accessibilityIdentifier("maps.placeholder")
             }
-            Text("\(Text(title).fontWeight(.semibold))\(Text(detail.map { " · \($0)" } ?? "").foregroundStyle(.white.opacity(0.75)))")
-                .font(.caption).foregroundStyle(.white)
-                .shadow(color: .black.opacity(0.8), radius: 2, y: 1)
-                .lineLimit(1)
-                .padding(6)
-                .allowsHitTesting(false)
+            HStack(spacing: 6) {
+                Text("\(Text(title).fontWeight(.semibold))\(Text(detail.map { " · \($0)" } ?? "").foregroundStyle(.white.opacity(0.75)))")
+                    .font(.caption).foregroundStyle(.white)
+                    .shadow(color: .black.opacity(0.8), radius: 2, y: 1)
+                    .lineLimit(1)
+                if filteredTag {
+                    Text("filtered").font(.caption2).foregroundStyle(.white.opacity(0.75))
+                        .padding(.horizontal, 5).padding(.vertical, 1)
+                        .background(Color.black.opacity(0.6), in: Capsule())
+                        .accessibilityLabel("Display filter on")
+                        .accessibilityIdentifier("maps.filteredTag")
+                }
+            }
+            .padding(6)
+            .allowsHitTesting(false)
         }
         .frame(width: size.width, height: size.height)
         .coordinateSpace(.named("mapTile"))
         .clipped()
         .overlay(alignment: .bottomLeading) { scaleBar }
-        .overlay(alignment: .bottomTrailing) {
-            if local != nil, let colorbar { MapColorbarView(spec: colorbar).padding(6).allowsHitTesting(false).transition(.opacity) }
-        }
-        .overlay(alignment: .topTrailing) {
-            if let local, let text = valueText(local.x, local.y) {
-                Text(verbatim: text).font(.caption.monospacedDigit()).foregroundStyle(.white)
-                    .padding(.horizontal, 6).padding(.vertical, 2)
-                    .background(Color.black.opacity(0.6), in: Capsule())
-                    .padding(6).allowsHitTesting(false)
-                    .accessibilityIdentifier("maps.hoverChip")
-            }
-        }
         .clipShape(RoundedRectangle(cornerRadius: 3))
         // A hairline edge: a bright map would otherwise run into a light window.
         .overlay { RoundedRectangle(cornerRadius: 3).strokeBorder(.separator) }

@@ -14,6 +14,12 @@ control in the inspector, the scale bar as the way into a map's colour, an eleme
   `PeriodicTableGrid` holds the symbols and the shape.
 - `MapMixControls`: which maps are in the colour mix. `MapColorControls` can open with its sliders expanded and without the mix switch (a one-map popover).
 - `MapAppearance.reset(maps:)`: returns only the listed maps to their default colouring and adjustment, leaving other maps and the colour mix.
+- `SegmentedControl` and `SegmentedPicker` (ShellControls): the inspector's one segmented control, always the full width it is given (`NSSegmentedControl` with `.fillEqually`, named as the one AppKit piece: SwiftUI's segmented `Picker` keeps its intrinsic width on macOS), titles or SF symbols per segment, a tooltip and an accessibility label each; a selection not among the items shows none.
+- `MapDisplayPopover` and `MapHistogram` (pure bins and statistics): the display popover a tile's scale bar opens, the one both apps show (the Spectroscopy room's): an element map's colour, the reference image's colormap or the colour mix's members, then the map's histogram with its contrast-window handles, Reset Range and a gamma slider. Values and bindings in, no model.
+- `MapTileView(filteredTag:)`: a small "filtered" tag beside the title while the picture is drawn through a display filter.
+
+### Changed
+- `MapTileView` draws nothing over a picture but the cursor: the hover value chip and the hover colour scale are gone (control placement standard, rule 7: the status line carries the value, the popover's histogram the scale). `colorbar:` and `valueText:` are still accepted and ignored so mac4DSTEM compiles; delete at 0.4.0. `MapColorbarView` stays public.
 
 ### Fixed
 - The scroll wheel reaches a view under SwiftUI content: `onScrollWheel` uses a local event monitor bounded to its own window and view (call sites unchanged).
@@ -23,7 +29,7 @@ control in the inspector, the scale bar as the way into a map's colour, an eleme
 - `MapTileGrid`, `MapTileSize` and `MapTileSizePicker` (a size to choose): the fitted grid scales with the panes instead. They stay until 0.4.0 so mac4DSTEM can move; macTEM no longer uses them.
 
 ### Migration
-No call site of 0.2.0 changes. A room that wants the corrected layout builds `AnchoredMapsBlock` of `MapTileView`s (macTEM's `EDXMapsBlock` is the reference wiring), puts the region tool, the maps' quantity and the lower pane's choices in its inspector instead of a strip above the maps, and answers
+No call site of 0.2.0 changes, but a tile no longer shows the pointer's value or a colour scale: a room puts the value in its status line (`onHover`) and opens `MapDisplayPopover` from the scale bar (`controls:`); `colorbar:` and `valueText:` are ignored until 0.4.0 removes them. A room that wants the corrected layout builds `AnchoredMapsBlock` of `MapTileView`s (macTEM's `EDXMapsBlock` is the reference wiring), puts the region tool, the maps' quantity and the lower pane's choices in its inspector instead of a strip above the maps, and answers
 `PeriodicTable` from its model.
 
 ### Added (from 0.2.1)

@@ -1,3 +1,4 @@
+import ShellControls
 import XCTest
 import ShellMetal
 @testable import ShellSpectroscopy
@@ -158,5 +159,19 @@ nonisolated final class ColorMixSelectionTests: XCTestCase {
         XCTAssertTrue(old.isCustom); XCTAssertEqual(old.members, ["A", "B"])
         let fresh = try JSONDecoder().decode(ColorMix.self, from: Data(#"{"isOn":true,"members":[]}"#.utf8))
         XCTAssertFalse(fresh.isCustom)
+    }
+}
+
+nonisolated final class MapHistogramTests: XCTestCase {
+    /// 64 bins over the finite range: NaN and infinities are skipped, the largest value lands in the last bin, the total is the finite count.
+    func testBinsCoverTheFiniteRangeAndSkipNaN() {
+        let values: [Float] = [0, 1, 2, 3, 4, 5, 6, 7, .nan, .infinity]
+        let bins = MapHistogram.bins(values: values)
+        XCTAssertEqual(bins.count, 64)
+        XCTAssertEqual(bins.reduce(0, +), 8)
+        XCTAssertEqual(bins.first, 1); XCTAssertEqual(bins.last, 1)
+        XCTAssertEqual(MapHistogram.bins(values: [Float](repeating: 2, count: 5)), [], "no span, no bars")
+        XCTAssertEqual(MapHistogram.bins(values: [Double]([0, 5]), count: 4, range: 0...10), [1, 0, 1, 0], "an explicit range")
+        XCTAssertEqual(MapHistogram.statistics(of: [1, 3, .nan])?.mean, 2)
     }
 }
