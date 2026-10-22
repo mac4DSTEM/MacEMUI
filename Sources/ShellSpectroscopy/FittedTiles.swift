@@ -47,21 +47,40 @@ public struct FittedMapGrid<Item: Identifiable, Tile: View>: View {
             let shown = solo.flatMap { id in items.first { $0.id == id } }.map { [$0] } ?? items
             let area = CGSize(width: max(geo.size.width - 2 * spacing, 1), height: max(geo.size.height - 2 * spacing, 1))
             let layout = FittedTileLayout.best(count: shown.count, aspect: aspect, in: area, spacing: spacing)
-            let rows = stride(from: 0, to: shown.count, by: layout.columns).map { Array(shown[$0..<min($0 + layout.columns, shown.count)]) }
-            VStack(spacing: spacing) {
-                ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
-                    HStack(spacing: spacing) {
-                        ForEach(row) { item in
-                            tile(item, layout.tile)
-                                .frame(width: layout.tile.width, height: layout.tile.height)
-                                .simultaneousGesture(TapGesture(count: 2).onEnded {
-                                    if solo != nil { solo = nil } else if soloEnabled { solo = item.id }
-                                })
-                        }
-                    }
+            // One flat ForEach in a layout of its own: a tile keeps its identity (and its made picture) when a resize changes the number of columns; rows of nested stacks would rebuild it.
+            FittedGridLayout(columns: layout.columns, tile: layout.tile, spacing: spacing) {
+                ForEach(shown) { item in
+                    tile(item, layout.tile)
+                        .frame(width: layout.tile.width, height: layout.tile.height)
+                        .simultaneousGesture(TapGesture(count: 2).onEnded {
+                            if solo != nil { solo = nil } else if soloEnabled { solo = item.id }
+                        })
                 }
             }
             .frame(width: geo.size.width, height: geo.size.height)
+        }
+    }
+}
+
+/// Places its subviews in rows of `columns` tiles of one size, the block centred in the bounds.
+struct FittedGridLayout: Layout {
+    var columns: Int
+    var tile: CGSize
+    var spacing: CGFloat
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        CGSize(width: proposal.width ?? 0, height: proposal.height ?? 0)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        guard columns > 0, !subviews.isEmpty else { return }
+        let rows = (subviews.count + columns - 1) / columns
+        let width = CGFloat(columns) * tile.width + CGFloat(columns - 1) * spacing
+        let height = CGFloat(rows) * tile.height + CGFloat(rows - 1) * spacing
+        let origin = CGPoint(x: bounds.minX + (bounds.width - width) / 2, y: bounds.minY + (bounds.height - height) / 2)
+        for (i, view) in subviews.enumerated() {
+            view.place(at: CGPoint(x: origin.x + CGFloat(i % columns) * (tile.width + spacing), y: origin.y + CGFloat(i / columns) * (tile.height + spacing)),
+                       anchor: .topLeading, proposal: ProposedViewSize(tile))
         }
     }
 }

@@ -57,7 +57,7 @@ public struct MapTileView<Controls: View>: View {
     private let valueText: (Int, Int) -> String?
     private let onHover: ((x: Int, y: Int)?) -> Void
     private let controls: Controls
-    @State private var local: (x: Int, y: Int)?
+    @State private var local: MapPixel?
     @State private var showControls = false
 
     /// - `pixelSize` / `pixelUnit`: the scan's real-space step ("nm") for the scale bar; nil draws the bar in scan pixels.
@@ -81,9 +81,9 @@ public struct MapTileView<Controls: View>: View {
             if let regions {
                 RegionDrawingLayer(tool: regions.tool, set: regions.set, scanWidth: scanWidth, scanHeight: scanHeight, pointer: local.map { (x: $0.x, y: $0.y) },
                                    onRectangle: regions.onRectangle, onEllipse: regions.onEllipse, onPolygon: regions.onPolygon, onLine: regions.onLine,
-                                   onHover: { pixel in local = pixel.map { (x: $0.x, y: $0.y) }; onHover(pixel) }, onEdit: regions.onEdit, onDrag: regions.onDrag)
+                                   onHover: { setPointer($0) }, onEdit: regions.onEdit, onDrag: regions.onDrag)
             } else {
-                HoverReader(scanWidth: scanWidth, scanHeight: scanHeight) { pixel in local = pixel.map { (x: $0.x, y: $0.y) }; onHover(pixel) }
+                HoverReader(scanWidth: scanWidth, scanHeight: scanHeight) { setPointer($0) }
                 RegionOverlay(set: SpectralRegionSet(), scanWidth: scanWidth, scanHeight: scanHeight, pixel: local.map { (x: $0.x, y: $0.y) })
             }
             (Text(title).fontWeight(.semibold) + Text(detail.map { " · \($0)" } ?? "").foregroundStyle(.white.opacity(0.75)))
@@ -118,6 +118,14 @@ public struct MapTileView<Controls: View>: View {
         .accessibilityLabel(detail.map { "\(title) map, \($0)" } ?? "\(title) map")
     }
 
+    /// The pointer moves many times within one pixel: the state and the app are told only when the pixel changes.
+    private func setPointer(_ pixel: (x: Int, y: Int)?) {
+        let new = pixel.map { MapPixel(x: $0.x, y: $0.y) }
+        guard new != local else { return }
+        local = new
+        onHover(pixel)
+    }
+
     private var scaleBar: some View {
         let perPoint = (pixelSize ?? 1) * Double(scanWidth) / max(Double(size.width), 1)
         return ScaleBar(unitsPerPoint: perPoint, unitLabel: pixelUnit ?? "px")
@@ -131,6 +139,9 @@ public struct MapTileView<Controls: View>: View {
             .accessibilityIdentifier("maps.scaleBar.\(title)")
     }
 }
+
+/// A scan pixel; Equatable so a state holding it is not rewritten for the same pixel.
+struct MapPixel: Equatable { var x: Int; var y: Int }
 
 /// The pointer's pixel over a picture, nothing else (the element maps).
 private struct HoverReader: View {

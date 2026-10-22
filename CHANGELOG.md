@@ -2,9 +2,26 @@
 
 MacEMUI follows semantic versioning; before 1.0.0 a minor version may break the API, and its Migration paragraph says how.
 
-## Unreleased (0.2.1)
+## 0.3.0 (2026-10-22)
+
+The corrected spectroscopy room (design 2026-10-22, approved by the owner after a drive on the real 1.7 GB file): the colour mix as the anchor tile where regions are drawn, maps fitted to the space they are given, one cursor, every
+control in the inspector, the scale bar as the way into a map's colour, an element control with the role and line menu on the cell.
 
 ### Added
+- `MapTileView` (the map's frame: name and line on one row, calibrated scale bar that opens the map's controls, the colour scale and the pointer's value while hovered, one cursor, a ring and a click for the colour mix, regions and tools on the anchor
+  tile only), `MapTileRegions`, `MapColorbarSpec`, `MapColorbarView`; `AnchoredMapsBlock`, `FittedMapGrid`, `FittedTileLayout` (pure) and `HorizontalPaneSplit`: the anchor beside the fitted maps with a draggable divider, tiles keeping their identity across a resize.
+- `PeriodicTable` with `PeriodicTableActions`, `PeriodicCellState`, `ElementRoleChoice`, `ElementLineFamily`: the periodic table moved from mac4DSTEM, session-free (click toggles Quantify and Off; right-click gives the role and, per family, the lines with their energies, and Default lines);
+  `PeriodicTableGrid` holds the symbols and the shape.
+- `MapMixControls`: which maps are in the colour mix. `MapColorControls` can open with its sliders expanded and without the mix switch (a one-map popover).
+
+### Superseded
+- `MapTileGrid`, `MapTileSize` and `MapTileSizePicker` (a size to choose): the fitted grid scales with the panes instead. They stay until 0.4.0 so mac4DSTEM can move; macTEM no longer uses them.
+
+### Migration
+No call site of 0.2.0 changes. A room that wants the corrected layout builds `AnchoredMapsBlock` of `MapTileView`s (macTEM's `EDXMapsBlock` is the reference wiring), puts the region tool, the maps' quantity and the lower pane's choices in its inspector instead of a strip above the maps, and answers
+`PeriodicTable` from its model.
+
+### Added (from 0.2.1)
 - `MapColoring` (black to one colour, or one of the shared colormaps), `MapAppearance` (the person's choice per map and the colour mix; Codable), `ColorMix`, `MapRaster` (`rgba` for one map, `mix` for the colour mix of several, pure) and `MapColorControls`, the Maps section's rows: a colour or colormap per map and the Colour mix with the maps in it. `ColormapKind` is Codable.
 - `MapAdjustment` (a map's contrast window as fractions of its scale, and its gamma) kept in `MapAppearance.adjustments`, applied by `MapRaster.rgba(…adjustment:)` and each `MixLayer`, and set by a slider disclosure on every row of `MapColorControls`; an appearance saved before it still decodes.
 - `RegionDrawingLayer(onDrag:)`: the geometry so far while a region is being drawn (`id` nil) or moved or resized (`id` set), nil when the drag ends, so a room can follow the pointer with its spectrum.
