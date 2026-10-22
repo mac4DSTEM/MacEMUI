@@ -183,11 +183,15 @@ public struct MapColorControls: View {
     @Binding private var appearance: MapAppearance
     private let items: [MapColorItem]
     @Environment(\.self) private var environment
-    @State private var adjusting: Set<String> = []
+    @State private var adjusting: Set<String>
+    private let showsMix: Bool
 
-    public init(appearance: Binding<MapAppearance>, items: [MapColorItem]) {
+    /// `startExpanded`: the contrast and gamma sliders of every row open from the start (a popover of one map); `showsMix`: the Colour mix switch and its members under the rows.
+    public init(appearance: Binding<MapAppearance>, items: [MapColorItem], startExpanded: Bool = false, showsMix: Bool = true) {
         self._appearance = appearance
         self.items = items
+        self._adjusting = State(initialValue: startExpanded ? Set(items.map(\.id)) : [])
+        self.showsMix = showsMix
     }
 
     public var body: some View {
@@ -196,7 +200,7 @@ public struct MapColorControls: View {
                 row(item)
                 if adjusting.contains(item.id) { adjustControls(item) }
             }
-            if items.count >= 2 {
+            if showsMix, items.count >= 2 {
                 Toggle("Colour mix", isOn: $appearance.mix.isOn)
                     .toggleStyle(.switch)
                     .help("Add the chosen maps into one picture, each in its own colour")
@@ -288,5 +292,39 @@ extension MapColoring {
         case .color: "Colour"
         case .colormap(let kind): kind.displayName
         }
+    }
+}
+
+
+/// Which maps are added into the colour mix: one checkbox per map. The mix is the anchor tile of the room; this is what its scale bar opens.
+public struct MapMixControls: View {
+    @Binding private var mix: ColorMix
+    private let items: [MapColorItem]
+    private let allWhenEmpty: Bool
+
+    /// `allWhenEmpty`: an empty member list means every map is in the mix (the room's default); the first change then names the members explicitly.
+    public init(mix: Binding<ColorMix>, items: [MapColorItem], allWhenEmpty: Bool = true) {
+        self._mix = mix
+        self.items = items
+        self.allWhenEmpty = allWhenEmpty
+    }
+
+    public var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Maps in the colour mix").font(.callout.weight(.semibold))
+            ForEach(items) { item in
+                Toggle(item.title, isOn: Binding(get: { isMember(item.id) }, set: { _ in toggle(item.id) }))
+                    .toggleStyle(.checkbox)
+                    .accessibilityIdentifier("maps.mix.\(item.id)")
+            }
+            Text("Each map in its own colour, scaled to its own maximum, added.").font(.caption).foregroundStyle(.secondary)
+        }
+    }
+
+    private func isMember(_ id: String) -> Bool { (allWhenEmpty && mix.members.isEmpty) || mix.members.contains(id) }
+
+    private func toggle(_ id: String) {
+        if allWhenEmpty && mix.members.isEmpty { mix.members = items.map(\.id) }
+        mix.toggle(id)
     }
 }

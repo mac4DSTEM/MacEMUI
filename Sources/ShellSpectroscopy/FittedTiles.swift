@@ -149,3 +149,35 @@ public struct HorizontalPaneSplit<Leading: View, Trailing: View>: View {
         fraction = min(max(start + points / usable, limits.smallest), limits.largest)
     }
 }
+
+/// The maps block of the corrected room: an anchor tile (the ColorMix, where regions are drawn) on the leading side and the element maps fitted into the rest, a divider between them,
+/// both scaling with the panes. A double click on any tile shows it alone; another returns. With no anchor the maps fill the block. The tile view is told whether it is the anchor.
+public struct AnchoredMapsBlock<Item: Identifiable, Tile: View>: View {
+    private let anchor: Item?
+    private let items: [Item]
+    private let aspect: CGFloat
+    private let storageKey: String
+    @Binding private var solo: Item.ID?
+    private let soloEnabled: Bool
+    private let tile: (Item, CGSize, Bool) -> Tile
+
+    public init(anchor: Item?, items: [Item], aspect: CGFloat, storageKey: String, solo: Binding<Item.ID?>, soloEnabled: Bool = true,
+                @ViewBuilder tile: @escaping (Item, CGSize, Bool) -> Tile) {
+        self.anchor = anchor; self.items = items; self.aspect = aspect; self.storageKey = storageKey; self._solo = solo; self.soloEnabled = soloEnabled; self.tile = tile
+    }
+
+    public var body: some View {
+        if let id = solo, let item = ([anchor].compactMap { $0 } + items).first(where: { $0.id == id }) {
+            FittedMapGrid(items: [item], aspect: aspect, solo: $solo, soloEnabled: soloEnabled) { item, size in tile(item, size, item.id == anchor?.id) }
+        } else if let anchor {
+            HorizontalPaneSplit(storageKey: storageKey, defaultFraction: 0.32, resizeLabel: "Resize the colour mix and the maps", leadingName: "Colour mix",
+                                minimumLeading: 160, minimumTrailing: 260) {
+                FittedMapGrid(items: [anchor], aspect: aspect, solo: $solo, soloEnabled: soloEnabled) { item, size in tile(item, size, true) }
+            } trailing: {
+                FittedMapGrid(items: items, aspect: aspect, solo: $solo, soloEnabled: soloEnabled) { item, size in tile(item, size, false) }
+            }
+        } else {
+            FittedMapGrid(items: items, aspect: aspect, solo: $solo, soloEnabled: soloEnabled) { item, size in tile(item, size, false) }
+        }
+    }
+}
