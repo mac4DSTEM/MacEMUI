@@ -44,14 +44,25 @@ public struct MapTileSizePicker: View {
         self._selection = selection
     }
 
+    /// The three-segment control where it fits (about 290 points); in a narrower column it is a menu showing the current size, so the same control serves the
+    /// narrowest inspector.
     public var body: some View {
-        Picker("Tile size", selection: $selection) {
-            ForEach(MapTileSize.allCases) { Text($0.title).tag($0) }
+        ViewThatFits(in: .horizontal) {
+            Picker("Tile size", selection: $selection) {
+                ForEach(MapTileSize.allCases) { Text($0.title).tag($0) }
+            }
+            .labelsHidden()
+            .pickerStyle(.segmented)
+            .fixedSize()
+            .accessibilityIdentifier("maps.tileSize")
+            Picker("Tile size", selection: $selection) {
+                ForEach(MapTileSize.allCases) { Text($0.title).tag($0) }
+            }
+            .labelsHidden()
+            .pickerStyle(.menu)
+            .fixedSize()
+            .accessibilityIdentifier("maps.tileSize")
         }
-        .labelsHidden()
-        .pickerStyle(.segmented)
-        .fixedSize()
-        .accessibilityIdentifier("maps.tileSize")
     }
 }
 
