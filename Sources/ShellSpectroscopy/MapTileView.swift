@@ -31,13 +31,18 @@ public struct MapTileRegions {
     public var onLine: (RegionPoint, RegionPoint) -> Void
     public var onEdit: (UUID, RegionGeometry) -> Void
     public var onDrag: (RegionDragUpdate?) -> Void
+    /// A click on a region selects it (nil: on none); the delete key removes the selected region.
+    public var onSelect: (UUID?) -> Void
+    public var onDelete: () -> Void
 
     public init(set: SpectralRegionSet, tool: RegionTool,
                 onRectangle: @escaping (Int, Int, Int, Int) -> Void, onEllipse: @escaping (Int, Int, Int, Int) -> Void,
                 onPolygon: @escaping ([RegionPoint]) -> Void, onLine: @escaping (RegionPoint, RegionPoint) -> Void,
-                onEdit: @escaping (UUID, RegionGeometry) -> Void, onDrag: @escaping (RegionDragUpdate?) -> Void = { _ in }) {
+                onEdit: @escaping (UUID, RegionGeometry) -> Void, onDrag: @escaping (RegionDragUpdate?) -> Void = { _ in },
+                onSelect: @escaping (UUID?) -> Void = { _ in }, onDelete: @escaping () -> Void = {}) {
         self.set = set; self.tool = tool
         self.onRectangle = onRectangle; self.onEllipse = onEllipse; self.onPolygon = onPolygon; self.onLine = onLine; self.onEdit = onEdit; self.onDrag = onDrag
+        self.onSelect = onSelect; self.onDelete = onDelete
     }
 }
 
@@ -57,7 +62,11 @@ public struct MapTileView<Controls: View>: View {
     private let valueText: (Int, Int) -> String?
     private let onHover: ((x: Int, y: Int)?) -> Void
     private let controls: Controls
+    private let placeholder: String?
+    @Binding private var transform: MapViewTransform
     @State private var local: MapPixel?
+    @State private var pinchStart: MapViewTransform?
+    @FocusState private var focused: Bool
     @State private var showControls = false
 
     /// - `pixelSize` / `pixelUnit`: the scan's real-space step ("nm") for the scale bar; nil draws the bar in scan pixels.
@@ -66,25 +75,40 @@ public struct MapTileView<Controls: View>: View {
     /// - `controls`: the content of the popover the scale bar opens (the map's colour, histogram and gamma).
     public init(title: String, detail: String? = nil, image: CGImage?, size: CGSize, scanWidth: Int, scanHeight: Int,
                 pixelSize: Double? = nil, pixelUnit: String? = nil, colorbar: MapColorbarSpec? = nil, regions: MapTileRegions? = nil,
-                inMix: Bool? = nil, onToggleMix: (() -> Void)? = nil, valueText: @escaping (Int, Int) -> String?, onHover: @escaping ((x: Int, y: Int)?) -> Void,
+                inMix: Bool? = nil, onToggleMix: (() -> Void)? = nil, placeholder: String? = nil, transform: Binding<MapViewTransform> = .constant(MapViewTransform()),
+                valueText: @escaping (Int, Int) -> String?, onHover: @escaping ((x: Int, y: Int)?) -> Void,
                 @ViewBuilder controls: () -> Controls) {
+        self.placeholder = placeholder; self._transform = transform
         self.title = title; self.detail = detail; self.image = image; self.size = size; self.scanWidth = scanWidth; self.scanHeight = scanHeight
         self.pixelSize = pixelSize; self.pixelUnit = pixelUnit; self.colorbar = colorbar; self.regions = regions; self.inMix = inMix; self.onToggleMix = onToggleMix
         self.valueText = valueText; self.onHover = onHover; self.controls = controls()
     }
 
     public var body: some View {
+        let place = transform.placement(in: size)
         ZStack(alignment: .topLeading) {
             Color.black
-            if let image { Image(decorative: image, scale: 1).interpolation(.none).resizable() }
-            // The regions and their tools (anchor tile) or just the hover (every other tile). Only the tile under the pointer draws the cursor.
-            if let regions {
-                RegionDrawingLayer(tool: regions.tool, set: regions.set, scanWidth: scanWidth, scanHeight: scanHeight, pointer: local.map { (x: $0.x, y: $0.y) },
-                                   onRectangle: regions.onRectangle, onEllipse: regions.onEllipse, onPolygon: regions.onPolygon, onLine: regions.onLine,
-                                   onHover: { setPointer($0) }, onEdit: regions.onEdit, onDrag: regions.onDrag)
-            } else {
-                HoverReader(scanWidth: scanWidth, scanHeight: scanHeight) { setPointer($0) }
-                RegionOverlay(set: SpectralRegionSet(), scanWidth: scanWidth, scanHeight: scanHeight, pixel: local.map { (x: $0.x, y: $0.y) })
+            // The picture and what is drawn on it zoom and pan together; the name, scale bar, colour scale and chip stay at the tile's corners.
+            ZStack(alignment: .topLeading) {
+                if let image { Image(decorative: image, scale: 1).interpolation(.none).resizable() }
+                // The regions and their tools (anchor tile) or just the hover (every other tile). Only the tile under the pointer draws the cursor.
+                if let regions {
+                    RegionDrawingLayer(tool: regions.tool, set: regions.set, scanWidth: scanWidth, scanHeight: scanHeight, pointer: local.map { (x: $0.x, y: $0.y) },
+                                       onRectangle: regions.onRectangle, onEllipse: regions.onEllipse, onPolygon: regions.onPolygon, onLine: regions.onLine,
+                                       onHover: { setPointer($0) }, onEdit: regions.onEdit, onDrag: regions.onDrag, view: transform,
+                                       onPan: { transform.pan(by: $0, in: size) }, onSelect: { focused = true; regions.onSelect($0) })
+                } else {
+                    HoverReader(scanWidth: scanWidth, scanHeight: scanHeight, onPan: { transform.pan(by: $0, in: size) }) { setPointer($0) }
+                    RegionOverlay(set: SpectralRegionSet(), scanWidth: scanWidth, scanHeight: scanHeight, pixel: local.map { (x: $0.x, y: $0.y) }, strokeScale: 1 / transform.zoom)
+                }
+            }
+            .frame(width: size.width, height: size.height)
+            .scaleEffect(place.scale)
+            .offset(place.offset)
+            if image == nil, let placeholder {
+                Text(placeholder).font(.callout).foregroundStyle(.white.opacity(0.7)).multilineTextAlignment(.center).padding(16)
+                    .frame(width: size.width, height: size.height).allowsHitTesting(false)
+                    .accessibilityIdentifier("maps.placeholder")
             }
             Text("\(Text(title).fontWeight(.semibold))\(Text(detail.map { " · \($0)" } ?? "").foregroundStyle(.white.opacity(0.75)))")
                 .font(.caption).foregroundStyle(.white)
@@ -94,6 +118,8 @@ public struct MapTileView<Controls: View>: View {
                 .allowsHitTesting(false)
         }
         .frame(width: size.width, height: size.height)
+        .coordinateSpace(.named("mapTile"))
+        .clipped()
         .overlay(alignment: .bottomLeading) { scaleBar }
         .overlay(alignment: .bottomTrailing) {
             if local != nil, let colorbar { MapColorbarView(spec: colorbar).padding(6).allowsHitTesting(false).transition(.opacity) }
@@ -110,12 +136,37 @@ public struct MapTileView<Controls: View>: View {
         .clipShape(RoundedRectangle(cornerRadius: 3))
         // A hairline edge: a bright map would otherwise run into a light window.
         .overlay { RoundedRectangle(cornerRadius: 3).strokeBorder(.separator) }
-        // A map in the colour mix wears a ring; a click on a map toggles it in or out (custom mixes).
+        // A map that is selected on the right wears a ring; a click on a map toggles it (what is shown in the colour mix).
         .overlay { if inMix == true { RoundedRectangle(cornerRadius: 3).strokeBorder(Color.accentColor, lineWidth: 2).allowsHitTesting(false) } }
-        .onTapGesture { onToggleMix?() }
-        .help(onToggleMix == nil ? "" : (inMix == true ? "In the colour mix: click to take it out" : "Click to add this map to the colour mix"))
+        .onTapGesture { focused = true; onToggleMix?() }
+        .onTapGesture(count: 2) { transform.reset() }
+        // Zoom: the wheel and a pinch about the pointer (the same transform on every tile); a double click returns to the whole scan.
+        .onScrollWheel { event in
+            let anchor = transform.picturePoint(forTile: event.location, in: size)
+            transform.zoom(by: ScrollZoom.factor(delta: event.delta, isPrecise: event.isPrecise), about: anchor)
+        }
+        .gesture(MagnifyGesture()
+            .onChanged { value in
+                if pinchStart == nil { pinchStart = transform }
+                guard var start = pinchStart else { return }
+                start.zoom(by: value.magnification, about: start.picturePoint(forTile: value.startLocation, in: size))
+                transform = start
+            }
+            .onEnded { _ in pinchStart = nil })
+        .focusable()
+        .focused($focused)
+        .focusEffectDisabled()
+        .onDeleteCommand { regions?.onDelete() }
+        .help(onToggleMix == nil ? "" : (inMix == true ? "Shown in the colour mix: click to take it out" : "Click to show this map in the colour mix"))
         .accessibilityElement(children: .contain)
-        .accessibilityLabel(detail.map { "\(title) map, \($0)" } ?? "\(title) map")
+        .accessibilityLabel(accessibilityName)
+        .accessibilityAction(named: "Zoom in") { transform.zoom(by: 2, about: transform.center) }
+        .accessibilityAction(named: "Zoom out") { transform.zoom(by: 0.5, about: transform.center) }
+    }
+
+    private var accessibilityName: String {
+        guard let detail else { return "\(title) map" }
+        return "\(title) map, \(detail)"
     }
 
     /// The pointer moves many times within one pixel: the state and the app are told only when the pixel changes.
@@ -127,7 +178,7 @@ public struct MapTileView<Controls: View>: View {
     }
 
     private var scaleBar: some View {
-        let perPoint = (pixelSize ?? 1) * Double(scanWidth) / max(Double(size.width), 1)
+        let perPoint = (pixelSize ?? 1) * Double(scanWidth) / max(Double(size.width), 1) / Double(transform.zoom)
         return ScaleBar(unitsPerPoint: perPoint, unitLabel: pixelUnit ?? "px")
             .padding(4)
             .contentShape(Rectangle())
@@ -147,7 +198,9 @@ struct MapPixel: Equatable { var x: Int; var y: Int }
 private struct HoverReader: View {
     let scanWidth: Int
     let scanHeight: Int
+    let onPan: (CGSize) -> Void
     let onHover: ((x: Int, y: Int)?) -> Void
+    @State private var lastPan: CGSize = .zero
 
     var body: some View {
         GeometryReader { geo in
@@ -158,6 +211,9 @@ private struct HoverReader: View {
                     case .ended: onHover(nil)
                     }
                 }
+                .gesture(DragGesture(minimumDistance: 2, coordinateSpace: .named("mapTile"))
+                    .onChanged { v in onPan(CGSize(width: v.translation.width - lastPan.width, height: v.translation.height - lastPan.height)); lastPan = v.translation }
+                    .onEnded { _ in lastPan = .zero })
         }
     }
 }

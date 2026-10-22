@@ -110,3 +110,39 @@ nonisolated final class PeriodicTableGridTests: XCTestCase {
         XCTAssertEqual(ElementRoleChoice.allCases.map(\.title), ["Quantify", "Fit only", "Off"])
     }
 }
+
+
+nonisolated final class ColorMixSelectionTests: XCTestCase {
+    private let all = ["O", "Ni", "Ge"]
+
+    /// By default every map is in; a click takes one out (naming the others first), clicks can take every map out (an empty mix), and once all are in again the choice is the default.
+    /// Red under: the first click on the default leaving only the clicked map; an empty mix read as "every map".
+    func testTheSelectionStatesAreDefinedCleanly() {
+        var mix = ColorMix()
+        XCTAssertEqual(mix.selection(among: all), all); XCTAssertFalse(mix.isCustom)
+        mix.toggle("Ni", among: all)
+        XCTAssertEqual(mix.selection(among: all), ["O", "Ge"]); XCTAssertTrue(mix.isCustom)
+        XCTAssertFalse(mix.contains("Ni", among: all)); XCTAssertTrue(mix.contains("O", among: all))
+        mix.toggle("O", among: all); mix.toggle("Ge", among: all)
+        XCTAssertEqual(mix.selection(among: all), [], "every map taken out: an empty mix, not every map")
+        XCTAssertTrue(mix.isCustom)
+        mix.toggle("Ge", among: all)
+        XCTAssertEqual(mix.selection(among: all), ["Ge"])
+        mix.toggle("Ni", among: all); mix.toggle("O", among: all)
+        XCTAssertEqual(mix.selection(among: all), all, "all in again: in the list's order")
+        XCTAssertFalse(mix.isCustom, "and the choice is the default again")
+    }
+
+    /// The order of the mix follows the maps' order, not the order of the clicks; an id that is no map is ignored; an old saved mix still reads.
+    func testOrderAndCompatibility() throws {
+        var mix = ColorMix()
+        mix.toggle("Ge", among: all); mix.toggle("Ni", among: all); mix.toggle("O", among: all)   // out, out, out
+        mix.toggle("Ni", among: all); mix.toggle("O", among: all)
+        XCTAssertEqual(mix.selection(among: all), ["O", "Ni"])
+        XCTAssertEqual(mix.selection(among: ["O"]), ["O"], "a map that is gone is not selected")
+        let old = try JSONDecoder().decode(ColorMix.self, from: Data(#"{"isOn":true,"members":["A","B"]}"#.utf8))
+        XCTAssertTrue(old.isCustom); XCTAssertEqual(old.members, ["A", "B"])
+        let fresh = try JSONDecoder().decode(ColorMix.self, from: Data(#"{"isOn":true,"members":[]}"#.utf8))
+        XCTAssertFalse(fresh.isCustom)
+    }
+}

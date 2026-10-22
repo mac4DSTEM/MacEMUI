@@ -73,8 +73,11 @@ public struct RegionOverlay: View {
     private let scanWidth: Int
     private let scanHeight: Int
     private let pixel: (x: Int, y: Int)?
+    private let strokeScale: CGFloat
 
-    public init(set: SpectralRegionSet, scanWidth: Int, scanHeight: Int, pixel: (x: Int, y: Int)? = nil) {
+    /// `strokeScale` is 1 over the zoom of the picture the overlay is drawn in, so outlines keep their weight when the picture is scaled up.
+    public init(set: SpectralRegionSet, scanWidth: Int, scanHeight: Int, pixel: (x: Int, y: Int)? = nil, strokeScale: CGFloat = 1) {
+        self.strokeScale = strokeScale
         self.regions = set.visible
         self.selectedID = set.selectedID
         self.scanWidth = scanWidth
@@ -100,15 +103,15 @@ public struct RegionOverlay: View {
                     path.move(to: point(first)); for p in v.dropFirst() { path.addLine(to: point(p)) }; path.closeSubpath()
                 case .line(let a, let b): path.move(to: point(a)); path.addLine(to: point(b))
                 }
-                let width: CGFloat = region.id == selectedID ? 2.5 : 1.5
+                let width: CGFloat = (region.id == selectedID ? 2.5 : 1.5) * strokeScale
                 // A dark under-stroke keeps the colour readable on bright pixels.
-                context.stroke(path, with: .color(.black.opacity(0.55)), lineWidth: width + 1.5)
+                context.stroke(path, with: .color(.black.opacity(0.55)), lineWidth: width + 1.5 * strokeScale)
                 context.stroke(path, with: .color(region.color.color), lineWidth: width)
             }
             if let pixel {
-                let r = CGRect(x: Double(pixel.x) * sx, y: Double(pixel.y) * sy, width: max(sx, 3), height: max(sy, 3))
-                context.stroke(Path(r), with: .color(.black.opacity(0.55)), lineWidth: 2.5)
-                context.stroke(Path(r), with: .color(.white), lineWidth: 1)
+                let r = CGRect(x: Double(pixel.x) * sx, y: Double(pixel.y) * sy, width: max(sx, 3 * strokeScale), height: max(sy, 3 * strokeScale))
+                context.stroke(Path(r), with: .color(.black.opacity(0.55)), lineWidth: 2.5 * strokeScale)
+                context.stroke(Path(r), with: .color(.white), lineWidth: 1 * strokeScale)
             }
         }
         .allowsHitTesting(false)

@@ -61,20 +61,47 @@ public nonisolated struct MapAdjustment: Equatable, Hashable, Sendable, Codable 
     }
 }
 
-/// The maps added into one composite tile.
+/// The maps added into the colour mix. By default every map is in; a click on a map makes the choice the person's (`isCustom`), which can take every map out: the mix is then empty and the room shows the
+/// reference image in its place.
 public nonisolated struct ColorMix: Equatable, Sendable, Codable {
     public var isOn = false
-    /// The ids of the maps in the mix, in the order they were added.
+    /// The ids of the maps in the mix when `isCustom`; ignored otherwise (every map is in).
     public var members: [String] = []
+    public var isCustom = false
 
     public init() {}
 
-    /// Adds `id` to the mix or takes it out.
-    public mutating func toggle(_ id: String) {
-        if let i = members.firstIndex(of: id) { members.remove(at: i) } else { members.append(id) }
+    private enum CodingKeys: String, CodingKey { case isOn, members, isCustom }
+
+    /// Tolerant: a mix saved before `isCustom` existed read its members as the choice when it had any.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        isOn = try c.decodeIfPresent(Bool.self, forKey: .isOn) ?? false
+        members = try c.decodeIfPresent([String].self, forKey: .members) ?? []
+        isCustom = try c.decodeIfPresent(Bool.self, forKey: .isCustom) ?? !members.isEmpty
     }
 
-    /// The mix is shown when it is on and holds at least two maps.
+    /// Whether `id` is in the mix of the maps `all`.
+    public func contains(_ id: String, among all: [String]) -> Bool { isCustom ? members.contains(id) : all.contains(id) }
+
+    /// The maps of `all` that are in the mix, in `all`'s order.
+    public func selection(among all: [String]) -> [String] { all.filter { contains($0, among: all) } }
+
+    /// A click on a map: in the mix or out. The first click names the others (they were all in) before it takes one out; once every map is in again the choice goes back to the default.
+    public mutating func toggle(_ id: String, among all: [String]) {
+        var chosen = selection(among: all)
+        if let i = chosen.firstIndex(of: id) { chosen.remove(at: i) } else { chosen.append(id) }
+        let ordered = all.filter { chosen.contains($0) }
+        if ordered.count == all.count { members = []; isCustom = false } else { members = ordered; isCustom = true }
+    }
+
+    /// Adds `id` to the mix or takes it out of the listed members (for a caller that keeps the whole list itself).
+    public mutating func toggle(_ id: String) {
+        if let i = members.firstIndex(of: id) { members.remove(at: i) } else { members.append(id) }
+        isCustom = true
+    }
+
+    /// The mix is shown when it is on and holds at least two maps in the listed members.
     public var isShown: Bool { isOn && members.count >= 2 }
 }
 
@@ -296,35 +323,26 @@ extension MapColoring {
 }
 
 
-/// Which maps are added into the colour mix: one checkbox per map. The mix is the anchor tile of the room; this is what its scale bar opens.
+/// Which maps are added into the colour mix: one checkbox per map. The mix is the anchor tile of the room; a click on a map toggles it too.
 public struct MapMixControls: View {
     @Binding private var mix: ColorMix
     private let items: [MapColorItem]
-    private let allWhenEmpty: Bool
 
-    /// `allWhenEmpty`: an empty member list means every map is in the mix (the room's default); the first change then names the members explicitly.
-    public init(mix: Binding<ColorMix>, items: [MapColorItem], allWhenEmpty: Bool = true) {
+    public init(mix: Binding<ColorMix>, items: [MapColorItem]) {
         self._mix = mix
         self.items = items
-        self.allWhenEmpty = allWhenEmpty
     }
 
     public var body: some View {
+        let all = items.map(\.id)
         VStack(alignment: .leading, spacing: 4) {
             Text("Maps in the colour mix").font(.callout.weight(.semibold))
             ForEach(items) { item in
-                Toggle(item.title, isOn: Binding(get: { isMember(item.id) }, set: { _ in toggle(item.id) }))
+                Toggle(item.title, isOn: Binding(get: { mix.contains(item.id, among: all) }, set: { _ in mix.toggle(item.id, among: all) }))
                     .toggleStyle(.checkbox)
                     .accessibilityIdentifier("maps.mix.\(item.id)")
             }
             Text("Each map in its own colour, scaled to its own maximum, added.").font(.caption).foregroundStyle(.secondary)
         }
-    }
-
-    private func isMember(_ id: String) -> Bool { (allWhenEmpty && mix.members.isEmpty) || mix.members.contains(id) }
-
-    private func toggle(_ id: String) {
-        if allWhenEmpty && mix.members.isEmpty { mix.members = items.map(\.id) }
-        mix.toggle(id)
     }
 }

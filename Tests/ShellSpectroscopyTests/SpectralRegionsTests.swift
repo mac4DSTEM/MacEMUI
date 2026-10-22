@@ -105,7 +105,7 @@ nonisolated final class RegionDrawingTests: XCTestCase {
         XCTAssertTrue(RegionDrawing.closesPolygon(v, click: CGPoint(x: 12, y: 8), in: size, scanWidth: 16, scanHeight: 8, radius: 9))
         XCTAssertFalse(RegionDrawing.closesPolygon(v, click: CGPoint(x: 60, y: 8), in: size, scanWidth: 16, scanHeight: 8, radius: 9))
         XCTAssertFalse(RegionDrawing.closesPolygon(Array(v.prefix(2)), click: CGPoint(x: 12, y: 8), in: size, scanWidth: 16, scanHeight: 8, radius: 9), "two vertices are not a polygon")
-        XCTAssertEqual(RegionTool.allCases.map(\.title), ["Rectangle", "Ellipse", "Polygon", "Line"])
+        XCTAssertEqual(RegionTool.allCases.map(\.title), ["Select", "Rectangle", "Ellipse", "Polygon", "Line"])
     }
 }
 
