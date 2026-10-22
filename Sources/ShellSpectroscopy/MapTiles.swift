@@ -81,6 +81,7 @@ public struct MapTileGrid<Item: Identifiable, Tile: View>: View {
             tile(item)
                 .padding(spacing)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .contentShape(Rectangle())   // a double click anywhere in the block returns the grid, not only on the (square) picture
                 .simultaneousGesture(TapGesture(count: 2).onEnded { solo = nil })
                 .accessibilityHint("Double click to show all maps")
         } else {
