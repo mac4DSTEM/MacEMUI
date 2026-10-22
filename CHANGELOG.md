@@ -13,6 +13,11 @@ control in the inspector, the scale bar as the way into a map's colour, an eleme
 - `PeriodicTable` with `PeriodicTableActions`, `PeriodicCellState`, `ElementRoleChoice`, `ElementLineFamily`: the periodic table moved from mac4DSTEM, session-free (click toggles Quantify and Off; right-click gives the role and, per family, the lines with their energies, and Default lines);
   `PeriodicTableGrid` holds the symbols and the shape.
 - `MapMixControls`: which maps are in the colour mix. `MapColorControls` can open with its sliders expanded and without the mix switch (a one-map popover).
+- `MapAppearance.reset(maps:)`: returns only the listed maps to their default colouring and adjustment, leaving other maps and the colour mix.
+
+### Fixed
+- The scroll wheel reaches a view under SwiftUI content: `onScrollWheel` uses a local event monitor bounded to its own window and view (call sites unchanged).
+- The one-map colour popover: no toggle icon (the sliders are always shown), and Reset acts on that map only and leaves the colour mix untouched.
 
 ### Superseded
 - `MapTileGrid`, `MapTileSize` and `MapTileSizePicker` (a size to choose): the fitted grid scales with the panes instead. They stay until 0.4.0 so mac4DSTEM can move; macTEM no longer uses them.

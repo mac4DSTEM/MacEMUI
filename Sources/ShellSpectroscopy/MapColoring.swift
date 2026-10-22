@@ -134,6 +134,11 @@ public nonisolated struct MapAppearance: Equatable, Sendable, Codable {
     /// Sets a map's colouring, or with nil returns it to its default.
     public mutating func set(_ coloring: MapColoring?, for id: String) { colorings[id] = coloring }
 
+    /// Returns only the listed maps to their defaults (colouring and adjustment); other maps and the mix stay.
+    public mutating func reset(maps ids: [String]) {
+        for id in ids { colorings[id] = nil; adjustments[id] = nil }
+    }
+
     public mutating func reset() { colorings = [:]; adjustments = [:]; mix = ColorMix() }
 }
 
@@ -212,6 +217,7 @@ public struct MapColorControls: View {
     @Environment(\.self) private var environment
     @State private var adjusting: Set<String>
     private let showsMix: Bool
+    private let alwaysExpanded: Bool
 
     /// `startExpanded`: the contrast and gamma sliders of every row open from the start (a popover of one map); `showsMix`: the Colour mix switch and its members under the rows.
     public init(appearance: Binding<MapAppearance>, items: [MapColorItem], startExpanded: Bool = false, showsMix: Bool = true) {
@@ -219,13 +225,14 @@ public struct MapColorControls: View {
         self.items = items
         self._adjusting = State(initialValue: startExpanded ? Set(items.map(\.id)) : [])
         self.showsMix = showsMix
+        self.alwaysExpanded = startExpanded
     }
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             ForEach(items) { item in
                 row(item)
-                if adjusting.contains(item.id) { adjustControls(item) }
+                if alwaysExpanded || adjusting.contains(item.id) { adjustControls(item) }
             }
             if showsMix, items.count >= 2 {
                 Toggle("Colour mix", isOn: $appearance.mix.isOn)
@@ -242,8 +249,8 @@ public struct MapColorControls: View {
                     }
                 }
             }
-            if appearance != MapAppearance() {
-                Button("Reset colours") { appearance.reset() }
+            if items.contains(where: { appearance.colorings[$0.id] != nil || !appearance.adjustment(for: $0.id).isDefault }) {
+                Button(items.count == 1 ? "Reset" : "Reset colours") { appearance.reset(maps: items.map(\.id)) }
                     .controlSize(.small)
                     .accessibilityIdentifier("maps.color.reset")
             }
@@ -275,15 +282,17 @@ public struct MapColorControls: View {
             .help("Colour this map in one colour, or on a colormap")
             .accessibilityLabel("Colouring of \(item.title)")
             .accessibilityIdentifier("maps.coloring.\(item.id)")
-            Button {
-                if adjusting.contains(item.id) { adjusting.remove(item.id) } else { adjusting.insert(item.id) }
-            } label: {
-                Image(systemName: appearance.adjustment(for: item.id).isDefault ? "slider.horizontal.3" : "slider.horizontal.below.square.filled.and.square")
+            if !alwaysExpanded {
+                Button {
+                    if adjusting.contains(item.id) { adjusting.remove(item.id) } else { adjusting.insert(item.id) }
+                } label: {
+                    Image(systemName: appearance.adjustment(for: item.id).isDefault ? "slider.horizontal.3" : "slider.horizontal.below.square.filled.and.square")
+                }
+                .buttonStyle(.borderless)
+                .help("Contrast and gamma of \(item.title)")
+                .accessibilityLabel("Contrast and gamma of \(item.title)")
+                .accessibilityIdentifier("maps.adjust.\(item.id)")
             }
-            .buttonStyle(.borderless)
-            .help("Contrast and gamma of \(item.title)")
-            .accessibilityLabel("Contrast and gamma of \(item.title)")
-            .accessibilityIdentifier("maps.adjust.\(item.id)")
         }
     }
 

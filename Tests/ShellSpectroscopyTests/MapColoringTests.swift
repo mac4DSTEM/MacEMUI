@@ -92,6 +92,20 @@ nonisolated final class MapAdjustmentTests: XCTestCase {
         let old = try JSONDecoder().decode(MapAppearance.self, from: Data(#"{"colorings":{},"mix":{"isOn":false,"members":[]}}"#.utf8))
         XCTAssertEqual(old, MapAppearance(), "an appearance saved before adjustments existed still reads")
     }
+
+    /// Reset of listed maps leaves the other maps and the mix alone.
+    func testResetOfListedMapsLeavesTheRestAlone() {
+        var a = MapAppearance()
+        a.set(.color(RegionColor(red: 1, green: 0, blue: 0)), for: "Mg"); a.set(.color(RegionColor(red: 0, green: 1, blue: 0)), for: "Al")
+        a.setAdjustment(MapAdjustment(low: 0.2), for: "Mg")
+        a.mix.toggle("Mg"); a.mix.isOn = true
+        let mix = a.mix
+        a.reset(maps: ["Mg"])
+        XCTAssertNil(a.colorings["Mg"])
+        XCTAssertTrue(a.adjustment(for: "Mg").isDefault)
+        XCTAssertEqual(a.colorings["Al"], .color(RegionColor(red: 0, green: 1, blue: 0)))
+        XCTAssertEqual(a.mix, mix)
+    }
 }
 
 nonisolated final class PeriodicTableGridTests: XCTestCase {
