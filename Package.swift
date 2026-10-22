@@ -36,11 +36,11 @@ let package = Package(
                 swiftSettings: shellSettings),
         .target(name: "ShellInspector", dependencies: ["ShellControls"], swiftSettings: shellSettings),
         .target(name: "ShellLayout", dependencies: ["ShellControls"], swiftSettings: shellSettings),
-        .target(name: "ShellSpectroscopy", dependencies: ["ShellControls", "ShellInspector", "ShellLayout"], swiftSettings: shellSettings),
+        .target(name: "ShellSpectroscopy", dependencies: ["ShellMetal", "ShellControls", "ShellInspector", "ShellLayout"], swiftSettings: shellSettings),
         .testTarget(name: "ShellMetalTests", dependencies: ["ShellMetal"], swiftSettings: shellSettings),
         .testTarget(name: "ShellControlsTests", dependencies: ["ShellControls"], swiftSettings: shellSettings),
         .testTarget(name: "ShellInspectorTests", dependencies: ["ShellInspector"], swiftSettings: shellSettings),
         .testTarget(name: "ShellLayoutTests", dependencies: ["ShellLayout"], swiftSettings: shellSettings),
-        .testTarget(name: "ShellSpectroscopyTests", dependencies: ["ShellSpectroscopy"], swiftSettings: shellSettings),
+        .testTarget(name: "ShellSpectroscopyTests", dependencies: ["ShellSpectroscopy", "ShellMetal"], swiftSettings: shellSettings),
     ]
 )

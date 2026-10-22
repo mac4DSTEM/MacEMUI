@@ -2,6 +2,11 @@
 
 MacEMUI follows semantic versioning; before 1.0.0 a minor version may break the API, and its Migration paragraph says how.
 
+## Unreleased (0.2.1)
+
+### Added
+- `MapColoring` (black to one colour, or one of the shared colormaps), `MapAppearance` (the person's choice per map and the colour mix; Codable), `ColorMix`, `MapRaster` (`rgba` for one map, `mix` for the colour mix of several, pure) and `MapColorControls`, the Maps section's rows: a colour or colormap per map and the Colour mix with the maps in it. `ColormapKind` is Codable.
+
 ## 0.2.0 (2026-10-22)
 
 The spectroscopy rooms' shared chrome (design 2026-10-22): a new product `ShellSpectroscopy`, built in macTEM's EDS and EELS rooms and offered to mac4DSTEM's Spectroscopy room. Nothing of 0.1.0 changed.

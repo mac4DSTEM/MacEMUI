@@ -4,7 +4,7 @@
 
 import Foundation
 
-public nonisolated enum ColormapKind: String, CaseIterable, Identifiable, Sendable {
+public nonisolated enum ColormapKind: String, CaseIterable, Identifiable, Sendable, Codable {
     case viridis
     case inferno
     case gray

@@ -1,0 +1,65 @@
+import XCTest
+import ShellMetal
+@testable import ShellSpectroscopy
+
+nonisolated final class MapColoringTests: XCTestCase {
+    private let red = RegionColor(red: 1, green: 0, blue: 0)
+    private let green = RegionColor(red: 0, green: 1, blue: 0)
+
+    private func pixel(_ rgba: [UInt8], _ i: Int) -> [UInt8] { Array(rgba[4 * i..<4 * i + 4]) }
+
+    /// A colour map is black at zero, the colour at the largest value and linear between; a map with no positive pixel is black.
+    func testAColourMapRunsFromBlackToTheColour() {
+        let rgba = MapRaster.rgba(values: [0, 5, 10], coloring: .color(red))
+        XCTAssertEqual(pixel(rgba, 0), [0, 0, 0, 255])
+        XCTAssertEqual(pixel(rgba, 1), [128, 0, 0, 255])
+        XCTAssertEqual(pixel(rgba, 2), [255, 0, 0, 255])
+        XCTAssertEqual(pixel(MapRaster.rgba(values: [-1, 0], coloring: .color(red)), 0), [0, 0, 0, 255])
+        XCTAssertEqual(pixel(MapRaster.rgba(values: [0, 5, 10], coloring: .color(red), upper: 5), 2), [255, 0, 0, 255], "values above the given scale clamp")
+    }
+
+    /// A colormap map reads the shared LUT at the value's fraction; NaN is hatched when the width is given, and black without it.
+    func testAColormapMapReadsTheSharedLUTAndHatchesNaN() {
+        let lut = Colormaps.lutRGBA(.viridis)
+        let rgba = MapRaster.rgba(values: [0, 10], coloring: .colormap(.viridis))
+        let end = Colormaps.sampleRGB(lut, 1), start = Colormaps.sampleRGB(lut, 0)
+        XCTAssertEqual(pixel(rgba, 1), [end.0, end.1, end.2, 255])
+        XCTAssertEqual(pixel(rgba, 0), [start.0, start.1, start.2, 255])
+        let hatched = MapRaster.rgba(values: [.nan, .nan, .nan, .nan, .nan, .nan, 1], coloring: .color(red), width: 7)
+        XCTAssertEqual(Set(hatched[0..<4].dropLast()), [120], "grey stripes where the kit had no value")
+        XCTAssertEqual(pixel(MapRaster.rgba(values: [.nan, 1], coloring: .color(red)), 0), [0, 0, 0, 255])
+    }
+
+    /// The mix adds each map's fraction times its colour and clamps; each map is scaled by its own maximum.
+    func testTheMixAddsMapsEachInItsOwnColour() {
+        let layers = [MapRaster.MixLayer(values: [0, 1, 2], color: red), MapRaster.MixLayer(values: [0, 100, 0], color: green)]
+        let rgba = MapRaster.mix(layers, count: 3)
+        XCTAssertEqual(pixel(rgba, 0), [0, 0, 0, 255])
+        XCTAssertEqual(pixel(rgba, 1), [128, 255, 0, 255], "half red plus full green")
+        XCTAssertEqual(pixel(rgba, 2), [255, 0, 0, 255])
+        let both = MapRaster.mix([MapRaster.MixLayer(values: [1], color: red), MapRaster.MixLayer(values: [1], color: RegionColor(red: 1, green: 1, blue: 0))], count: 1)
+        XCTAssertEqual(pixel(both, 0), [255, 255, 0, 255], "channels clamp at full")
+    }
+
+    /// The appearance keeps the person's choices, falls back to the default, resets, and survives a session round trip; the mix needs two maps.
+    func testTheAppearanceKeepsChoicesAndRoundTrips() throws {
+        var a = MapAppearance()
+        XCTAssertEqual(a.coloring(for: "Mg", default: .color(red)), .color(red))
+        a.set(.colormap(.inferno), for: "Mg")
+        XCTAssertEqual(a.coloring(for: "Mg", default: .color(red)), .colormap(.inferno))
+        a.set(nil, for: "Mg")
+        XCTAssertEqual(a.coloring(for: "Mg", default: .color(red)), .color(red))
+        a.set(.color(green), for: "Al"); a.mix.isOn = true; a.mix.toggle("Al")
+        XCTAssertFalse(a.mix.isShown, "one map is not a mix")
+        a.mix.toggle("Mg")
+        XCTAssertTrue(a.mix.isShown)
+        a.mix.toggle("Al")
+        XCTAssertEqual(a.mix.members, ["Mg"])
+        a.mix.toggle("Al")
+        let back = try JSONDecoder().decode(MapAppearance.self, from: JSONEncoder().encode(a))
+        XCTAssertEqual(back, a)
+        a.reset()
+        XCTAssertEqual(a, MapAppearance())
+        XCTAssertEqual(MapColoring.colormap(.gray).endColor.red, 1, accuracy: 0.02)
+    }
+}
