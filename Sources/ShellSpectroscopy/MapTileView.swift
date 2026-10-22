@@ -86,7 +86,7 @@ public struct MapTileView<Controls: View>: View {
                 HoverReader(scanWidth: scanWidth, scanHeight: scanHeight) { setPointer($0) }
                 RegionOverlay(set: SpectralRegionSet(), scanWidth: scanWidth, scanHeight: scanHeight, pixel: local.map { (x: $0.x, y: $0.y) })
             }
-            (Text(title).fontWeight(.semibold) + Text(detail.map { " · \($0)" } ?? "").foregroundStyle(.white.opacity(0.75)))
+            Text("\(Text(title).fontWeight(.semibold))\(Text(detail.map { " · \($0)" } ?? "").foregroundStyle(.white.opacity(0.75)))")
                 .font(.caption).foregroundStyle(.white)
                 .shadow(color: .black.opacity(0.8), radius: 2, y: 1)
                 .lineLimit(1)
