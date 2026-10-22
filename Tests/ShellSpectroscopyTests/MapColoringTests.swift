@@ -93,3 +93,20 @@ nonisolated final class MapAdjustmentTests: XCTestCase {
         XCTAssertEqual(old, MapAppearance(), "an appearance saved before adjustments existed still reads")
     }
 }
+
+nonisolated final class PeriodicTableGridTests: XCTestCase {
+    /// 118 symbols, the table's rows hold each element of periods 1 to 6 once (the f-block and period 7 are folded), and the sizes follow the width.
+    func testTheTableIsComplete() {
+        XCTAssertEqual(PeriodicTableGrid.symbols.count, 118)
+        XCTAssertEqual(PeriodicTableGrid.symbol(1), "H"); XCTAssertEqual(PeriodicTableGrid.symbol(28), "Ni"); XCTAssertEqual(PeriodicTableGrid.symbol(78), "Pt"); XCTAssertEqual(PeriodicTableGrid.symbol(118), "Og")
+        XCTAssertEqual(PeriodicTableGrid.symbol(0), ""); XCTAssertEqual(PeriodicTableGrid.symbol(119), "")
+        let shown = PeriodicTableGrid.rows.joined().compactMap { $0 }
+        XCTAssertEqual(Set(shown).union(PeriodicTableGrid.folded), Set(1...118), "every element is in the table or the fold")
+        XCTAssertEqual(shown.count + PeriodicTableGrid.folded.count, 118, "none twice")
+        XCTAssertTrue(PeriodicTableGrid.rows.allSatisfy { $0.count == 18 })
+        XCTAssertEqual(PeriodicTableGrid.cellSize(width: 248), (248 - 17 * 2) / 18, accuracy: 1e-12)
+        XCTAssertEqual(PeriodicTableGrid.symbolSize(cell: 40), 13); XCTAssertEqual(PeriodicTableGrid.symbolSize(cell: 10), 9)
+        XCTAssertEqual(PeriodicTable.describe(.fitOnly), "fit only")
+        XCTAssertEqual(ElementRoleChoice.allCases.map(\.title), ["Quantify", "Fit only", "Off"])
+    }
+}
