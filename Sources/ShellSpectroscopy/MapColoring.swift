@@ -44,7 +44,7 @@ public nonisolated enum MapColoring: Equatable, Hashable, Sendable, Codable {
 
 /// A map's contrast and gamma, as fractions of its own scale: values below `low` are the bottom colour, above `high` the top, and `gamma` bends what is between (above 1
 /// brightens the middle). The default leaves the map as it is.
-public nonisolated struct MapAdjustment: Equatable, Sendable, Codable {
+public nonisolated struct MapAdjustment: Equatable, Hashable, Sendable, Codable {
     public var low = 0.0
     public var high = 1.0
     public var gamma = 1.0
