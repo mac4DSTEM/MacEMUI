@@ -97,7 +97,7 @@ public struct ProfileChart: View {
     }
 
     /// What VoiceOver reads: each series with its range.
-    static func summary(_ series: [ProfileSeries], unit: String) -> String {
+    nonisolated static func summary(_ series: [ProfileSeries], unit: String) -> String {
         series.compactMap { s in
             guard let lo = s.values.min(), let hi = s.values.max() else { return nil }
             return "\(s.name): \(lo.formatted(.number.precision(.significantDigits(1...3)))) to \(hi.formatted(.number.precision(.significantDigits(1...3)))) over \(s.length.formatted(.number.precision(.significantDigits(1...3)))) \(unit)"

@@ -11,6 +11,7 @@ The spectroscopy rooms' shared chrome, built on what is new (design 2026-10-22):
 - `SpectralRegionSet`, `SpectralRegion`, `RegionGeometry` (rectangle, ellipse, polygon, line), `RegionColor`, `RegionPalette`: any number of regions with a name, colour and visible flag, Codable for the session; `RegionsList` (inspector list: select, rename, recolour, show/hide, delete) and `RegionOverlay` (outlines over a map tile). No pixel or number is computed here: the app turns a geometry into the kit's shape.
 - `SpectrumLayer`, `SpectrumScale`, `SpectrumLayerPlot` (min-max thinning, peak, shape normalisation, `draw` into the room's Canvas) and `SpectrumLayerLegend`: one spectrum per region in its colour, plus a dashed temporary pixel layer.
 - `SpectrumPane`, `SpectrumPaneTabs` (Spectrum, Profile, Table) and `ProfileSeries`, `ProfileChart` (Swift Charts, distance on x, one coloured line per series).
+- `RegionTool` and `RegionDrawingLayer`: the drawing gestures over a map tile (drag a rectangle, ellipse or line, click a polygon's vertices) that hand back what was drawn in scan pixels and mark the pointer's pixel; `RegionDrawing` holds the pure geometry.
 - `MapTileGrid`, `MapTileSize`, `MapTileSizePicker`: the maps block reflows to a chosen tile size and shows one tile alone on a double click; `hoverChip(_:)` puts the pointer's value on a tile.
 
 ## 0.1.0 (2026-10-22)

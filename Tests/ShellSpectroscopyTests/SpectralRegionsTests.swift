@@ -75,3 +75,36 @@ nonisolated final class SpectralRegionSetRebuildTests: XCTestCase {
         XCTAssertEqual(set.regions.last?.name, "Region 2", "numbering continues after the rebuilt regions")
     }
 }
+
+nonisolated final class RegionDrawingTests: XCTestCase {
+    private let size = CGSize(width: 160, height: 80)   // a 16 x 8 scan at 10 points per pixel
+
+    /// A point maps to the pixel under it, clamped to the last; off the picture is nil.
+    func testPixelsUnderPoints() {
+        XCTAssertEqual(RegionDrawing.pixel(at: CGPoint(x: 5, y: 5), in: size, scanWidth: 16, scanHeight: 8)?.x, 0)
+        let last = RegionDrawing.pixel(at: CGPoint(x: 160, y: 80), in: size, scanWidth: 16, scanHeight: 8)
+        XCTAssertEqual(last?.x, 15); XCTAssertEqual(last?.y, 7)
+        XCTAssertNil(RegionDrawing.pixel(at: CGPoint(x: -1, y: 5), in: size, scanWidth: 16, scanHeight: 8))
+    }
+
+    /// Two corners span the pixels under both, in either order; a drag past the edge is clamped to it.
+    func testASpannedBoxIncludesBothCornerPixels() throws {
+        let a = try XCTUnwrap(RegionDrawing.spannedBox(from: CGPoint(x: 25, y: 12), to: CGPoint(x: 64, y: 47), in: size, scanWidth: 16, scanHeight: 8))
+        XCTAssertEqual([a.x0, a.y0, a.x1, a.y1], [2, 1, 7, 5])
+        let b = try XCTUnwrap(RegionDrawing.spannedBox(from: CGPoint(x: 64, y: 47), to: CGPoint(x: 25, y: 12), in: size, scanWidth: 16, scanHeight: 8))
+        XCTAssertEqual([b.x0, b.y0, b.x1, b.y1], [2, 1, 7, 5], "the same box dragged backwards")
+        let c = try XCTUnwrap(RegionDrawing.spannedBox(from: CGPoint(x: 150, y: 70), to: CGPoint(x: 400, y: 300), in: size, scanWidth: 16, scanHeight: 8))
+        XCTAssertEqual([c.x0, c.y0, c.x1, c.y1], [15, 7, 16, 8], "clamped to the picture")
+    }
+
+    /// Scan points are continuous (pixel i covers [i, i+1)); a polygon closes only with three vertices and a click near the first.
+    func testScanPointsAndPolygonClosing() {
+        let p = RegionDrawing.scanPoint(CGPoint(x: 85, y: 20), in: size, scanWidth: 16, scanHeight: 8)
+        XCTAssertEqual(p.x, 8.5, accuracy: 1e-12); XCTAssertEqual(p.y, 2, accuracy: 1e-12)
+        let v = [RegionPoint(x: 1, y: 1), RegionPoint(x: 5, y: 1), RegionPoint(x: 3, y: 4)]
+        XCTAssertTrue(RegionDrawing.closesPolygon(v, click: CGPoint(x: 12, y: 8), in: size, scanWidth: 16, scanHeight: 8, radius: 9))
+        XCTAssertFalse(RegionDrawing.closesPolygon(v, click: CGPoint(x: 60, y: 8), in: size, scanWidth: 16, scanHeight: 8, radius: 9))
+        XCTAssertFalse(RegionDrawing.closesPolygon(Array(v.prefix(2)), click: CGPoint(x: 12, y: 8), in: size, scanWidth: 16, scanHeight: 8, radius: 9), "two vertices are not a polygon")
+        XCTAssertEqual(RegionTool.allCases.map(\.title), ["Rectangle", "Ellipse", "Polygon", "Line"])
+    }
+}
