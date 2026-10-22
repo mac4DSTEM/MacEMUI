@@ -52,6 +52,8 @@ public struct MapTileView<Controls: View>: View {
     private let pixelUnit: String?
     private let colorbar: MapColorbarSpec?
     private let regions: MapTileRegions?
+    private let inMix: Bool?
+    private let onToggleMix: (() -> Void)?
     private let valueText: (Int, Int) -> String?
     private let onHover: ((x: Int, y: Int)?) -> Void
     private let controls: Controls
@@ -59,14 +61,15 @@ public struct MapTileView<Controls: View>: View {
     @State private var showControls = false
 
     /// - `pixelSize` / `pixelUnit`: the scan's real-space step ("nm") for the scale bar; nil draws the bar in scan pixels.
+    /// - `inMix` / `onToggleMix`: on an element map, whether the map is in the colour mix (a ring on the tile) and the click that adds it or takes it out; nil on tiles that are not selectable.
     /// - `regions`: set on the anchor tile only. `valueText`: the pointer's value as the chip words it ("Mg 36.2 net counts"); nil where the pixel has none.
     /// - `controls`: the content of the popover the scale bar opens (the map's colour, histogram and gamma).
     public init(title: String, detail: String? = nil, image: CGImage?, size: CGSize, scanWidth: Int, scanHeight: Int,
                 pixelSize: Double? = nil, pixelUnit: String? = nil, colorbar: MapColorbarSpec? = nil, regions: MapTileRegions? = nil,
-                valueText: @escaping (Int, Int) -> String?, onHover: @escaping ((x: Int, y: Int)?) -> Void,
+                inMix: Bool? = nil, onToggleMix: (() -> Void)? = nil, valueText: @escaping (Int, Int) -> String?, onHover: @escaping ((x: Int, y: Int)?) -> Void,
                 @ViewBuilder controls: () -> Controls) {
         self.title = title; self.detail = detail; self.image = image; self.size = size; self.scanWidth = scanWidth; self.scanHeight = scanHeight
-        self.pixelSize = pixelSize; self.pixelUnit = pixelUnit; self.colorbar = colorbar; self.regions = regions
+        self.pixelSize = pixelSize; self.pixelUnit = pixelUnit; self.colorbar = colorbar; self.regions = regions; self.inMix = inMix; self.onToggleMix = onToggleMix
         self.valueText = valueText; self.onHover = onHover; self.controls = controls()
     }
 
@@ -83,14 +86,12 @@ public struct MapTileView<Controls: View>: View {
                 HoverReader(scanWidth: scanWidth, scanHeight: scanHeight) { pixel in local = pixel.map { (x: $0.x, y: $0.y) }; onHover(pixel) }
                 RegionOverlay(set: SpectralRegionSet(), scanWidth: scanWidth, scanHeight: scanHeight, pixel: local.map { (x: $0.x, y: $0.y) })
             }
-            Text(title).font(.caption.weight(.semibold)).foregroundStyle(.white)
+            (Text(title).fontWeight(.semibold) + Text(detail.map { " · \($0)" } ?? "").foregroundStyle(.white.opacity(0.75)))
+                .font(.caption).foregroundStyle(.white)
                 .shadow(color: .black.opacity(0.8), radius: 2, y: 1)
+                .lineLimit(1)
                 .padding(6)
                 .allowsHitTesting(false)
-            if let detail {
-                Text(detail).font(.caption2).foregroundStyle(.white.opacity(0.8)).shadow(color: .black.opacity(0.8), radius: 2, y: 1)
-                    .padding(.leading, 6).padding(.top, 20).allowsHitTesting(false)
-            }
         }
         .frame(width: size.width, height: size.height)
         .overlay(alignment: .bottomLeading) { scaleBar }
@@ -109,6 +110,10 @@ public struct MapTileView<Controls: View>: View {
         .clipShape(RoundedRectangle(cornerRadius: 3))
         // A hairline edge: a bright map would otherwise run into a light window.
         .overlay { RoundedRectangle(cornerRadius: 3).strokeBorder(.separator) }
+        // A map in the colour mix wears a ring; a click on a map toggles it in or out (custom mixes).
+        .overlay { if inMix == true { RoundedRectangle(cornerRadius: 3).strokeBorder(Color.accentColor, lineWidth: 2).allowsHitTesting(false) } }
+        .onTapGesture { onToggleMix?() }
+        .help(onToggleMix == nil ? "" : (inMix == true ? "In the colour mix: click to take it out" : "Click to add this map to the colour mix"))
         .accessibilityElement(children: .contain)
         .accessibilityLabel(detail.map { "\(title) map, \($0)" } ?? "\(title) map")
     }
