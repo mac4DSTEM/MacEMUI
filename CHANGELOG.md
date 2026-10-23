@@ -34,6 +34,8 @@ control in the inspector, the scale bar as the way into a map's colour, an eleme
 ### Superseded
 - `MapTileGrid`, `MapTileSize` and `MapTileSizePicker` (a size to choose): the fitted grid scales with the panes instead. They stay until 0.4.0 so mac4DSTEM can move; macTEM no longer uses them.
 
+- `ShellToolbar`: the verb's `visibilityPriority(.high)` is compiled only with Swift 6.3 or newer (the Xcode 27 beta); the CI runners' Xcode 26 has no such member on `ToolbarItem`, which had both apps' CI red on main (nightly review 2026-10-23). The item itself is unchanged.
+
 ### Migration
 `RegionTool` gained `.pointer` as its FIRST case: `allCases` starts with it and a stored tool decodes by its raw value (the strings are unchanged), so a room that indexed the cases by position re-reads them by case; the default tool of a room is its own choice (macTEM's rooms start on `.pointer`). `ColorMix.isShown` (members only) is gone: `isShown(among:)` takes the maps, so the default mix (every map in) counts. `MapDisplayPopover` takes a `MapDisplayHistogram` value, not a tuple. A tile no longer shows the pointer's value or a colour scale: a room puts the value in its status line (`onHover`) and opens `MapDisplayPopover` from the scale bar (`controls:`); `colorbar:` and `valueText:` are ignored until 0.4.0 removes them. A room that wants the corrected layout builds `AnchoredMapsBlock` of `MapTileView`s (macTEM's `EDXMapsBlock` is the reference wiring), puts the region tool, the maps' quantity and the lower pane's choices in its inspector instead of a strip above the maps, and answers
 `PeriodicTable` from its model.

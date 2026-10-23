@@ -53,10 +53,18 @@ public struct ShellToolbar<Display: View, Verb: View, Utility: ToolbarContent, D
         // right). `visibilityPriority` says what overflows first when the
         // window narrows: the verb and the document menu stay, the utility
         // icons go into the overflow menu.
+        // `visibilityPriority` is in the Xcode 27 beta's SwiftUI only; the CI runners' Xcode 26 has no such member (nightly review 2026-10-23),
+        // so the item carries it only where the compiler is new enough (Swift 6.3 ships with Xcode 27). Delete the guard once CI runs Xcode 27.
+        #if compiler(>=6.3)
         ToolbarItem(placement: .primaryAction) {
             verb
         }
         .visibilityPriority(.high)
+        #else
+        ToolbarItem(placement: .primaryAction) {
+            verb
+        }
+        #endif
         // The text-labelled verb sat flush against the icon buttons beside it; a fixed gap sets it apart as the
         // room's one verb (HIG, Toolbars: group items by function). mac4DSTEM UI audit 2026-10-14, G3.
         ToolbarSpacer(.fixed, placement: .primaryAction)
