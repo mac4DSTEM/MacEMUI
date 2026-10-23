@@ -1,3 +1,7 @@
 .build/
 .swiftpm/
 Package.resolved
+
+# Local session rules, kept on disk only
+CLAUDE.md
+.claude/
