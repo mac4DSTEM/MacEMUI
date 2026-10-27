@@ -1,6 +1,3 @@
-// MOVED FROM: mac4DSTEM@8c4c06d mac4DSTEMTests/StatusBarMetricsTests.swift (the formatter and slot-width tests) + mac4DSTEMTests/PolishHTests.swift (testGlanceUsesTheDecimalBase)
-// Changes: OperationMetricsFormat takes plain values (elapsed, eta, rate, unit) instead of AnalysisOperationMetrics and `for operation:`, so the calls are re-spelled; every expected string and width bound is unchanged. The toolbar-display and engine-glance tests stay in mac4DSTEM
-// END MOVED FROM
 import AppKit
 import XCTest
 @testable import ShellLayout

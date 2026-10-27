@@ -1,6 +1,3 @@
-// MOVED FROM: mac4DSTEM@8c4c06d mac4DSTEMTests/DividerNudgeTests.swift lines 48-86 (macTEM@51c944c macTEMTests/DividerNudgeTests.swift folded in: nothing; same two tests)
-// Changes: the process-strip half of DividerNudgeTests; belongs with `DividerNudge.processFraction` in ShellLayout. `@testable import ShellLayout`; class nonisolated; assertions identical.
-// END MOVED FROM
 // Drop into Tests/ShellLayoutTests/DividerNudgeProcessTests.swift.
 import ShellControls
 import XCTest

@@ -1,6 +1,3 @@
-// MOVED FROM: mac4DSTEM@8c4c06d mac4DSTEM/UI/ZoomPan.swift (macTEM@51c944c macTEM/UI/ZoomPan.swift folded in: nothing to fold; macTEM's copy is this file minus the badge, `FocusedValues.paneZoom` and `zoomCommandTarget`, all kept here, and a shorter `PaneZoomModel` comment, mac4DSTEM's kept)
-// Changes: made public with explicit inits where an app builds one; `ZoomPan` marked `nonisolated` (pure value type); `PanDirection` nonisolated.
-// END MOVED FROM
 import SwiftUI
 
 /// Zoom and pan for a scientific image pane — pure SwiftUI.

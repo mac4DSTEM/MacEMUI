@@ -1,7 +1,3 @@
-// MOVED FROM: mac4DSTEM@8c4c06d mac4DSTEM/UI/PaneOverlays.swift lines 76-198 (macTEM@51c944c macTEM/UI/PaneOverlays.swift folded in: the bar's numbers (`nice125`, `ladder`, the digits of `format`) are ImagoKit's `ScaleBarMath`, as macTEM already has them; the localised `format`, the spoken label and the layout stay here)
-// Changes: made public; `ladder` and `nice125` removed (callers use `ScaleBarMath`); `footerSampling` NOT moved (it names the app's unit-label table); `format` no longer calls the app's `CalibrationUnitConversion.localizedDecimal` (same rule inlined).
-// END MOVED FROM
-
 import ImagoCore
 import SwiftUI
 

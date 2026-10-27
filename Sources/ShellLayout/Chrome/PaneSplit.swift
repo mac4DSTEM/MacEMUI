@@ -1,14 +1,10 @@
-// MOVED FROM: mac4DSTEM@8c4c06d mac4DSTEM/UI/WorkspaceView.swift (`PaneSplit`, `ResizePointer`) and mac4DSTEM/UI/BottomWorkspace.swift (`PaneHeader`) (macTEM@51c944c macTEM/UI/WorkspaceView.swift folded in: `ResizePointer` (identical); macTEM has no PaneSplit, its Output pane header is `PaneHeader`'s shape written inline)
-// Changes: made public; PaneSplit's VoiceOver label and the leading pane's name are parameters (they named the diffraction and real-space panes), and the pane floor a parameter defaulting to `LayoutPolicy.imagePaneMinimum`; `PaneHeader` renamed `ProcessPaneHeader`
-// END MOVED FROM
-
 import SwiftUI
 import ShellControls
 
 /// Two panes side by side with a divider the user drags (mac4DSTEM: the diffraction and real-space panes; the process
-/// area's Output and Lineage; macTEM's rooms adopt it as they are touched, alignment spec §2.2).
+/// area's Output and Lineage; macTEM's rooms adopt it as they are touched).
 ///
-/// **Why this is not `HSplitView`** (mac4DSTEM Gate D, 2026-09-04). `HSplitView` nested
+/// **Why this is not `HSplitView`** (a launch crash, 2026-09-04). `HSplitView` nested
 /// in the `NavigationSplitView` detail is half of a launch crash: with both it
 /// and the real panes present the app aborted in AppKit's update-constraints
 /// guard ~6 s after launching on the demo fixture, and removing either element
@@ -133,7 +129,7 @@ public struct PaneSplit<Leading: View, Trailing: View>: View {
                     .onEnded { _ in fractionAtDragStart = nil }
             )
             .accessibilityLabel(resizeLabel)
-            // A route without the mouse (mac4DSTEM UI audit 2026-10-14, G4): Tab to the divider, then Left/Right; and for
+            // A route without the mouse: Tab to the divider, then Left/Right; and for
             // VoiceOver an adjustable value, Up/Down on the rotor's adjust. Both move it `DividerNudge.step`.
             .accessibilityValue("\(leadingName) \(Int((min(max(fraction, smallest), 1 - smallest) * 100).rounded())) percent")
             .accessibilityAdjustableAction { direction in
@@ -163,7 +159,7 @@ public struct PaneSplit<Leading: View, Trailing: View>: View {
 /// The resize cursor over a divider. `.column` is the pane split's
 /// left–right pair; `.row` is the infobar's up–down pair — the bar is
 /// draggable over its whole width and needs a cursor that says so
-/// (mac4DSTEM window-design §1).
+
 struct ResizePointer: ViewModifier {
     enum Axis { case column, row }
     let axis: Axis

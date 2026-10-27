@@ -1,6 +1,3 @@
-// MOVED FROM: mac4DSTEM@8c4c06d mac4DSTEMTests/NavigationSeamTests.swift (process-area toggle) and mac4DSTEMTests/FinalPolishFTests.swift (restore and live-snap tests that drive navigation) (macTEM@51c944c macTEMTests/NavigationSeamTests.swift: same toggle test)
-// Changes: WorkspaceNavigation -> PanelNavigation, showLogPane -> showProcessArea; new tests for the pane set and the sidebar; the AppState/task/inspector-tab tests of NavigationSeamTests stay in the apps
-// END MOVED FROM
 import CoreGraphics
 import XCTest
 @testable import ShellLayout

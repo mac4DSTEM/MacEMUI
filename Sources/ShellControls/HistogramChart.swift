@@ -1,7 +1,3 @@
-// MOVED FROM: mac4DSTEM@8c4c06d mac4DSTEM/UI/HistogramView.swift (macTEM@51c944c macTEM/UI/ImageRoomDisplay.swift `IntensityHistogramView` folded in: its "draw only" shape (the bins and statistics come in, nothing is counted here), the "Log y-axis" label hidden from VoiceOver because the switch carries it, the Reset Range link's help text, the `reset` closure, the whole-histogram drag and the 1 % gap are the same in both; macTEM's window held in raw values stays app-side as a Binding adapter)
-// Changes: SPLIT into a pure drawing view. The binning (`recompute`, a `.task` over `pixels`) and the app's `HistogramReadout.text` (grouped counts via the app's formatter) stay app-side; bins, statistics, window bindings and the readout formatter come in as values. FIXED here: the footer's digits (default text is 4 significant digits, whole numbers from 1000, locale-aware; it was 3 significant in mac4DSTEM and 7 in macTEM) and "Reset Range" no longer sits on the Log y-axis row (it has its own trailing line under the readouts while the window is not the full range). The handle's halo opacity was `ApertureOutline.haloOpacity` (a 4D overlay type): its value, 0.6, is inlined.
-// END MOVED FROM
-
 import SwiftUI
 
 /// What the histogram's footer says about the data: the extremes and the mean of the finite values, in the pixels' own units.
@@ -35,7 +31,7 @@ public struct HistogramChart: View {
 
     private static let barHeight: CGFloat = 100
     /// The handles' dark halo (the aperture handles' vocabulary): the bars are the accent colour, so an accent handle disappeared
-    /// into them (UI audit 2026-10-14).
+    /// into them.
     private static let haloOpacity = 0.6
 
     // Owner decision (R26): linear counts by default — log counts on
@@ -186,7 +182,7 @@ public struct HistogramChart: View {
     }
 
     /// White on a dark halo, the aperture handles' vocabulary: the bars are the accent colour, so an accent handle disappeared into
-    /// them (UI audit 2026-10-14).
+    /// them.
     private func handleBar(x: CGFloat, height: CGFloat) -> some View {
         Rectangle()
             .fill(Color.black.opacity(Self.haloOpacity))

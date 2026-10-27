@@ -1,13 +1,9 @@
-// MOVED FROM: mac4DSTEM@8c4c06d mac4DSTEMTests/NavigationSeamTests.swift (the two S6 Frozen Shell tests of `WindowFillingLayout`; the rest of that file tests AppState and stays) (macTEM@51c944c: no differences folded in)
-// Changes: `@testable import ShellLayout`; assertions unchanged
-// END MOVED FROM
-
 import SwiftUI
 import XCTest
 @testable import ShellLayout
 
 nonisolated final class WindowFillingLayoutTests: XCTestCase {
-    // MARK: S6 Frozen Shell (2026-09-30)
+    // MARK: Frozen shell (2026-09-30)
 
     /// The window-width probe answers a finite proposal with itself, whatever
     /// the child needs. Red under the old shape (the split measured directly:

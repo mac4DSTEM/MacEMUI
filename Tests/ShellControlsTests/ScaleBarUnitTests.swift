@@ -1,6 +1,3 @@
-// MOVED FROM: mac4DSTEM@8c4c06d mac4DSTEMTests/ScaleBarUnitTests.swift (macTEM@51c944c macTEMTests/ScaleBarUnitTests.swift folded in: `ScaleBar.ladder` is ImagoKit's `ScaleBarMath.ladder`, as macTEM already has it; its nonisolated class)
-// Changes: `@testable import ShellControls`, `import ImagoCore`; class nonisolated (ScaleBar's statics are nonisolated); assertions identical.
-// END MOVED FROM
 import ImagoCore
 import XCTest
 @testable import ShellControls

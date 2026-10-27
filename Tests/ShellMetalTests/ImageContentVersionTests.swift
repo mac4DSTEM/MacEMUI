@@ -1,10 +1,7 @@
-// MOVED FROM: mac4DSTEM@8c4c06d mac4DSTEMTests/ImageContentVersionTests.swift (macTEM@51c944c macTEMTests/ImageContentVersionTests.swift: only the nonisolated class marker folded in)
-// Changes: DSTEMCore/DSTEMSession imports dropped, @testable import ShellMetal; class nonisolated; assertions unchanged.
-// END MOVED FROM
 //
 //  ImageContentVersionTests.swift
 //  Pins MetalImageView.contentVersion(of:width:height:) — the value- and
-//  dimension-dependent version behind `PendingLoad.DisplayImage` (v2 S4).
+//  dimension-dependent version behind `PendingLoad.DisplayImage`.
 //
 //  The defect class this guards: a dims-only version means swapping to a
 //  DIFFERENT image of the SAME shape never re-uploads the texture, so a

@@ -1,6 +1,3 @@
-// MOVED FROM: mac4DSTEM@8c4c06d mac4DSTEM/App/WorkspaceNavigation.swift (macTEM@51c944c macTEM/App/WorkspaceNavigation.swift folded in: nothing; macTEM's copy is mac4DSTEM's minus the task selection and the second pane)
-// Changes: the panel half only, made public; room and task state (workspaceArea, analysisMode, onModeChange) stay in each app's own class that owns a PanelNavigation; "Tools" renamed "Sidebar"; the two process panes became a set of ProcessPaneID
-// END MOVED FROM
 import Observation
 
 /// A process-area pane's identity (Output, Lineage, ...). The package knows `.output`; an app registers its
@@ -16,7 +13,7 @@ public nonisolated struct ProcessPaneID: Hashable, Sendable {
     public static let output = ProcessPaneID("output")
 }
 
-/// The panel half of the navigation/selection seam (S22c; `../_archive/mac4DSTEM/docs/archive/development-process-2026-08-31.md` §7):
+/// The panel half of the navigation/selection seam :
 /// which panes are visible and how tall the process area is. Pure view-state, no science.
 ///
 /// The app keeps its own room/task state (`workspaceArea`, `analysisMode`, the recovery hook) in a class that OWNS a
@@ -29,8 +26,7 @@ public final class PanelNavigation {
 
     public init() {}
 
-    /// The process area's share of the centre column (../_archive/mac4DSTEM/docs/archive/v4/window-design.md §4,
-    /// phase 1): 0 hides it, 1 hides the canvas instead — the infobar's two
+    /// The process area's share of the centre column: 0 hides it, 1 hides the canvas instead — the infobar's two
     /// extremes. `didSet` remembers the last NON-ZERO fraction it saw, so
     /// hiding the area never forgets the height the user dragged it to —
     /// the same shape `PaneSplit`'s `@SceneStorage` fraction protects

@@ -1,9 +1,6 @@
-// MOVED FROM: mac4DSTEM@8c4c06d mac4DSTEMTests/ZoomPanClampTests.swift (macTEM@51c944c macTEMTests/ZoomPanClampTests.swift folded in: its nonisolated class; the methods need no @MainActor here, `ZoomPan` is nonisolated)
-// Changes: `@testable import ShellControls`, app imports removed; class nonisolated; assertions identical.
-// END MOVED FROM
 import XCTest
 @testable import ShellControls
-/// R16 (S22 feedback, 2026-09-01): panning may reveal the image's edge but
+/// Panning may reveal the image's edge but
 /// must never push the image out of the pane. Pins the pure rule the
 /// gesture/scroll handlers all route through — |offset| ≤ size·(zoom − 1)/2,
 /// the scaled image's overhang per side (the views offset in screen points

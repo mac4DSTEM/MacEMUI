@@ -1,6 +1,3 @@
-// MOVED FROM: mac4DSTEM@8c4c06d mac4DSTEMTests/FinalPolishMTests.swift (P5b: the memory figure) and mac4DSTEMTests/PolishP2FormatTests.swift (P2ByteStyleTests)
-// Changes: test class nonisolated; no assertion changed
-// END MOVED FROM
 //
 //  The status strip's memory figure (P5b: the physical footprint, not resident_size) and the one byte style.
 //  Each test names the mutation it catches.

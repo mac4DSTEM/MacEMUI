@@ -1,13 +1,9 @@
-// MOVED FROM: mac4DSTEM@8c4c06d mac4DSTEM/UI/WorkspaceView.swift (`PrimaryActionButton`: the button, its glass styles, the Cancel button while a run is in flight; the title, hint, enablement and run logic stay in the app) (macTEM@51c944c: none, macTEM has no verb yet; the alignment spec 2026-10-22 §2.1 adds it)
-// Changes: split: the view takes a plain `PrimaryAction` value instead of reading AppState; the "which of verb, Cancel, spinner or nothing" decision is a pure function (`PrimaryActionPresentation`) so it is tested
-// END MOVED FROM
-
 import SwiftUI
 
 /// The room's one verb, as plain values the app builds from its own state (mac4DSTEM: `AppState`, the task and its
 /// readiness; macTEM: EDX Quantify, EELS's run). The shell draws it; it never decides what the verb is.
 ///
-/// Each room declares at most one verb (alignment spec §2.1). While a run is in flight the verb's place offers ONE
+/// Each room declares at most one verb. While a run is in flight the verb's place offers ONE
 /// thing, the way to cancel it.
 public struct PrimaryAction {
     /// The verb's label ("Compute Image", "Quantify"). Nil: this room has no verb, but a run may still be in flight

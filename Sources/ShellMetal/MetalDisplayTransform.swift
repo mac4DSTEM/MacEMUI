@@ -1,6 +1,3 @@
-// MOVED FROM: mac4DSTEM@8c4c06d mac4DSTEM/UI/MetalDisplayTransform.swift (macTEM@51c944c macTEM/UI/MetalDisplayTransform.swift: no macTEM differences folded in, it was a verbatim copy)
-// Changes: made public with explicit public init.
-// END MOVED FROM
 import CoreGraphics
 import simd
 

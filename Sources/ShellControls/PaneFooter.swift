@@ -1,7 +1,3 @@
-// MOVED FROM: mac4DSTEM@8c4c06d mac4DSTEM/UI/PaneOverlays.swift lines 32-74 (macTEM@51c944c macTEM/UI/PaneOverlays.swift folded in: nothing; the struct is identical)
-// Changes: made public with a public init. Drawing only, no app types.
-// END MOVED FROM
-
 import SwiftUI
 
 // MARK: - Pane footer

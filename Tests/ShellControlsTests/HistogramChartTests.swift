@@ -1,6 +1,3 @@
-// MOVED FROM: mac4DSTEM@8c4c06d mac4DSTEMTests/SpectroscopySpec2FTests.swift lines 5-45 (macTEM@51c944c: no counterpart; its `IntensityHistogramView` has no unit test of its own for the rules)
-// Changes: `HistogramReadout.commit/edge/safeScale` are `HistogramWindowRules` here (same bodies, Float); the `HistogramReadout.text` tests (grouped counts with the app's formatter) stay with the app; class nonisolated; the commit and edge assertions are identical. NEW: the default footer text (`HistogramChart.defaultValueText`).
-// END MOVED FROM
 import XCTest
 @testable import ShellControls
 

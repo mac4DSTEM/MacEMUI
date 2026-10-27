@@ -1,6 +1,3 @@
-// MOVED FROM: mac4DSTEM@8c4c06d mac4DSTEM/Session/SystemMonitor.swift (macTEM@51c944c macTEM/Sources/TEMSession/SystemMonitor.swift folded in: no differences in residentMemoryMB; macTEM's gpuName extract is not carried)
-// Changes: made public (was `package`) and nonisolated; only the process footprint and the two plain formatters; gpuName, gpuWorkingSetMB/Text (MetalEngine) and scanProgressStatus (DatasetDescriptor) stay app-side
-// END MOVED FROM
 //
 //  SystemMonitor.swift
 //  Role: Lightweight process metrics for the status strip, and the two plain formatters the apps print with.
@@ -18,7 +15,7 @@ public nonisolated enum SystemMonitor {
     /// `resident_size`: that counts the memory-mapped cube's clean file pages,
     /// which the kernel may drop at any time and which belong to the page
     /// cache, so a streamed 28 GB cube read "27 GB" for a process whose
-    /// footprint was 10-22 MB (`../_archive/mac4DSTEM/docs/archive/v4/parity-28gb-2026-09-30.md`).
+    /// footprint was 10-22 MB.
     /// The name is the frozen call site's (the status strip's `systemGlance`); it
     /// is renamed when that shell is next open. 0 when the kernel call fails.
     // The same 8 lines as `DetectorTraining.footprintMB`, copied rather than

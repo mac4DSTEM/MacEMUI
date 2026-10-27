@@ -1,6 +1,3 @@
-// MOVED FROM: mac4DSTEM@8c4c06d mac4DSTEM/App/MenuActionRelay.swift (macTEM@51c944c macTEM/App/MenuActionRelay.swift folded in: @Observable with the request counter a minimised window watches)
-// Changes: generic over the app's Action enum; made public; `run(_:in:)` (names the app's window state) stays app-side
-// END MOVED FROM
 //
 //  MenuActionRelay.swift
 //  Role: the one app-scoped hand-off from a File-menu command to a window

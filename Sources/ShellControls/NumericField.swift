@@ -1,7 +1,3 @@
-// MOVED FROM: mac4DSTEM@8c4c06d mac4DSTEM/UI/LayoutPolicy.swift lines 336-413 (macTEM@51c944c macTEM/UI/NumericField.swift folded in: nothing; the block is identical)
-// Changes: made public with a public init; `LayoutPolicy.numericFieldWidth` (ShellLayout, which depends on this module) became `NumericFieldMetrics.width` here, and LayoutPolicy should forward to it.
-// END MOVED FROM
-
 import SwiftUI
 
 /// The width every numeric field takes, in points: the one place a form control gets a width. `LayoutPolicy.numericFieldWidth`

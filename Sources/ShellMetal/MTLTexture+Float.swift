@@ -1,6 +1,3 @@
-// MOVED FROM: mac4DSTEM@8c4c06d mac4DSTEM/Core/Compute/MTLTexture+Float.swift (macTEM@51c944c Sources/TEMCore/Compute/MTLTexture+Float.swift: no macTEM differences folded in, it was a verbatim copy)
-// Changes: `package` became internal (only MetalImageView and the tests call these); extension marked `nonisolated`.
-// END MOVED FROM
 //
 //  MTLTexture+Float.swift
 //  Role: Small helpers to turn Swift arrays into Metal textures used by the

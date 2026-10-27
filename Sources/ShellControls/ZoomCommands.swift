@@ -1,9 +1,6 @@
-// MOVED FROM: mac4DSTEM@8c4c06d mac4DSTEM/UI/ZoomCommands.swift (no macTEM counterpart; macTEM has no View > Zoom commands yet and can adopt this one)
-// Changes: made public with a public init; the comment no longer names an app type. It has no app types, so it moves whole.
-// END MOVED FROM
 import SwiftUI
 
-/// View > Zoom In, Zoom Out, Zoom to Fit (UI audit 2026-10-14, "Zoom about the centre, no menu or wheel route"): the mouse's and
+/// View > Zoom In, Zoom Out, Zoom to Fit: the mouse's and
 /// the keyboard's way to what a pinch and a double-click do on the image panes.
 ///
 /// The commands act on the pane that publishes its zoom as the focused scene value (`FocusedValues.paneZoom`, set by

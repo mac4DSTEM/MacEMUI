@@ -1,14 +1,9 @@
-// MOVED FROM: mac4DSTEM@8c4c06d mac4DSTEM/App/ActivityLog.swift (macTEM@51c944c macTEM/App/ActivityLog.swift folded in: no differences; macTEM's copy is the same minus the AppState.showReadout extension)
-// Changes: made public; Line made nonisolated and Sendable; the AppState.showReadout extension stays app-side
-// END MOVED FROM
 //
 //  ActivityLog.swift
 //  Role: The session's rolling record of what happened, shown in the output
 //        strip along the bottom of the science panes.
 //
-//  An app-state seam (../_archive/mac4DSTEM/docs/archive/development-process-2026-08-31.md §7),
-//  under CLAUDE.md's rule that a session touching the app state moves one
-//  responsibility out of it. It is view-state with no science in it.
+//  An app-state seam: one responsibility moved out of the app state. It is view-state with no science in it.
 //
 //  Views read `activityLog.messages`; no forwarding properties on the app state.
 //
@@ -77,7 +72,7 @@ public final class ActivityLog {
     public func suppressNextRecordOnce() { suppressNextRecord = true }
 
     /// Empties the log. The bottom workspace's Output tab "Clear" button
-    /// (ADR 034) — a deliberate user action, not a rule this file enforces
+    /// — a deliberate user action, not a rule this file enforces
     /// on its own, so it is a plain removal with no suppression bookkeeping.
     public func clear() { lines.removeAll() }
 

@@ -1,7 +1,3 @@
-// MOVED FROM: mac4DSTEM@8c4c06d mac4DSTEM/App/ProductWorkflow.swift (the `WorkspaceArea` enum's room surface: title, subtitle, systemImage, shortcut) (macTEM@51c944c macTEM/App/WorkspaceNavigation.swift folded in: `isBuilt` as `isAvailable`, `shortcutDigit` derived from list order)
-// Changes: written new as a protocol: each app keeps its own room enum (cases, task lists, withheld rules) and conforms; nothing of either enum moved
-// END MOVED FROM
-
 import SwiftUI
 
 /// What the window shell needs to know about one of an app's rooms (workspaces): a name, a glyph, a one-line
@@ -20,7 +16,7 @@ public nonisolated protocol WorkspaceRoom: Hashable, Identifiable, Sendable wher
     /// ⌘1…⌘9 in list order, nil past nine. Derived by default for a `CaseIterable` room, so the menu and the list
     /// cannot disagree (macTEM's `shortcutDigit`).
     var shortcutNumber: Int? { get }
-    /// False for a room that is listed but not built: it is drawn dimmed and cannot be selected (macTEM, ADR 011).
+    /// False for a room that is listed but not built: it is drawn dimmed and cannot be selected (macTEM).
     /// A room that is unavailable only in this window (mac4DSTEM: a 4D room in a spectrum-only window) is told to
     /// `WorkspaceRoomsSection` through its `isAvailable` closure instead.
     var isAvailable: Bool { get }

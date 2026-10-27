@@ -1,11 +1,6 @@
-// MOVED FROM: mac4DSTEM@8c4c06d mac4DSTEM/UI/InspectorRows.swift lines 676-871 "Number entry" (macTEM@51c944c macTEM/UI/InspectorRows.swift lines ~508-704 folded in: nothing; the block is identical)
-// Changes: made public with explicit public inits; `resolve` marked nonisolated. Lives in ShellControls (not ShellInspector) because `NumericField` and `HistogramChart` build on it and ShellInspector depends on ShellControls. `OptionalNumericField` (mac4DSTEM only) stays with the inspector rows.
-// END MOVED FROM
-
 import SwiftUI
 
-/// How every numeric field reads and shows a number (Gate D, 2026-09-30,
-/// Session queue S3). The system's lenient parse, in a region whose decimal
+/// How every numeric field reads and shows a number (2026-09-30). The system's lenient parse, in a region whose decimal
 /// separator is a comma, read a typed period as grouping: `0.0275` became
 /// 275 and `0.2` became 0 — silently, in the calibration fields. So:
 /// - the value is shown without grouping (`1600`, never `1.600`), so a shown
@@ -193,7 +188,7 @@ where Format.FormatInput == Value, Format.FormatOutput == String {
     /// shows for the current value keeps; a text that does not parse keeps; the
     /// same value keeps (no provenance flip); else sets.
     ///
-    /// The shown text is not an edit (Gate D 2026-10-04): the field commits on
+    /// The shown text is not an edit: the field commits on
     /// blur, Return and teardown, and a format that shows fewer digits than the
     /// value has (a Defocus of 12.346 shown 12,3; a Float-backed 0.3, which is
     /// 0.30000001) would otherwise store its own rounding every time the field

@@ -1,7 +1,3 @@
-// MOVED FROM: mac4DSTEM@8c4c06d mac4DSTEM/UI/WorkspaceInspector.swift (`WorkspaceInspector`'s tab capsule, tab storage, top-pinned column and toolbar toggle; `InspectorToggleButton`; the Settings tab's ScrollView/VStack shape) (macTEM@51c944c macTEM/UI/WorkspaceInspector.swift folded in: nothing; NOT folded in: the toggle disabled with nothing open (alignment spec §2.1: a view command is always enabled, the inspector shows its empty state))
-// Changes: split: the frame only, over `PanelNavigation` and two content slots; the Settings and Info tabs' contents, the Requirements and Interpretation sections, the room switch and the legacy-tab-key migration (`migrateLegacyTab`, mac4DSTEM only) stay app-side; the tab type is internal and the storage key is `ShellStorageKeys.inspectorTab`
-// END MOVED FROM
-
 import SwiftUI
 
 /// The inspector's two tabs. Persisted so the column comes back on the tab the user left it on.
@@ -130,7 +126,7 @@ public struct WorkspaceInspectorFrame<Settings: View, Info: View>: View {
 }
 
 /// The inspector's toggle, declared once, in the inspector's own toolbar.
-/// ⌥⌘I here and in the View menu: one visible key (mac4DSTEM UI audit 2026-10-14, G2; it was a hidden ⌥⌘0 here and
+/// ⌥⌘I here and in the View menu: one visible key (; it was a hidden ⌥⌘0 here and
 /// ⌃⌘I there). Always enabled: it is a view command, and with no document the inspector shows its empty state.
 struct InspectorToggleButton: View {
     let navigation: PanelNavigation

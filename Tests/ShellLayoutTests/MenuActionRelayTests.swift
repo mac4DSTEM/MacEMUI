@@ -1,6 +1,3 @@
-// MOVED FROM: macTEM@51c944c macTEMTests/MenuActionRelayTests.swift (mac4DSTEM@8c4c06d mac4DSTEMTests/FinalPolishMTests.swift P5d tests folded in: latest request wins, the isEnabled table)
-// Changes: the relay is generic, so the tests use a local Action enum; the `run` tests (they drive the app's window state) stay in the apps
-// END MOVED FROM
 //
 //  Pins `MenuActionRelay`, the hand-off of a File-menu command (Open…, ⌘O) to a window that does not exist yet:
 //  a request is taken exactly once (a second window appearing later does not repeat it), a second request before

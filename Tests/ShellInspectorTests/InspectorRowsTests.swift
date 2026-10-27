@@ -1,6 +1,3 @@
-// MOVED FROM: mac4DSTEM@8c4c06d mac4DSTEMTests/InspectorRowsTests.swift (no macTEM counterpart)
-// Changes: @testable import ShellInspector; nonisolated test class with @MainActor methods; assertions unchanged
-// END MOVED FROM
 import SwiftUI
 import XCTest
 @testable import ShellInspector
