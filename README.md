@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/banner.png" width="100%" alt="MacEMUI: the window shell both macEM apps share"></p>
+
 # MacEMUI
 
 The window shell, controls and Metal image view that mac4DSTEM and macTEM share (suite task 8). An app package, not a
