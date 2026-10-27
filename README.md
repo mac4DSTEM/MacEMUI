@@ -1,4 +1,4 @@
-<p align="center"><img src="docs/banner.png" width="100%" alt="MacEMUI: the window shell both macEM apps share"></p>
+<p align="center"><img src="docs/banner.png" width="100%" alt="MacEMUI: one window for both apps, with rooms, inspector and a Metal image view, in SwiftUI"></p>
 
 # MacEMUI
 
