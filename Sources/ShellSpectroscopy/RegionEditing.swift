@@ -38,7 +38,7 @@ public nonisolated enum RegionEditing {
     public static func hit(_ geometry: RegionGeometry, at point: CGPoint, sx: CGFloat, sy: CGFloat, radius: CGFloat) -> RegionHit? {
         var best: (RegionHandle, CGFloat)?
         for (handle, p) in handles(of: geometry) {
-            let d = hypot(p.x * sx - point.x, p.y * sy - point.y)
+            let d: CGFloat = hypot(CGFloat(p.x) * sx - point.x, CGFloat(p.y) * sy - point.y)   // CGFloat throughout: Swift 6.3 infers the Double overload
             if d <= radius, d < (best?.1 ?? .infinity) { best = (handle, d) }
         }
         if let best { return .handle(best.0) }

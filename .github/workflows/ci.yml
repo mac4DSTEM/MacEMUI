@@ -1,7 +1,7 @@
 # MacEMUI CI: `swift test -c release --parallel` and, on a tag, the CHANGELOG version check.
 #
 # Two toolchains. `macos-26` with Xcode 26.6 (Swift 6.3) is what the apps' CI builds MacEMUI with, so it must stay green
-# there; `xcode-27` (macOS 27, Xcode 27, GitHub's preview image) is the toolchain the package is written for
+# there; `xcode-27` (macOS 27, Xcode 27.1, GitHub's preview image; not its 27.2 release candidate) is the toolchain the package is written for
 # (Package.swift: `.macOS("27.0")`). ShellMetalTests skip when the runner has no Metal device.
 # Never `swift build --build-tests -c release` (fails on this toolchain's Swift Build backend).
 name: CI
@@ -27,15 +27,14 @@ jobs:
           - runner: macos-26
             xcode: '26.6'
           - runner: xcode-27
-            xcode: '27'
+            xcode: '27.1'
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - name: Select Xcode ${{ matrix.xcode }}
         run: |
-          xcode=$(ls -d /Applications/Xcode_${{ matrix.xcode }}*.app | sort -V | tail -1)
-          sudo xcode-select -s "$xcode"
+          sudo xcode-select -s /Applications/Xcode_${{ matrix.xcode }}.app
           sw_vers
           xcodebuild -version
           swift --version
@@ -44,6 +43,7 @@ jobs:
           if ! xcrun -sdk macosx metal --version >/dev/null 2>&1; then
             sudo xcodebuild -downloadComponent MetalToolchain
           fi
+          xcrun -sdk macosx metal --version
       - name: swift test -c release --parallel
         run: swift test -c release --parallel
 
