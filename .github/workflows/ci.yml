@@ -26,6 +26,9 @@ jobs:
         include:
           - runner: macos-26
             xcode: '26.6'
+            # The shader library is built for macOS 27 (the package's platform) and macOS 26 cannot load it, so the
+            # tests that draw through MetalEngine run only on xcode-27 and the Mac.
+            skip: --skip MetalEngineDisplayTests
           - runner: xcode-27
             xcode: '27.1'
     runs-on: ${{ matrix.runner }}
@@ -45,7 +48,7 @@ jobs:
           fi
           xcrun -sdk macosx metal --version
       - name: swift test -c release --parallel
-        run: swift test -c release --parallel
+        run: swift test -c release --parallel ${{ matrix.skip }}
 
   version:
     name: CHANGELOG version matches the tag
