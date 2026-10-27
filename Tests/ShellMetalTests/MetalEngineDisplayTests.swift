@@ -15,6 +15,11 @@ import Metal
 
 nonisolated final class MetalEngineDisplayTests: XCTestCase {
 
+    /// A runner without a usable GPU skips these tests: `MetalEngine.shared` stops the process without a device.
+    override func setUpWithError() throws {
+        try XCTSkipUnless(MTLCreateSystemDefaultDevice() != nil, "no Metal device on this machine")
+    }
+
     func testTheEngineBuildsFromThePackagesDefaultLibrary() throws {
         let engine = MetalEngine.shared
         let names = Set(engine.library.functionNames)

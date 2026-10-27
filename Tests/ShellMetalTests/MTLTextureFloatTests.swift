@@ -17,6 +17,11 @@ import Metal
 
 nonisolated final class MTLTextureFloatTests: XCTestCase {
 
+    /// A runner without a usable GPU skips these tests instead of failing them.
+    override func setUpWithError() throws {
+        try XCTSkipUnless(MTLCreateSystemDefaultDevice() != nil, "no Metal device on this machine")
+    }
+
     private func device() throws -> MTLDevice {
         try XCTUnwrap(MTLCreateSystemDefaultDevice())
     }

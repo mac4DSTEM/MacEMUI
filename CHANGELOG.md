@@ -2,6 +2,25 @@
 
 MacEMUI follows semantic versioning; before 1.0.0 a minor version may break the API, and its Migration paragraph says how.
 
+## 0.3.1 (2026-10-27)
+
+MacEMUI builds with Xcode 26.6 again, so both apps' CI can go green, and it has CI of its own.
+
+### Fixed
+- `ShellToolbar`: both `visibilityPriority(.high)` call sites (the verb and the document menu) go through one helper that
+  applies it only with Swift 6.4 or newer (Xcode 27). 0.3.0 guarded one site at Swift 6.3, which the macos-26 runner's
+  Xcode 26.6 (Swift 6.3.3) passes without having the member, and left the other unguarded. Nothing changes on Xcode 27.
+- The Metal tests (`MTLTextureFloatTests`, `MetalEngineDisplayTests`) are skipped on a machine without a Metal device
+  instead of failing or stopping the run.
+
+### Added
+- CI: `swift test -c release --parallel` on macos-26 (Xcode 26.6) and on xcode-27 for every push and pull request, a
+  check that a tag equals the CHANGELOG's top version, and Dependabot for the workflow's actions.
+- A README for the public: what MacEMUI is, its products, how to depend on it, the licence.
+
+### Migration
+None. An app re-pins `exact: "0.3.1"`; no call site changes.
+
 ## 0.3.0 (2026-10-22)
 
 The corrected spectroscopy room (design 2026-10-22, approved by the owner after a drive on the real 1.7 GB file): the colour mix as the anchor tile where regions are drawn, maps fitted to the space they are given, one cursor, every
