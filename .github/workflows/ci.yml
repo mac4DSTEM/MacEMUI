@@ -1,0 +1,63 @@
+# MacEMUI CI: `swift test -c release --parallel` and, on a tag, the CHANGELOG version check.
+#
+# Two toolchains. `macos-26` with Xcode 26.6 (Swift 6.3) is what the apps' CI builds MacEMUI with, so it must stay green
+# there; `xcode-27` (macOS 27, Xcode 27.1, GitHub's preview image; not its 27.2 release candidate) is the toolchain the package is written for
+# (Package.swift: `.macOS("27.0")`). ShellMetalTests skip when the runner has no Metal device.
+# Never `swift build --build-tests -c release` (fails on this toolchain's Swift Build backend).
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ['*']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: test (${{ matrix.runner }}, Xcode ${{ matrix.xcode }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-26
+            xcode: '26.6'
+            # The shader library is built for macOS 27 (the package's platform) and macOS 26 cannot load it, so the
+            # tests that draw through MetalEngine run only on xcode-27 and the Mac.
+            skip: --skip MetalEngineDisplayTests
+          - runner: xcode-27
+            xcode: '27.1'
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode ${{ matrix.xcode }}
+        run: |
+          sudo xcode-select -s /Applications/Xcode_${{ matrix.xcode }}.app
+          sw_vers
+          xcodebuild -version
+          swift --version
+      - name: Ensure the Metal toolchain component
+        run: |
+          if ! xcrun -sdk macosx metal --version >/dev/null 2>&1; then
+            sudo xcodebuild -downloadComponent MetalToolchain
+          fi
+          xcrun -sdk macosx metal --version
+      - name: swift test -c release --parallel
+        run: swift test -c release --parallel ${{ matrix.skip }}
+
+  version:
+    name: CHANGELOG version matches the tag
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compare
+        run: |
+          top=$(grep -m1 -E '^## [0-9]+\.[0-9]+\.[0-9]+' CHANGELOG.md | sed -E 's/^## ([0-9]+\.[0-9]+\.[0-9]+).*/\1/')
+          tag=${GITHUB_REF_NAME#v}
+          [ "$top" = "$tag" ] || { echo "CHANGELOG top is $top, tag is $tag"; exit 1; }
