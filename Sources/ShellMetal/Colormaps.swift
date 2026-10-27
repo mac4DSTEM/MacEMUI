@@ -4,6 +4,7 @@
 import SwiftUI
 import Foundation
 
+/// Anchor colours from matplotlib's viridis and inferno (CC0) and ColorBrewer's RdBu (Apache-2.0); see `NOTICE`.
 public nonisolated enum Colormaps {
     /// Returns RGBA bytes for the requested colormap.
     public static func lutRGBA(_ kind: ColormapKind, count: Int = 256) -> [UInt8] {

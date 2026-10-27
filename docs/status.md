@@ -1,9 +1,8 @@
 # Status
 
-What is live. 0.3.0 is tagged (2026-10-22), the corrected spectroscopy room: `MapTileView`, `AnchoredMapsBlock`,
-`FittedMapGrid`, `HorizontalPaneSplit`, `PeriodicTable`, `SegmentedControl` and `SegmentedPicker` (AppKit, full width), `MapDisplayPopover`,
-`MapHistogram`, `MapViewTransform` (shared zoom and pan), `onScrollWheel` (a bounded local monitor) and `zoomPanWheel`, `RegionDrawingLayer`,
-`SpectrumLayerPlot`. 0.3.1 (2026-10-27) builds with Xcode 26.6 again and adds
-MacEMUI's own CI (macos-26 and xcode-27); the apps re-pin to it next.
+What is live. 0.3.1 (2026-10-27) is tagged: the corrected spectroscopy room of 0.3.0 (`MapTileView`, `AnchoredMapsBlock`,
+`FittedMapGrid`, `HorizontalPaneSplit`, `PeriodicTable`, `SegmentedControl` and `SegmentedPicker`, `MapDisplayPopover`,
+`MapHistogram`, `MapViewTransform`, `onScrollWheel` and `zoomPanWheel`, `RegionDrawingLayer`, `SpectrumLayerPlot`), building
+with Xcode 26.6 and with MacEMUI's own CI (macos-26 and xcode-27). `[Unreleased]` adds NOTICE, CONTRIBUTING and SECURITY.
 
-Last run (2026-10-27, Mac): `swift build` and `swift test -c release --parallel` green.
+Last run (2026-10-28, Mac): `swift build` green.
