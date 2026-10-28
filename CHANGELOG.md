@@ -11,7 +11,6 @@ MacEMUI deploys to macOS 26, so the apps can build and run their CI on the macos
 ### Changed
 - `Package.swift`: platform `.macOS(.v26)` (was `.macOS("27.0")`). `ToolbarItem.highVisibilityPriority()` applies
   `visibilityPriority(.high)` only on macOS 26.1 or newer, where SwiftUI has it; on 26.0 the item keeps the default priority.
-- CI runs the Metal drawing tests on the macos-26 runner too: the shader library is built for macOS 26 and loads there.
 - Source and test comments no longer carry move history or pointers to material outside this repository.
 
 ### Added
