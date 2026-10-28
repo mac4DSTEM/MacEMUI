@@ -1,4 +1,5 @@
 // swift-tools-version: 6.2
+// SPDX-License-Identifier: GPL-3.0-only
 // MacEMUI: the window shell, controls and Metal image view that mac4DSTEM and macTEM share.
 // An app package, not a kit: it has UI, Metal and (named, minimal) AppKit. Kits stay pure Swift and are not imported here
 // except ImagoCore for `ScaleBarMath` (ShellControls). No numerics live here.

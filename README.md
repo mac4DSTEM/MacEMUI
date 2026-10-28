@@ -54,4 +54,4 @@ The Metal tests need a GPU; on a machine without one they are skipped, not faile
 
 ## Licence
 
-GPL-3.0. See `LICENSE`.
+GPL-3.0-only. See `LICENSE`.
