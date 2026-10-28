@@ -50,11 +50,9 @@ public nonisolated final class MetalEngine: Sendable {  // DEVIATION: `: Sendabl
         guard let q = dev.makeCommandQueue() else {
             fatalError("Could not create a Metal command queue.")
         }
-        // Colormaps.metal is a resource of this package, so its library is in the package's bundle,
-        // not the app's default library.
-        guard let lib = try? dev.makeDefaultLibrary(bundle: .module) else {
-            fatalError(MetalError.noLibrary.localizedDescription)
-        }
+        let lib: MTLLibrary
+        do { lib = try Self.loadLibrary(dev) }
+        catch { fatalError("\(MetalError.noLibrary.localizedDescription) \(Bundle.module.bundlePath): \(error)") }
         self.device = dev
         self.queue = q
         self.library = lib
@@ -72,5 +70,17 @@ public nonisolated final class MetalEngine: Sendable {  // DEVIATION: `: Sendabl
         self.displayRGBAPSO = display(fragment: "rgbaFragment")
 
         print("[MetalEngine] GPU: \(dev.name), maxWorkingSet ≈ \(dev.recommendedMaxWorkingSetSize / 1_048_576) MB")
+    }
+
+    /// Colormaps.metal is a resource of this package, so its library is in the package's bundle, not the app's default
+    /// library. Xcode compiles it to the bundle's default.metallib; `swift build` with Xcode 26.6 copies the source
+    /// unchanged (the bundle holds Colormaps.metal and no metallib, MTLLibraryErrorDomain code 6), so the library is
+    /// then compiled from that source at first use.
+    static func loadLibrary(_ dev: MTLDevice) throws -> MTLLibrary {
+        if let lib = try? dev.makeDefaultLibrary(bundle: .module) { return lib }
+        guard let url = Bundle.module.url(forResource: "Colormaps", withExtension: "metal") else {
+            throw MetalError.noLibrary
+        }
+        return try dev.makeLibrary(source: String(contentsOf: url, encoding: .utf8), options: nil)
     }
 }
