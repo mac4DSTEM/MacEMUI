@@ -52,9 +52,9 @@ public nonisolated final class MetalEngine: Sendable {  // DEVIATION: `: Sendabl
         }
         // Colormaps.metal is a resource of this package, so its library is in the package's bundle,
         // not the app's default library.
-        guard let lib = try? dev.makeDefaultLibrary(bundle: .module) else {
-            fatalError(MetalError.noLibrary.localizedDescription)
-        }
+        let lib: MTLLibrary
+        do { lib = try dev.makeDefaultLibrary(bundle: .module) }
+        catch { fatalError("\(MetalError.noLibrary.localizedDescription) \(Bundle.module.bundlePath): \(error)") }
         self.device = dev
         self.queue = q
         self.library = lib

@@ -50,6 +50,15 @@ jobs:
           xcrun -sdk macosx metal --version
       - name: swift test -c release --parallel
         run: swift test -c release --parallel ${{ matrix.skip }}
+      - name: Diagnose the metallib (issue #16, temporary)
+        if: always()
+        run: |
+          find .build -path '*release*' -name '*.bundle' -maxdepth 3 -print -exec ls -laR {} \;
+          for f in $(find .build -name '*.metallib'); do echo "$f"; xcrun -sdk macosx metal-objdump --macho --private-headers "$f" 2>&1 | head -40 || true; file "$f"; done
+          xcrun -sdk macosx metal --version
+          xcrun -sdk macosx --show-sdk-version
+          system_profiler SPDisplaysDataType || true
+          swift test -c release --filter MetalEngineDisplayTests/testTheEngineBuildsFromThePackagesDefaultLibrary 2>&1 | tail -30 || true
 
   version:
     name: CHANGELOG version matches the tag
