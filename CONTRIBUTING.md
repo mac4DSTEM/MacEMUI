@@ -30,4 +30,4 @@ that app. There are no numerics here; the only kit it imports is ImagoCore (`Sca
 Please include what you did, what you saw and what you expected. For security problems, see
 [`SECURITY.md`](SECURITY.md).
 
-By contributing you agree that your contribution is licensed under the GPL-3.0 (see [`LICENSE`](LICENSE)).
+By contributing you agree that your contribution is licensed under the GPL-3.0-only (see [`LICENSE`](LICENSE)).
