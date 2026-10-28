@@ -1,12 +1,9 @@
-// MOVED FROM: mac4DSTEM@8c4c06d mac4DSTEMTests/InspectorKitGapsTests.swift (no macTEM counterpart)
-// Changes: @testable import ShellInspector; nonisolated test class with @MainActor methods and helpers; assertions unchanged
-// END MOVED FROM
 import AppKit
 import SwiftUI
 import XCTest
 @testable import ShellInspector
 
-/// The S6 kit additions: `InspectorWarning` (the caption-size orange note) and
+/// The kit additions: `InspectorWarning` (the caption-size orange note) and
 /// `InspectorAdaptiveMenu` (the menu twin of mac4DSTEM's `InspectorAdaptiveButton`).
 /// Both are laid out through a hosting controller, the way
 /// `InspectorWidthBudgetTests` measures a room.
@@ -39,7 +36,7 @@ nonisolated final class InspectorKitGapsTests: XCTestCase {
         XCTAssertEqual(kit.height, handRolled.height, accuracy: 0.5)
     }
 
-    // MARK: - Colour on the symbol only (UI audit 2026-10-14, B)
+    // MARK: - Colour on the symbol only
 
     /// Renders `view` in the light appearance and returns the columns (in points) of every strongly orange pixel.
     @MainActor private func orangeColumns<V: View>(of view: V, width: CGFloat) throws -> [Int] {
@@ -85,7 +82,7 @@ nonisolated final class InspectorKitGapsTests: XCTestCase {
         XCTAssertGreaterThan((old.last ?? 0) - (old.first ?? 0), 100, "the probe must be able to see orange text")
     }
 
-    // MARK: - Reduce Motion (UI audit 2026-10-14, C)
+    // MARK: - Reduce Motion
 
     /// Mutation: the function ignores its argument (always the ease) -> red.
     @MainActor func testSectionDisclosureDoesNotAnimateUnderReduceMotion() {

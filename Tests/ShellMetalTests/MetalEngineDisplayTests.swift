@@ -1,6 +1,3 @@
-// MOVED FROM: macTEM@51c944c macTEMTests/MetalEngineDisplayTests.swift (mac4DSTEM had no counterpart)
-// Changes: imports ShellMetal (@testable); the engine's library is the package's `default.metallib` (`Bundle.module`), not the test host's; `FloatImage.invalidDisplayValue` is the literal -1; assertions unchanged.
-// END MOVED FROM
 //
 //  MetalEngineDisplayTests.swift
 //  Pins `MetalEngine.shared`: it builds both display pipelines from the package's own default.metallib, and each pipeline draws what MetalImageView relies on. Off screen,

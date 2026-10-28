@@ -1,11 +1,7 @@
-// MOVED FROM: mac4DSTEM@8c4c06d mac4DSTEM/UI/ContentView.swift (`windowToolbarContent`, `ToolbarRunDisplay`, `ToolbarDisplayFormat`) (macTEM@51c944c macTEM/UI/ContentView.swift folded in: the document menu slot (its "Image" menu becomes the app's document menu, named by what it opens); NOT folded in: the drawn title and the missing display (alignment spec §2.1, owner question Q1 recommended yes))
-// Changes: split: the toolbar's arrangement as `ShellToolbar` over four slots; `ToolbarRunDisplay` takes plain values (idle text parts; busy operation, progress, elapsed, ETA) instead of AppState; the file/room/size wording takes the size as ready text
-// END MOVED FROM
-
 import Foundation
 import SwiftUI
 
-/// The window toolbar, Xcode's arrangement (mac4DSTEM ADR 036, window-design §8.1): the activity display in the
+/// The window toolbar, Xcode's arrangement: the activity display in the
 /// centre, never a button (the 2026-09-04 "C…" trap); at the trailing edge the room's verb, a fixed gap, the utility
 /// icons, then the document menu; the inspector's own toggle comes after, from `WorkspaceInspectorFrame`. Always
 /// there, so the analysis runs with both side panels hidden and the data at full size.
@@ -49,7 +45,7 @@ public struct ShellToolbar<Display: View, Verb: View, Utility: ToolbarContent, D
         ToolbarSpacer(.flexible, placement: .primaryAction)
         // The room's verb heads the trailing group, beside the actions on
         // its result and under the inspector where its parameters are set
-        // (mac4DSTEM ADR 036: parameters of the current workspace live on the
+        // (parameters of the current workspace live on the
         // right). `visibilityPriority` says what overflows first when the
         // window narrows: the verb and the document menu stay, the utility
         // icons go into the overflow menu.
@@ -58,7 +54,7 @@ public struct ShellToolbar<Display: View, Verb: View, Utility: ToolbarContent, D
         }
         .highVisibilityPriority()
         // The text-labelled verb sat flush against the icon buttons beside it; a fixed gap sets it apart as the
-        // room's one verb (HIG, Toolbars: group items by function). mac4DSTEM UI audit 2026-10-14, G3.
+        // room's one verb (HIG, Toolbars: group items by function).
         ToolbarSpacer(.fixed, placement: .primaryAction)
         utility
         ToolbarItem(placement: .primaryAction) {
@@ -133,7 +129,7 @@ public nonisolated enum ToolbarDisplayFormat {
     }
 }
 
-/// The toolbar's centre — Xcode's activity viewer (mac4DSTEM ADR 036: the document's
+/// The toolbar's centre — Xcode's activity viewer (the document's
 /// name and the current process belong in the toolbar).
 /// Idle: the file, the room and one fact (the size), one line, middle-truncating.
 /// Busy: the running operation and its elapsed time (and ETA when the app supplies one), ticking once a

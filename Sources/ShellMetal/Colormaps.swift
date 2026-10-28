@@ -1,6 +1,3 @@
-// MOVED FROM: mac4DSTEM@8c4c06d mac4DSTEM/App/Colormaps.swift (macTEM@51c944c macTEM/App/Colormaps.swift: no macTEM differences folded in, it was a verbatim copy)
-// Changes: enum and the three functions apps call made public (lutRGBA, sampleRGB, swatch); swatch helpers internal; enum and Double helper `nonisolated`; app-type import guard removed.
-// END MOVED FROM
 import SwiftUI
 import Foundation
 

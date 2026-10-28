@@ -1,11 +1,7 @@
-// MOVED FROM: mac4DSTEM@8c4c06d mac4DSTEM/UI/BottomWorkspace.swift (`OutputPane`) (macTEM@51c944c macTEM/UI/WorkspaceView.swift folded in: `OutputPane` (same body, header written inline); macTEM's accessibility identifier "process.output" and Clear's `lines.isEmpty` test not taken, mac4DSTEM's identifiers kept)
-// Changes: made public; reads an `ActivityLog` passed in instead of AppState; the header is `ProcessPaneHeader`
-// END MOVED FROM
-
 import Foundation
 import SwiftUI
 
-/// The rolling output log, auto-scrolled to the latest line (mac4DSTEM ADR 034: copy,
+/// The rolling output log, auto-scrolled to the latest line (copy,
 /// search and filter are later work). Both apps register it as their Output process tab:
 /// `ProcessTab.output { OutputPane(log: activityLog) }`.
 public struct OutputPane: View {

@@ -1,6 +1,3 @@
-// MOVED FROM: mac4DSTEM@8c4c06d mac4DSTEMTests/ScaleBarLocaleTests.swift lines 1-35 and `ColorbarLocaleTests.testColorbarRangeUsesTheReadersDecimalMark` (macTEM@51c944c: no counterpart)
-// Changes: `@testable import ShellControls`; classes nonisolated; assertions identical. LEFT BEHIND in mac4DSTEM: `testSamplingFollowsLocale` (needs `SessionResultPresentation`) and `testHistogramReadoutUsesTheReadersDecimalMark` (needs the app's `HistogramReadout.text`).
-// END MOVED FROM
 import XCTest
 @testable import ShellControls
 

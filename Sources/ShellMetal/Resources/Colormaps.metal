@@ -1,6 +1,3 @@
-// MOVED FROM: mac4DSTEM@8c4c06d mac4DSTEM/Shaders/Colormaps.metal (macTEM@51c944c macTEM/Shaders/Colormaps.metal: folded in the 3-line comment on parameter structs)
-// Changes: none to the shader code; now a ShellMetal package resource (library loads with makeDefaultLibrary(bundle: .module)).
-// END MOVED FROM
 //
 //  Colormaps.metal
 //  Role: GPU-side image display. A fullscreen-triangle vertex shader (no vertex

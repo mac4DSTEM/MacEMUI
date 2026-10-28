@@ -1,6 +1,3 @@
-// MOVED FROM: mac4DSTEM@8c4c06d mac4DSTEM/UI/DividerNudge.swift lines 25-39 (`processFraction`) (macTEM@51c944c macTEM/UI/DividerNudge.swift: same function, identical)
-// Changes: an extension of ShellControls' `DividerNudge`, in ShellLayout beside `ProcessAreaLayout` (it cannot live in ShellControls: ShellLayout depends on ShellControls). Made public.
-// END MOVED FROM
 // Drop into Sources/ShellLayout/Support/DividerNudge+Process.swift. `import ShellControls` for `DividerNudge.step`.
 
 import ShellControls

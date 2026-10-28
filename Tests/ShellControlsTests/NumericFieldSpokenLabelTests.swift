@@ -1,6 +1,3 @@
-// MOVED FROM: mac4DSTEM@8c4c06d mac4DSTEMTests/NumericFieldSpokenLabelTests.swift (no macTEM counterpart)
-// Changes: `@testable import ShellControls`; class nonisolated; assertions identical.
-// END MOVED FROM
 import XCTest
 @testable import ShellControls
 

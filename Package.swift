@@ -1,5 +1,5 @@
 // swift-tools-version: 6.2
-// MacEMUI: the window shell, controls and Metal image view that mac4DSTEM and macTEM share (suite task 8).
+// MacEMUI: the window shell, controls and Metal image view that mac4DSTEM and macTEM share.
 // An app package, not a kit: it has UI, Metal and (named, minimal) AppKit. Kits stay pure Swift and are not imported here
 // except ImagoCore for `ScaleBarMath` (ShellControls). No numerics live here.
 // Settings: Swift 6 language mode and MainActor default isolation, as macTEM; mac4DSTEM (Swift 5 mode) consumes it unchanged.
@@ -24,7 +24,7 @@ let package = Package(
         .library(name: "ShellSpectroscopy", targets: ["ShellSpectroscopy"]),
     ],
     dependencies: [
-        // ScaleBarMath (PaneFooter/ScaleBar). `from:` so the 0.7.0 tag and the apps' pins both resolve; the apps pin exact.
+        // ScaleBarMath (PaneFooter/ScaleBar). The apps pin exact tags.
         .package(url: "https://github.com/mac4DSTEM/ImagoKit", from: "0.6.1"),
     ],
     targets: [

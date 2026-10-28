@@ -1,11 +1,8 @@
-// MOVED FROM: mac4DSTEM@8c4c06d mac4DSTEM/UI/InspectorRows.swift lines 1076-1099, 1106-1109 and 1198-1205 (macTEM@51c944c macTEM/UI/InspectorRows.swift: no macTEM differences folded in beyond the locale-free "%g", which mac4DSTEM's newer locale-aware form replaces)
-// Changes: made public; only the members the shared rows and both apps use stay (briefHint, pixels, sectionHeaderValue); the room-specific strings and helpers stay in mac4DSTEM as an extension of RoomAccessibilityText
-// END MOVED FROM
 import Foundation
 import SwiftUI
 
 /// What VoiceOver says for values the screen shows as symbols, abbreviations or a prompt — pure strings, so a test can hold them
-/// (../_archive/mac4DSTEM/docs/archive/v5/a11y-rooms-apple-docs-audit-2026-10-07.md, group Y2). Nothing here is drawn.
+///. Nothing here is drawn.
 /// An app adds its own room strings in an extension of this enum.
 public nonisolated enum RoomAccessibilityText {
     /// The longest hint left as it is: Apple asks for "a brief phrase" ("Purchases the item").

@@ -1,6 +1,3 @@
-// MOVED FROM: mac4DSTEM@8c4c06d mac4DSTEMTests/MetalDisplayTransformTests.swift (macTEM@51c944c macTEMTests/MetalDisplayTransformTests.swift: only the nonisolated class marker folded in)
-// Changes: DSTEMCore/DSTEMSession imports dropped, @testable import ShellMetal; class nonisolated; assertions unchanged.
-// END MOVED FROM
 import XCTest
 @testable import ShellMetal
 

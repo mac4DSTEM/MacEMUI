@@ -1,7 +1,3 @@
-// MOVED FROM: mac4DSTEM@8c4c06d mac4DSTEM/UI/ContentView.swift (`ContentView.body`, `splitWindow`, the panel intent, the step-aside line, the launch flags, the toolbar placement comments) (macTEM@51c944c macTEM/UI/ContentView.swift folded in: the drop outline over the window while a file drag is over it (alignment spec §2.2); NOT folded in: the drawn window title (spec §2.1: set, not drawn))
-// Changes: split: the generic window skeleton only, over `PanelNavigation` and four slots; importers, sheets, alerts, observers of app state, the open/drop handlers and the `.navigationTitle` text stay in each app's own ContentView; "navigator"/"tools" renamed "sidebar"; the `--lineage-shown` launch flag stays app-side
-// END MOVED FROM
-
 import Foundation
 import SwiftUI
 
@@ -49,7 +45,7 @@ public nonisolated enum ShellLaunchFlags {
 
 /// The app's window: a SwiftUI-only shell.
 ///
-/// **The frozen rules** (mac4DSTEM ADR 035). `NavigationSplitView` and the native
+/// **The frozen rules** (). `NavigationSplitView` and the native
 /// `.inspector` are the whole window structure — no `NSSplitViewController`,
 /// no hosted AppKit shell, no custom pane chrome, no pane focus ring.
 ///
@@ -113,7 +109,7 @@ public struct ShellWindow<Sidebar: View, Canvas: View, Inspector: View, ToolbarI
         // `WindowFillingLayout` reports the window's width, not the split's
         // rigid one: `.onGeometryChange` on the split itself measured 1190 pt
         // in a 915-pt window after a Show Sidebar that could not grow the
-        // window, so the step-aside line below never fired (mac4DSTEM S6, 2026-09-30).
+        // window, so the step-aside line below never fired (window fill).
         WindowFillingLayout { splitWindow }
         .modifier(DropOutline(onDropURLs: onDropURLs, isTargeted: $dropTargeted))
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { windowWidth = $0 }
@@ -192,7 +188,7 @@ public struct ShellWindow<Sidebar: View, Canvas: View, Inspector: View, ToolbarI
         .navigationTitle(title)
         .toolbar(removing: .title)
         // Flat columns, glass on the buttons (owner, 2026-10-07): glass panes for the sidebar and inspector over a window
-        // material were tried (mac4DSTEM ADR 058 §5) and he preferred the flat columns with only the buttons in Liquid
+        // material were tried () and he preferred the flat columns with only the buttons in Liquid
         // Glass, as in Xcode — the toolbar's items are the system's glass, the bordered buttons in the columns are `.glass`.
     }
 
@@ -235,7 +231,7 @@ public struct ShellWindow<Sidebar: View, Canvas: View, Inspector: View, ToolbarI
     }
 }
 
-/// The accent outline over the window while a file drag is over it (macTEM, shared by the alignment spec §2.2). With
+/// The accent outline over the window while a file drag is over it (macTEM, shared). With
 /// no handler the window is not a drop target and the modifier does nothing.
 private struct DropOutline: ViewModifier {
     let onDropURLs: (([URL]) -> Bool)?

@@ -1,6 +1,3 @@
-// MOVED FROM: mac4DSTEM@8c4c06d mac4DSTEMTests/MTLTextureFloatTests.swift (macTEM@51c944c macTEMTests/MTLTextureFloatTests.swift: only the nonisolated class marker folded in)
-// Changes: import is ShellMetal; class nonisolated; assertions unchanged.
-// END MOVED FROM
 //
 //  MTLTextureFloatTests.swift
 //  Hygiene audit row 10-lite (2026-09-16): `MTLTexture+Float.swift` had zero

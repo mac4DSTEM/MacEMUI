@@ -1,7 +1,3 @@
-// MOVED FROM: mac4DSTEM@8c4c06d mac4DSTEM/UI/WorkspaceSidebar.swift (the `List(selection:)` and its three modifiers; the Workspace section of rooms with its row, badge, help, identifiers and the withheld/disabled treatment) (macTEM@51c944c macTEM/UI/WorkspaceSidebar.swift folded in: unavailable rooms drawn in the tertiary style so they read as unavailable in every state, "not built yet" help)
-// Changes: split: the chassis only, generic over `WorkspaceRoom`; the Dataset door, the Next hint, the task rows, the Spectroscopy tools, the Session section, macTEM's Open Files list and the removal dialog stay app-side as the `content` slot and ordinary modifiers
-// END MOVED FROM
-
 import SwiftUI
 
 /// The left column: navigation and context only. A source list, not a settings pane: selection, hover, the row
@@ -33,7 +29,7 @@ public struct WorkspaceSidebarFrame<Selection: Hashable, Content: View>: View {
         // held by review and the drive. The row selection capsule is drawn by
         // the table, not by this background, so hiding it costs nothing
         // visible. The glass lives on the buttons, not on a floating pane: the
-        // owner tried the pane (mac4DSTEM ADR 058 §5) and preferred the flat column.
+        // owner tried the pane () and preferred the flat column.
         .scrollContentBackground(.hidden)
         // Bounce only when there is something to scroll, so elastic
         // overscroll can never park the clip origin above the top.

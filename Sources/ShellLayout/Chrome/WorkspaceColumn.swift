@@ -1,7 +1,3 @@
-// MOVED FROM: mac4DSTEM@8c4c06d mac4DSTEM/UI/WorkspaceView.swift (`WorkspaceView`'s GeometryReader/VStack, scene-stored fractions and process-area gate; `StatusBar` (the infobar: drag, nudge, VoiceOver, toggles, run readout, glance)) and mac4DSTEM/UI/BottomWorkspace.swift (`BottomWorkspace`: which panes fill the area) (macTEM@51c944c macTEM/UI/WorkspaceView.swift folded in: the infobar's status line is events only and truncates in its own order, the glance is the memory figure alone (help "This app's memory footprint"); NOT folded in: the Output-only area gated on an open image (alignment spec §2.2: the gate is `hasDocument`, so EDX and EELS get Output))
-// Changes: split: the column's chassis only, over `PanelNavigation`, a canvas slot, registered process tabs, a `hasDocument` Bool and run/glance slots; the room switch, welcome, loading state, scan stepping, the Output and Lineage pane contents, the status text and the busy/last-run wording stay app-side; the two process panes became registered `ProcessTab`s
-// END MOVED FROM
-
 import Foundation
 import SwiftUI
 import ShellControls
@@ -31,8 +27,8 @@ public struct ProcessTab {
     }
 }
 
-/// The detail column: the science, and the infobar + process area along its bottom edge (mac4DSTEM window-design
-/// §4) — the room actions and the file name live in the toolbar, not here.
+/// The detail column: the science, and the infobar + process area along its bottom edge
+// — the room actions and the file name live in the toolbar, not here.
 ///
 /// **There is no workspace header.** The old `ProductWorkspaceHeader`
 /// repeated the sidebar row's own title and cost about 100 pt off the top of
@@ -69,7 +65,7 @@ public struct WorkspaceColumn<Canvas: View, Run: View, Glance: View>: View {
     ///     document, and only then: pass `false` while nothing is open, and while the document is still loading (the
     ///     dragged fraction is NOT reset for it — reopening restores the same split).
     ///   - statusText: The infobar's status line. Events only: the app clears it when the room or the document changes
-    ///     (alignment spec §2.2).
+    ///    .
     ///   - isRunning: A run is in flight. It decides the run slot's width priority: the run's numbers keep their
     ///     width longest, the idle "Last run" line gives way first.
     ///   - canvas: The science. Always in the hierarchy, even at fraction 1 where its height is 0: an `if` here
@@ -177,11 +173,11 @@ public struct WorkspaceColumn<Canvas: View, Run: View, Glance: View>: View {
 // MARK: - The infobar
 
 /// The permanent status strip along the centre column's bottom edge — one
-/// line, `LayoutPolicy.statusStripHeight` tall, nothing taller (mac4DSTEM ADR 034:
+/// line, `LayoutPolicy.statusStripHeight` tall, nothing taller (
 /// live operational detail lives in the process area, so this
 /// strip only glances).
 ///
-/// **Phase 1 (mac4DSTEM window-design §4–§6): this IS the centre column's
+/// **Phase 1: this IS the centre column's
 /// divider.** A `DragGesture` over the whole bar — every pixel of its
 /// width, via `.contentShape(Rectangle())` — reads `availableHeight` (the
 /// same denominator `WorkspaceColumn`'s `ProcessAreaLayout.heights` uses) and
@@ -309,7 +305,7 @@ struct Infobar<Run: View, Glance: View>: View {
         .contentShape(Rectangle())
         .modifier(ResizePointer(axis: .row))
         .simultaneousGesture(dragGesture)
-        // The strip is the bottom pane's divider and was drag-only (mac4DSTEM UI audit 2026-10-14, G4). VoiceOver gets two
+        // The strip is the bottom pane's divider and was drag-only. VoiceOver gets two
         // actions, not an adjustable value: the strip holds buttons of its own that must stay reachable, and an
         // adjustable element would swallow them. Keyboard: Tab to the strip, then Up/Down. Both do what the drag
         // does, `DividerNudge.step` at a time, and only with a document, like the drag.
@@ -442,7 +438,7 @@ public struct InfobarGlance: View {
             // strip's size (the constraint-loop rule), yet it compresses. A
             // fixed 250 pt floored the strip — and so the detail column —
             // at ~432 pt, and the inspector drew over the right science
-            // pane (mac4DSTEM Gate D).
+            // pane .
             .frame(minWidth: LayoutPolicy.compressibleSlotMinimum,
                    idealWidth: LayoutPolicy.statusGlanceWidth,
                    maxWidth: LayoutPolicy.statusGlanceWidth, alignment: .trailing)

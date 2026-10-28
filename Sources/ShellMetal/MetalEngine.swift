@@ -1,6 +1,3 @@
-// MOVED FROM: mac4DSTEM@8c4c06d mac4DSTEM/Core/Compute/MetalEngine.swift (macTEM@51c944c Sources/TEMCore/Compute/MetalEngine.swift folded in: `: Sendable`; mac4DSTEM's extra lines were only the role comment and `import MetalKit`)
-// Changes: made public (shared, device, queue); library and display pipelines internal; library loads from this package's bundle; comment no longer names an app type.
-// END MOVED FROM
 //
 //  MetalEngine.swift
 //  Role: The one place that owns the GPU — MTLDevice, command queue, the

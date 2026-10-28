@@ -1,7 +1,3 @@
-// MOVED FROM: mac4DSTEM@8c4c06d mac4DSTEM/UI/ContentView.swift (`WindowFillingLayout`) (macTEM@51c944c macTEM/UI/ContentView.swift folded in: nothing, macTEM's copy is verbatim)
-// Changes: made public; `reportedSize` marked nonisolated so a test can call it off the main actor
-// END MOVED FROM
-
 import SwiftUI
 
 /// A single-child container that is exactly as large as the space it is

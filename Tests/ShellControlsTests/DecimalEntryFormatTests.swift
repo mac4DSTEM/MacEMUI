@@ -1,9 +1,6 @@
-// MOVED FROM: mac4DSTEM@8c4c06d mac4DSTEMTests/DecimalEntryFormatTests.swift (no macTEM counterpart)
-// Changes: `@testable import ShellControls`; classes nonisolated, the `NumberEntryField.resolve` tests need no actor (it is nonisolated); assertions identical.
-// END MOVED FROM
 //
 //  DecimalEntryFormatTests.swift
-//  Gate D, 2026-09-30 (Session queue S3): in a region whose decimal separator
+//  2026-09-30: in a region whose decimal separator
 //  is a comma, the system's lenient number parse read a typed period as
 //  grouping — `0.0275` → 275, `0.020` → 20, `0.2` → 0 (which cleared the
 //  file's Q). Reproduced in the app (en_US with the German region) and with

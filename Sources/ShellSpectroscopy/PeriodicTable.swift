@@ -1,6 +1,6 @@
 //
 //  PeriodicTable.swift
-//  Role: the periodic table of the spectroscopy rooms' element control (design 2026-10-22; moved from mac4DSTEM's PeriodicTableView, ADR 056 / spec 2 D-9): 18 columns, periods 1 to 6, the f-block
+//  Role: the periodic table of the spectroscopy rooms' element control (design 2026-10-22; moved from mac4DSTEM's PeriodicTableView / spec 2 D-9): 18 columns, periods 1 to 6, the f-block
 //        and period 7 folded below. States are told by fill only: mapped (accent fill), proposed (accent outline), fit only (hollow), off (a quiet well), not detectable (dim). A click toggles
 //        Quantify and Off; a right-click gives the role (Quantify, Fit only, Off) and, per line family, the lines to check with their energies, and "Default lines". The table knows nothing of
 //        a session: the app answers each question through `PeriodicTableActions`.

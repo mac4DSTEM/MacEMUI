@@ -1,7 +1,3 @@
-// MOVED FROM: mac4DSTEM@8c4c06d mac4DSTEM/UI/PaneOverlays.swift lines 259-363 (Colorbar) and 363-537 (ColormapChip, split) (no macTEM counterpart: macTEM's image rooms draw no colorbar and its EDX tiles have their own `EDXColorbar`, to be replaced by this one, see the EDX design)
-// Changes: Colorbar made public; the LUT is built once in `body` instead of inside the Canvas closure (the closure is @Sendable under Swift 6); `format` no longer calls the app's `CalibrationUnitConversion.localizedDecimal` (same rule inlined). SPLIT: `ColormapChip` keeps the button, help, VoiceOver text, identifier and popover shell; the popover's CONTENT (colormap picker, histogram, gamma, ACOM confidence gate, log display, Q-scale units) names `AppState` and stays app-side and is passed in.
-// END MOVED FROM
-
 import ShellMetal
 import SwiftUI
 

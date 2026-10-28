@@ -1,6 +1,3 @@
-// MOVED FROM: mac4DSTEM@8c4c06d mac4DSTEM/UI/InspectorRows.swift lines 1-675 and 873-904 (macTEM@51c944c macTEM/UI/InspectorRows.swift: no macTEM differences folded in; macTEM's copy is a subset)
-// Changes: made public with explicit inits; LayoutPolicy constants replaced by InspectorMetrics; RoomAccessibilityText.briefHint/pixels/sectionHeaderValue and selectableText moved to InspectorAccessibility.swift; InspectorDataRow, InspectorAdaptiveButton, InspectorStatusRow, glass chips and the rest of RoomAccessibilityText left app-side; NumberEntryField, DecimalEntryFormat, PendingEdits live in ShellControls
-// END MOVED FROM
 import ShellControls
 import SwiftUI
 
@@ -271,7 +268,7 @@ public struct InspectorRow<Content: View>: View {
 /// Xcode's inspectors do). Info labels are often DATA — a provenance key such
 /// as "relative_reference_minimum_radius_px" — and a fixed-size row raised
 /// the inspector's minimum past its column and aborted the app at a 915-pt
-/// window (Gate D 2026-09-29, `InspectorWidthBudgetTests`). The stacked form
+/// window. The stacked form
 /// keeps the row's minimum width at a few characters WHATEVER the value
 /// says, so a live value (the scan position) can never move the inspector's
 /// minimum — the constraint-loop shape. Squeezing both onto one line failed
@@ -569,7 +566,7 @@ public struct InspectorWarning: View {
 // MARK: - Optional number entry
 
 /// A numeric field for a value that may be unset: empty shows `prompt`, and an
-/// emptied field commits nothing — the value in effect stays (S3: an emptied
+/// emptied field commits nothing — the value in effect stays (an emptied
 /// or unparsed entry must never clear a calibration the file supplied).
 public struct OptionalNumericField<Value: Equatable, Format: ParseableFormatStyle>: View
 where Format.FormatInput == Value, Format.FormatOutput == String {

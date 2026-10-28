@@ -1,10 +1,7 @@
-// MOVED FROM: mac4DSTEM@8c4c06d mac4DSTEMTests/ZoomAnchorTests.swift (macTEM@51c944c macTEMTests/ZoomAnchorTests.swift folded in: its nonisolated class; macTEM cut the badge test, kept here because the badge moved too)
-// Changes: `@testable import ShellControls`, app imports removed; class nonisolated, the three `PaneZoomModel` tests @MainActor; assertions identical.
-// END MOVED FROM
 //
 //  ZoomAnchorTests.swift
-//  Tier 2 (behaviour without a new number): zoom about the pointer, the zoom badge, and the model View > Zoom acts on.
-//  UI audit 2026-10-14, "Zoom about the centre, no menu or wheel route". The invariant under test is the one the picture shows:
+//  Zoom about the pointer, the zoom badge, and the model View > Zoom acts on.
+//  The invariant under test is the one the picture shows:
 //  the image point under the anchor does not move when the zoom changes.
 //
 

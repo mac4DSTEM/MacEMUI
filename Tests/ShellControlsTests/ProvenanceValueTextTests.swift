@@ -1,4 +1,4 @@
-// WRITTEN NEW for MacEMShell: pins `ProvenanceValueText.display` as moved from mac4DSTEM@8c4c06d UI/BottomWorkspace.swift (the app's tests only reach it through InspectorRows). Behaviour is the documented rule, not a new one.
+// Pins `ProvenanceValueText.display` (the app's tests only reach it through InspectorRows). Behaviour is the documented rule, not a new one.
 import XCTest
 @testable import ShellControls
 

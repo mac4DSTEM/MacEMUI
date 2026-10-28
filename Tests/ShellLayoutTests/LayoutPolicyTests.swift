@@ -1,6 +1,3 @@
-// MOVED FROM: mac4DSTEM@8c4c06d mac4DSTEMTests/NavigationSeamTests.swift (window width tests, infobar drag extremes) and mac4DSTEMTests/FinalPolishFTests.swift (the ProcessAreaLayout floor, snap and extremes tests) (macTEM@51c944c macTEMTests/NavigationSeamTests.swift: same tests, plus the pinned 915)
-// Changes: tests that drive WindowFillingLayout (Chrome) or WorkspaceNavigation (PanelNavigationTests) are not here; class nonisolated, assertions unchanged
-// END MOVED FROM
 import CoreGraphics
 import XCTest
 @testable import ShellLayout
@@ -41,7 +38,7 @@ nonisolated final class LayoutPolicyTests: XCTestCase {
     /// The sidebar dragged to its maximum must still leave the inspector and
     /// both science panes their floor at the window's minimum. A saved sidebar
     /// wider than that crashed every launch in the constraint loop at 915 pt
-    /// (Gate D 2026-09-28: restored window − sidebar ≤ 639 pt crashed, ≥ 640
+    /// (restored window − sidebar ≤ 639 pt crashed, ≥ 640
     /// launched; the 320-pt maximum was inside the crash region).
     func testTheWidestSidebarStillFitsTheMinimumWindow() {
         let required = LayoutPolicy.sidebarWidth.max + LayoutPolicy.inspectorWidth.min

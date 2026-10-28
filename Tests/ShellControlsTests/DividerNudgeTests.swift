@@ -1,9 +1,6 @@
-// MOVED FROM: mac4DSTEM@8c4c06d mac4DSTEMTests/DividerNudgeTests.swift lines 1-47 (macTEM@51c944c macTEMTests/DividerNudgeTests.swift folded in: nothing; macTEM kept only the process-strip tests)
-// Changes: `@testable import ShellControls`; class nonisolated. SPLIT: `testStripTallerOpensAndGrows` and `testStripShorterClosesAtTheFloorAndStaysShut` test `DividerNudge.processFraction`, which is in ShellLayout; they go to Tests/ShellLayoutTests/DividerNudgeProcessTests.swift. Assertions identical.
-// END MOVED FROM
 //
 //  DividerNudgeTests.swift
-//  UI audit 2026-10-14, G4: the two dividers (the science panes' and the status strip) move from the keyboard and
+//  The two dividers (the science panes' and the status strip) move from the keyboard and
 //  from VoiceOver by the same arithmetic. Pure functions; the views only call them.
 //
 //  Mutations these were broken against (each must turn a test red):

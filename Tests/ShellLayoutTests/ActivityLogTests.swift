@@ -1,6 +1,3 @@
-// MOVED FROM: mac4DSTEM@8c4c06d mac4DSTEMTests/ActivityLogTests.swift (+ SwiftUIReviewGTests.testActivityLogIdsStayUniqueAndStableAtCapacity, FormatStyleMigrationTests.testActivityLogClockIsUnchanged)
-// Changes: AppState-based tests left in the app; the observation test is written against the log itself; test class nonisolated, MainActor per method
-// END MOVED FROM
 import Foundation
 import Observation
 import XCTest

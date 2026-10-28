@@ -1,7 +1,3 @@
-// MOVED FROM: mac4DSTEM@8c4c06d mac4DSTEM/UI/BottomWorkspace.swift lines 229-243 (macTEM@51c944c macTEM/UI/ProvenanceValueText.swift folded in: nothing; macTEM's copy differs only in printing "%.5g" without the reader's locale, and mac4DSTEM's locale-aware form is kept)
-// Changes: made public and `nonisolated` (a pure string rule).
-// END MOVED FROM
-
 import Foundation
 
 /// A provenance value as a person reads it: a long decimal (`10.056641535141353`)

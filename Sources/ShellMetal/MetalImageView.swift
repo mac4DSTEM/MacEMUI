@@ -1,6 +1,3 @@
-// MOVED FROM: mac4DSTEM@8c4c06d mac4DSTEM/UI/MetalImageView.swift (macTEM@51c944c macTEM/UI/MetalImageView.swift: no macTEM differences folded in, it was a verbatim copy)
-// Changes: made public (struct, init, fields, both contentVersion functions, displayTransform(_:), representable witnesses, Coordinator); app-type import guard removed.
-// END MOVED FROM
 import SwiftUI
 import MetalKit
 

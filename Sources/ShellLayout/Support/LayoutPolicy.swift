@@ -1,6 +1,3 @@
-// MOVED FROM: mac4DSTEM@8c4c06d mac4DSTEM/UI/LayoutPolicy.swift (macTEM@51c944c macTEM/UI/LayoutPolicy.swift folded in: the single-argument memory glance without the residency word; macTEM's numbers are mac4DSTEM's, unchanged)
-// Changes: made public and nonisolated; OperationMetricsFormat takes plain values instead of AnalysisOperationMetrics; engine glance, throughputUnit(for:) and 4D-only/one-app constants left app-side
-// END MOVED FROM
 import Foundation
 import ShellControls
 import SwiftUI
@@ -37,7 +34,7 @@ public nonisolated enum LayoutPolicy {
     /// task list, never a control. The maximum is what still fits at the
     /// window's minimum beside the inspector's minimum and both science panes
     /// (915 − 280 − 4 − 361 = 270): a saved 320-pt sidebar crashed every
-    /// launch in the constraint loop at 915 pt (Gate D 2026-09-28).
+    /// launch in the constraint loop at 915 pt.
     public static let sidebarWidth: (min: CGFloat, ideal: CGFloat, max: CGFloat) = (190, 230, 270)
 
     /// The inspector: the workspace's settings and the dataset/product
@@ -111,15 +108,14 @@ public nonisolated enum LayoutPolicy {
     /// About six digits. A numeric field is never as wide as its row.
     public static let numericFieldWidth: CGFloat = NumericFieldMetrics.width   // one value: ShellControls owns it, this forwards
 
-    // Bottom workspace + status strip + inspector vocabulary (ADR 034): the
+    // Bottom workspace + status strip + inspector vocabulary: the
     // inspector holds durable state, the bottom pane live state. Every
     // fixed point in that surface is named here.
 
     /// The header row of each process pane (Output · Lineage).
     public static let bottomTabBarHeight: CGFloat = 26
 
-    /// The permanent status strip — the infobar. Phase 1 (../_archive/mac4DSTEM/docs/archive/v4/window-design.md
-    /// §4–§6) made this row the centre column's own divider. 34 pt is what
+    /// The permanent status strip — the infobar. Phase 1 made this row the centre column's own divider. 34 pt is what
     /// it takes to hold the Run tab's live numbers at 12-pt text with a
     /// Stop button.
     public static let statusStripHeight: CGFloat = 34
@@ -131,7 +127,7 @@ public nonisolated enum LayoutPolicy {
     /// the room and the scan size when idle; the running operation, its
     /// bar and its elapsed/ETA when busy (the breadcrumb row it replaces is
     /// gone). A constant width, the `operationReadoutWidth` rule: a ticking
-    /// string never reflows the toolbar (011). The maximum, not a fixed
+    /// string never reflows the toolbar. The maximum, not a fixed
     /// width: at a fixed 380 the display dropped out of a 1000-pt window
     /// and the surviving actions jumped to the room's leading edge. It now
     /// shrinks, middle-truncating, when the WINDOW narrows; a ticking string
@@ -153,7 +149,7 @@ public nonisolated enum LayoutPolicy {
 
     /// The process area's share of the centre column the infobar's toggle
     /// (and ⌃⌘L) restores when nothing has ever been dragged — the owner's
-    /// "default ideal" (../_archive/mac4DSTEM/docs/archive/v4/window-design.md §6).
+    /// "default ideal".
     public static let processAreaIdealFraction: Double = 0.3
 
     /// The least an OPEN process area is ever drawn at (owner card Q6 a,
@@ -171,7 +167,7 @@ public nonisolated enum LayoutPolicy {
     public static let processAreaSnapShutHeight: CGFloat = processAreaMinimumHeight / 2
 
     /// The engine · memory · residency glance slot in the infobar — a
-    /// constant width, like the metrics slot (011), so a changing figure
+    /// constant width, like the metrics slot, so a changing figure
     /// never reflows the strip. Sized to fit the engine's name
     /// ("Apple M3 Max · 1.4 GB · resident"). 250 was sized with the engine's name in front; the alignment
     /// (2026-10-22) drops the name, so the slot can shrink once the new text is measured. Not measured yet.
@@ -190,7 +186,7 @@ public nonisolated enum LayoutPolicy {
     public static let inspectorSectionSpacing: CGFloat = 12
 
     /// The inspector's header row — the Settings · Info segmented control in
-    /// a row of its own (../_archive/mac4DSTEM/docs/archive/v4/window-design.md §6.3).
+    /// a row of its own.
     public static let inspectorHeaderVerticalPadding: CGFloat = 8
     /// The inspector's tab capsule (Xcode's inspector tab bar, with words):
     /// the inset of the segments inside the glass capsule, and a segment's
@@ -236,8 +232,7 @@ public nonisolated enum LayoutPolicy {
     }
 }
 
-/// Pure layout math for the centre column's process area (../_archive/mac4DSTEM/docs/archive/v4/window-design.md
-/// §4–§6, phase 1): the infobar is the column's own
+/// Pure layout math for the centre column's process area : the infobar is the column's own
 /// divider, draggable anywhere along its whole width from the column's
 /// bottom edge (process area hidden) to its top edge (canvas hidden) —
 /// Xcode's two extremes. Free of `@State`/`@Bindable` so it is tested
@@ -385,7 +380,7 @@ public nonisolated enum OperationMetricsFormat {
         return parts.joined(separator: " · ")
     }
 
-    /// The status strip's memory glance (ADR 034): app memory — the
+    /// The status strip's memory glance: app memory — the
     /// process's physical footprint, Activity Monitor's Memory column, not
     /// the mapped cube's clean file pages — in Finder's decimal style
     /// (1000-based, `displayByteString`), so this reads the same as the
@@ -395,7 +390,7 @@ public nonisolated enum OperationMetricsFormat {
     /// fixed-width and ticks every 2 s, so it takes the raw MB figure rather
     /// than a pre-formatted string, the same shape as `duration`/`throughput`
     /// above. The engine's name does not belong in front of it (it never
-    /// changes and tells nothing, ADR 011; alignment 2026-10-22).
+    /// changes and tells nothing).
     public static func glance(residentMB: Double) -> String {
         // GB before MB, TB before GB: `>=`, not `>`, at each boundary — a
         // dataset that lands EXACTLY on 1 GB or 1 TB reads in the coarser
