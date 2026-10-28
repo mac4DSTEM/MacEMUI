@@ -1,8 +1,9 @@
 # MacEMUI CI: `swift test -c release --parallel` and, on a tag, the CHANGELOG version check.
 #
-# Two toolchains. `macos-26` with Xcode 26.6 (Swift 6.3) is what the apps' CI builds MacEMUI with, so it must stay green
-# there; `xcode-27` (macOS 27, Xcode 27.1, GitHub's preview image; not its 27.2 release candidate) is the toolchain the package is written for
-# (Package.swift: `.macOS("27.0")`). ShellMetalTests skip when the runner has no Metal device.
+# Two toolchains, each Xcode pinned. `macos-26` with Xcode 26.6 (Swift 6.3) is what the apps' CI builds MacEMUI with, so it
+# must stay green there; `xcode-27` (macOS 27, Xcode 27.1, GitHub's preview image; not its 27.2 release candidate) is the
+# toolchain the package is written for. The package deploys to macOS 26 (Package.swift: `.macOS(.v26)`), so the shader
+# library loads on both runners. ShellMetalTests skip when the runner has no Metal device.
 # Never `swift build --build-tests -c release` (fails on this toolchain's Swift Build backend).
 name: CI
 
@@ -26,9 +27,6 @@ jobs:
         include:
           - runner: macos-26
             xcode: '26.6'
-            # The shader library is built for macOS 27 (the package's platform) and macOS 26 cannot load it, so the
-            # tests that draw through MetalEngine run only on xcode-27 and the Mac.
-            skip: --skip MetalEngineDisplayTests
           - runner: xcode-27
             xcode: '27.1'
     runs-on: ${{ matrix.runner }}
@@ -48,7 +46,7 @@ jobs:
           fi
           xcrun -sdk macosx metal --version
       - name: swift test -c release --parallel
-        run: swift test -c release --parallel ${{ matrix.skip }}
+        run: swift test -c release --parallel
 
   version:
     name: CHANGELOG version matches the tag
