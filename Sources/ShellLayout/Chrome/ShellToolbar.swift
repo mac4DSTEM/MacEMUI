@@ -66,12 +66,18 @@ public struct ShellToolbar<Display: View, Verb: View, Utility: ToolbarContent, D
 }
 
 extension ToolbarItem {
-    /// `visibilityPriority(.high)` where the SDK has it. It is in Xcode 27's SwiftUI (Swift 6.4) only; Xcode 26.6
-    /// (Swift 6.3, the macos-26 runner the apps' CI uses) has no such member, so both call sites go through here.
-    /// Delete the guard once every CI builds with Xcode 27.
+    /// `visibilityPriority(.high)` where the SDK and the OS have it. It is in Xcode 27's SwiftUI (Swift 6.4) only, for
+    /// macOS 26.1 and newer; Xcode 26.6 (Swift 6.3, the macos-26 runner the apps' CI uses) has no such member, and the
+    /// package deploys to macOS 26.0, so both call sites go through here. Delete the compiler guard once every CI builds
+    /// with Xcode 27, and the availability check once the package deploys to macOS 26.1.
+    @ToolbarContentBuilder
     func highVisibilityPriority() -> some ToolbarContent {
         #if compiler(>=6.4)
-        visibilityPriority(.high)
+        if #available(macOS 26.1, *) {
+            visibilityPriority(.high)
+        } else {
+            self
+        }
         #else
         self
         #endif

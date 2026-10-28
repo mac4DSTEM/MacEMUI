@@ -15,7 +15,7 @@ let shellSettings: [SwiftSetting] = [
 
 let package = Package(
     name: "MacEMUI",
-    platforms: [.macOS("27.0")],
+    platforms: [.macOS(.v26)],
     products: [
         .library(name: "ShellMetal", targets: ["ShellMetal"]),
         .library(name: "ShellControls", targets: ["ShellControls"]),

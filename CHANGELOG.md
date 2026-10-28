@@ -4,11 +4,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Mac
 
 ## [Unreleased]
 
+## 0.3.2 (2026-10-28)
+
+MacEMUI deploys to macOS 26, so the apps can build and run their CI on the macos-26 runner (SDK 26.x).
+
+### Changed
+- `Package.swift`: platform `.macOS(.v26)` (was `.macOS("27.0")`). `ToolbarItem.highVisibilityPriority()` applies
+  `visibilityPriority(.high)` only on macOS 26.1 or newer, where SwiftUI has it; on 26.0 the item keeps the default priority.
+- Source and test comments no longer carry move history or pointers to material outside this repository.
+
 ### Added
 - `NOTICE`, `CONTRIBUTING.md` and `SECURITY.md`.
 
-### Changed
-- Source and test comments no longer carry move history or pointers to material outside this repository.
+### Migration
+- None for consumers on macOS 27. An app may now lower its own deployment target to macOS 26.
 
 ## 0.3.1 (2026-10-27)
 

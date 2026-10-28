@@ -25,7 +25,7 @@ it too: the pieces take values and bindings, not an app's model.
 
 ## Use it
 
-Requirements: macOS 27, Swift 6.2 tools or newer. It builds with Xcode 27 and with Xcode 26.6.
+Requirements: macOS 26, Swift 6.2 tools or newer. It builds with Xcode 27 and with Xcode 26.6.
 
 ```swift
 // Package.swift
