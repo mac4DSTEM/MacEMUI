@@ -5,4 +5,8 @@ What is live. 0.3.2 (2026-10-28) deploys to macOS 26 (release pending); 0.3.1 (2
 `MapHistogram`, `MapViewTransform`, `onScrollWheel` and `zoomPanWheel`, `RegionDrawingLayer`, `SpectrumLayerPlot`), building
 with Xcode 26.6 and with MacEMUI's own CI (macos-26 and xcode-27). 0.3.2 adds NOTICE, CONTRIBUTING and SECURITY.
 
+Next (issue 66, unreleased): the EDS room both apps showed as copies is one room here: `ShellEDXModel` (model and session) and
+`ShellSpectroscopy/EDX` (views, `EDXRoomState`); each app passes `EDXRoomHost` and `EDXRoomActions`. `UITestingPlacement` moved to
+ShellLayout and `LayoutPolicy.regionSwatchSize` with it.
+
 Last run (2026-10-28, Mac, Xcode 27.1): `swift test -c release --parallel` green, 179 tests.

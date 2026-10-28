@@ -2,6 +2,8 @@
 // land in, and the exports only one app makes. Each app builds it from its own window state; the room holds none of it.
 import Foundation
 
+/// The window's side of the shared EDS room's views, built by the app on the main actor. The views keep it, so its closures capture the
+/// window weakly (`[weak self]`), as the session's `onEvent`, `onFailure` and `onQuantMapsChange` do.
 public struct EDXRoomActions {
     /// A line for the window's status bar ("Exported results.csv").
     public var report: (String) -> Void

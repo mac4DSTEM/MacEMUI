@@ -1,7 +1,7 @@
 // swift-tools-version: 6.2
 // MacEMUI: the window shell, controls and Metal image view that mac4DSTEM and macTEM share.
-// An app package, not a kit: it has UI, Metal and (named, minimal) AppKit. Kits stay pure Swift and are not imported here
-// except ImagoCore for `ScaleBarMath` (ShellControls). No numerics live here.
+// An app package, not a kit: it has UI, Metal and (named, minimal) AppKit. Kits stay pure Swift; imported here are ImagoCore for
+// `ScaleBarMath` (ShellControls) and, for the shared EDS room, SpectroKit, FormatoKit and ImagoFilters. No numerics live here.
 // Settings: Swift 6 language mode and MainActor default isolation, as macTEM; mac4DSTEM (Swift 5 mode) consumes it unchanged.
 import PackageDescription
 

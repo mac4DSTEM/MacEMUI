@@ -4,6 +4,8 @@
 import Foundation
 import SpectroCore
 
+/// The app's side of the shared EDS room, given once to `EDXSession(host:)`. `open` runs off the main actor: it must not touch the
+/// app's main-actor state.
 public nonisolated struct EDXRoomHost: Sendable {
     /// The app's name: the `.msa` creator and the first word of the results and spectrum CSV titles ("macTEM").
     public var appName: String
