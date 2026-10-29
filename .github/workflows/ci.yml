@@ -30,13 +30,23 @@ jobs:
             xcode: '26.6'
           - runner: xcode-27
             xcode: '27.1'
-    runs-on: ${{ matrix.runner }}
+            # The org's Mac (macOS 27, Xcode 27.1) while the org variable MACEM_MAC_RUNNER is set; never for a fork PR.
+            mac: true
+    runs-on: ${{ matrix.mac && vars.MACEM_MAC_RUNNER && !github.event.pull_request.head.repo.fork && fromJSON(vars.MACEM_MAC_RUNNER) || matrix.runner }}
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
       - name: Select Xcode ${{ matrix.xcode }}
         run: |
-          sudo xcode-select -s /Applications/Xcode_${{ matrix.xcode }}.app
+          if [ "$RUNNER_ENVIRONMENT" = self-hosted ]; then
+            # The Mac runner: its own Xcode.app, chosen per job, never by xcode-select on that Mac.
+            export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+            echo "DEVELOPER_DIR=$DEVELOPER_DIR" >> "$GITHUB_ENV"
+            xcodebuild -version | grep -q "^Xcode ${{ matrix.xcode }}$" \
+              || echo "::warning::The Mac's Xcode.app is not Xcode ${{ matrix.xcode }}; this leg ran on $(xcodebuild -version | head -1)."
+          else
+            sudo xcode-select -s /Applications/Xcode_${{ matrix.xcode }}.app
+          fi
           sw_vers
           xcodebuild -version
           swift --version
