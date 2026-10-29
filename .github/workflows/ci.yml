@@ -61,8 +61,9 @@ jobs:
                 xcodebuild -showComponent MetalToolchain || true
                 echo "::error::No Metal toolchain for $(xcodebuild -version | head -1) on the Mac runner."; exit 1
               }
+            else
+              sudo xcodebuild -downloadComponent MetalToolchain
             fi
-            sudo xcodebuild -downloadComponent MetalToolchain
           fi
           xcrun -sdk macosx metal --version
       - name: swift test -c release --parallel
