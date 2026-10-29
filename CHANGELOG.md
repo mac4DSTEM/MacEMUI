@@ -2,8 +2,6 @@
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). MacEMUI follows semantic versioning; before 1.0.0 a minor version may break the API, and its Migration paragraph says how.
 
-## [Unreleased]
-
 ## 0.3.2 (2026-10-28)
 
 MacEMUI deploys to macOS 26, so the apps can build and run their CI on the macos-26 runner (SDK 26.x).
