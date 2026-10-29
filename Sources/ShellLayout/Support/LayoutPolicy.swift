@@ -183,6 +183,8 @@ public nonisolated enum LayoutPolicy {
 
     /// The inspector's rhythm (labels take their own width — no label column).
     public static let inspectorRowSpacing: CGFloat = 6
+    /// The colour dot before a region's name in a spectroscopy room's regions table.
+    public static let regionSwatchSize: CGFloat = 9
     public static let inspectorSectionSpacing: CGFloat = 12
 
     /// The inspector's header row — the Settings · Info segmented control in

@@ -17,7 +17,8 @@ Tests use XCTest and Swift Testing. The Metal tests need a GPU and are skipped o
 ## Scope
 
 MacEMUI is the window shell, controls and Metal image view that two apps share. A helper only one app uses belongs in
-that app. There are no numerics here; the only kit it imports is ImagoCore (`ScaleBarMath`).
+that app. There are no numerics here; ImagoCore gives `ScaleBarMath`, and the shared EDS room calls SpectroKit, FormatoKit and ImagoFilters for
+every number it shows.
 
 ## Pull requests
 
