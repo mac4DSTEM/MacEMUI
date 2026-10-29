@@ -54,10 +54,13 @@ jobs:
         run: |
           if ! xcrun -sdk macosx metal --version >/dev/null 2>&1; then
             if [ "$RUNNER_ENVIRONMENT" = self-hosted ]; then
-              # No sudo on the Mac runner: show why, the component is installed once by the runner's setup.
-              xcrun -sdk macosx metal --version || true
-              xcodebuild -showComponent MetalToolchain || true
-              echo "::error::No Metal toolchain for $(xcodebuild -version | head -1) on the Mac runner."; exit 1
+              # No sudo on the Mac runner. The component is installed system-wide by the runner's setup, but Xcode 27
+              # also wants it registered for the CI user, which an unprivileged download request does.
+              xcodebuild -downloadComponent MetalToolchain || true
+              xcrun -sdk macosx metal --version || {
+                xcodebuild -showComponent MetalToolchain || true
+                echo "::error::No Metal toolchain for $(xcodebuild -version | head -1) on the Mac runner."; exit 1
+              }
             fi
             sudo xcodebuild -downloadComponent MetalToolchain
           fi
