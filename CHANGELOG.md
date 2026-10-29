@@ -2,6 +2,18 @@
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). MacEMUI follows semantic versioning; before 1.0.0 a minor version may break the API, and its Migration paragraph says how.
 
+## [0.4.0](https://github.com/mac4DSTEM/MacEMUI/compare/0.3.2...0.4.0) (2026-10-29)
+
+
+### Features
+
+* the shared EDS room (ShellEDXModel, EDXRoom in ShellSpectroscopy) ([#24](https://github.com/mac4DSTEM/MacEMUI/issues/24)) ([ecd5266](https://github.com/mac4DSTEM/MacEMUI/commit/ecd5266291c2cfe3a61c2d8170bf0cc005532a94))
+
+
+### Bug Fixes
+
+* compile the colormap shaders from source when the bundle has no metallib ([#21](https://github.com/mac4DSTEM/MacEMUI/issues/21)) ([066cfab](https://github.com/mac4DSTEM/MacEMUI/commit/066cfab71e3ac96e9cc4df5516b6f5adfbf64b3d))
+
 ## 0.3.2 (2026-10-28)
 
 MacEMUI deploys to macOS 26, so the apps can build and run their CI on the macos-26 runner (SDK 26.x).
