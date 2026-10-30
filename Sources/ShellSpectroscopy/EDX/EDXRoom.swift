@@ -90,6 +90,8 @@ public struct EDXRoom: View {
             case .failure(let error): actions.present(error)
             }
         }
+        // Esc goes back to the arrow tool, as in the other rooms' drawing tools.
+        .onExitCommand { state.escape() }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("edx.room")
     }
