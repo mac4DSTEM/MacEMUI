@@ -1,6 +1,7 @@
 import SwiftUI
 import XCTest
 @testable import ShellInspector
+import ShellLayout
 
 /// `AdjustmentSlider.clamp(_:to:)` — the one piece of the inspector's
 /// Lightroom-style slider row that is not a view and can be tested without
@@ -43,5 +44,14 @@ nonisolated final class InspectorSectionScopeKeyTests: XCTestCase {
             InspectorSection<EmptyView>.sceneStorageKey(scope: "settings.map", title: "Result"),
             "inspector.section.settings.map.Result"
         )
+    }
+}
+
+/// `InspectorMetrics` repeats numbers the apps read from `LayoutPolicy` (ShellInspector cannot import ShellLayout); the two must not drift.
+nonisolated final class InspectorMetricsConsistencyTests: XCTestCase {
+    @MainActor func testTheInspectorsNumbersAreLayoutPolicys() {
+        XCTAssertEqual(InspectorMetrics.rowSpacing, LayoutPolicy.inspectorRowSpacing)
+        XCTAssertEqual(InspectorMetrics.adjustmentValueWidth, LayoutPolicy.adjustmentValueWidth)
+        XCTAssertEqual(InspectorMetrics.numericFieldWidth, LayoutPolicy.numericFieldWidth)
     }
 }

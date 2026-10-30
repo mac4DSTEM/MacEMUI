@@ -58,7 +58,7 @@ let package = Package(
                 swiftSettings: shellSettings),
         .testTarget(name: "ShellMetalTests", dependencies: ["ShellMetal"], swiftSettings: shellSettings),
         .testTarget(name: "ShellControlsTests", dependencies: ["ShellControls"], swiftSettings: shellSettings),
-        .testTarget(name: "ShellInspectorTests", dependencies: ["ShellInspector"], swiftSettings: shellSettings),
+        .testTarget(name: "ShellInspectorTests", dependencies: ["ShellInspector", "ShellLayout"], swiftSettings: shellSettings),
         .testTarget(name: "ShellLayoutTests", dependencies: ["ShellLayout"], swiftSettings: shellSettings),
         .testTarget(name: "ShellSpectroscopyTests", dependencies: ["ShellSpectroscopy", "ShellMetal", "ShellControls"], swiftSettings: shellSettings),
         .testTarget(name: "ShellEDXTests",

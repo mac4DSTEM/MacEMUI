@@ -140,6 +140,11 @@ public struct MapTileView<Controls: View>: View {
         .onTapGesture(count: 2) { transform.reset() }
         // Zoom: the wheel and a pinch about the pointer (the same transform on every tile); a double click returns to the whole scan.
         .onScrollWheel { event in
+            if event.modifiers.contains(.option) {
+                // ⌥-scroll pans, by the panes' rule.
+                transform.pan(by: ZoomPan.scrollTranslation(deltaX: event.deltaX, deltaY: event.delta, isPrecise: event.isPrecise), in: size)
+                return
+            }
             let anchor = transform.picturePoint(forTile: event.location, in: size)
             transform.zoom(by: ScrollZoom.factor(delta: event.delta, isPrecise: event.isPrecise), about: anchor)
         }
