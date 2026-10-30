@@ -95,3 +95,19 @@ nonisolated final class MapViewTransformTests: XCTestCase {
         XCTAssertEqual(ScrollZoom.factor(delta: .nan, isPrecise: true), 1)
     }
 }
+
+nonisolated final class TileClickActionTests: XCTestCase {
+    /// A double click returns to the whole scan and does not also toggle the map in the colour mix (it used to fire both handlers).
+    func testADoubleClickOnlyResetsTheView() {
+        let double = TileClickAction.effects(clickCount: 2, selectable: true)
+        XCTAssertTrue(double.contains(.resetView))
+        XCTAssertFalse(double.contains(.toggleMix), "a double click leaves the mix as it was")
+    }
+
+    /// A single click toggles a selectable map and never resets the view; on any tile it takes the focus.
+    func testASingleClickTogglesOnlyASelectableMap() {
+        XCTAssertEqual(TileClickAction.effects(clickCount: 1, selectable: true), [.focus, .toggleMix])
+        XCTAssertEqual(TileClickAction.effects(clickCount: 1, selectable: false), [.focus])
+        XCTAssertEqual(TileClickAction.effects(clickCount: 0, selectable: true), [])
+    }
+}
