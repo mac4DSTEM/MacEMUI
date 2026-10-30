@@ -13,6 +13,8 @@ import SwiftUI
 /// coordinates with the origin at the top left.
 public struct ScrollWheelEvent: Sendable {
     public var delta: CGFloat
+    /// The horizontal delta, same sign convention (an ⌥-scroll pans with both).
+    public var deltaX: CGFloat = 0
     public var isPrecise: Bool
     public var location: CGPoint
     public var modifiers: NSEvent.ModifierFlags
@@ -44,7 +46,7 @@ private struct ScrollWheelBackground: NSViewRepresentable {
             guard let handler, event.window === window, !isHiddenOrHasHiddenAncestor else { return event }
             let point = convert(event.locationInWindow, from: nil)
             guard ScrollWheelRouting.accepts(point: point, in: bounds) else { return event }
-            handler(ScrollWheelEvent(delta: event.scrollingDeltaY, isPrecise: event.hasPreciseScrollingDeltas, location: point, modifiers: event.modifierFlags))
+            handler(ScrollWheelEvent(delta: event.scrollingDeltaY, deltaX: event.scrollingDeltaX, isPrecise: event.hasPreciseScrollingDeltas, location: point, modifiers: event.modifierFlags))
             return nil
         }
 

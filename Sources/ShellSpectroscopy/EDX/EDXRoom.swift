@@ -90,6 +90,17 @@ public struct EDXRoom: View {
             case .failure(let error): actions.present(error)
             }
         }
+        // Esc goes back to the arrow tool wherever the focus is in the window (the tools are in the inspector, outside this view, and a
+        // tile being drawn on holds no focus, so `onExitCommand` here would rarely hear the key). A key equivalent, enabled only while a
+        // drawing tool is chosen, so Esc is left alone otherwise; a text field or a sheet that takes Esc itself still comes first.
+        .background {
+            Button("Arrow Tool") { state.escape() }
+                .keyboardShortcut(.cancelAction)
+                .disabled(state.tool == .pointer)
+                .opacity(0)
+                .frame(width: 0, height: 0)
+                .accessibilityHidden(true)
+        }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("edx.room")
     }

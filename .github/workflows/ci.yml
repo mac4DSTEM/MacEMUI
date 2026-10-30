@@ -1,4 +1,4 @@
-# MacEMUI CI: `swift test -c release --parallel` and, on a tag, the CHANGELOG version check.
+# MacEMUI CI: `swift test -c release --parallel`, a scan for private references and, on a tag, the CHANGELOG version check.
 #
 # Two toolchains, each Xcode pinned. `macos-26` with Xcode 26.6 (Swift 6.3) is what the apps' CI builds MacEMUI with, so it
 # must stay green there; `xcode-27` (macOS 27, Xcode 27.1, GitHub's preview image; not its 27.2 release candidate) is the
@@ -80,3 +80,14 @@ jobs:
           top=$(grep -m1 -E '^## \[?v?[0-9]+\.[0-9]+\.[0-9]+' CHANGELOG.md | sed -E 's/^## \[?v?([0-9]+\.[0-9]+\.[0-9]+).*/\1/')
           tag=${GITHUB_REF_NAME#v}
           [ "$top" = "$tag" ] || { echo "CHANGELOG top is $top, tag is $tag"; exit 1; }
+
+  private-refs:
+    name: No private references
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Scan tracked files
+        run: |
+          if git grep -n -I -E '_archive|CLAUDE\.md|memcap|macEM-suite|setup-python-refs' -- ':!.gitignore' ':!.github/workflows/ci.yml'; then
+            echo "Private references above; this repo is public."; exit 1
+          fi
