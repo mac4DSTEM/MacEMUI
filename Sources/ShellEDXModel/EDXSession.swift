@@ -634,14 +634,14 @@ public final class EDXSession {
         pinDataTask?.cancel()
         pinDataRun += 1
         guard let source, !pins.isEmpty else { pinSpectra = [:]; pinRows = []; return }
-        let run = pinDataRun, pins = pins, cache = cache, symbols = quantifiedSymbols
+        let run = pinDataRun, pins = pins, cache = cache, symbols = quantifiedSymbols, beam = beamEnergy
         let setup = try? EDXQuantMaps.setup(method: method, mapMethod: mapMethod, dose: dose, symbols: symbols)
         pinDataTask = Task.detached(priority: .userInitiated) { [weak self] in
             var spectra: [EDXPin.ID: [Double]] = [:]
             for pin in pins where pin.isVisible {
                 spectra[pin.id] = EDXCompute.spectrum(source: source, region: pin.region, cache: cache).map { Double($0) }
             }
-            let rows = EDXPins.rows(pins: pins, source: source, symbols: symbols, setup: setup, cache: cache)
+            let rows = EDXPins.rows(pins: pins, source: source, symbols: symbols, setup: setup, cache: cache, beamEnergyKeV: beam)
             if Task.isCancelled { return }
             await self?.landPinData(spectra: spectra, rows: rows, run: run)
         }
@@ -667,11 +667,11 @@ public final class EDXSession {
     /// The pins CSV: each pin's pixels, counts, net counts and (with complete factors) composition, summed off the main actor.
     public func pinsCSV() async -> String? {
         guard let source, !pins.isEmpty else { return nil }
-        let pins = pins, cache = cache, name = fileName, title = host.regionsTitle
+        let pins = pins, cache = cache, name = fileName, title = host.regionsTitle, beam = beamEnergy
         let symbols = quantifiedSymbols
         let setup = try? EDXQuantMaps.setup(method: method, mapMethod: mapMethod, dose: dose, symbols: symbols)
         return await Task.detached(priority: .userInitiated) {
-            EDXPins.csv(rows: EDXPins.rows(pins: pins, source: source, symbols: symbols, setup: setup, cache: cache), fileName: name, title: title)
+            EDXPins.csv(rows: EDXPins.rows(pins: pins, source: source, symbols: symbols, setup: setup, cache: cache, beamEnergyKeV: beam), fileName: name, title: title)
         }.value
     }
 
@@ -692,9 +692,11 @@ public final class EDXSession {
         var m = method
         edit(&m)
         guard m != before else { return }
+        let beamBefore = beamEnergy
         method = m
         if case .failed(EDXCompute.autoIDNeedsBeamNote) = autoID, beamEnergy != nil { autoID = .idle }
-        if quantifyActive { refresh() } else if mapMode != .net { startMaps() }
+        // The beam energy says which lines are excited: the windows, maps and region rows follow it at once, not only after the verb.
+        if quantifyActive || beamEnergy != beamBefore { refresh() } else if mapMode != .net { startMaps() }
     }
 
     /// Which composition the maps draw. wt% and at% need the typed k; until they have it the status strip says what to type.
@@ -788,7 +790,7 @@ public final class EDXSession {
         generation += 1
         isRefreshing = true
         let gen = generation
-        let region = region, picks = picks, cache = cache
+        let region = region, picks = picks, cache = cache, beam = beamEnergy
         var request: QuantificationMethod?
         if quantifyActive && canQuantify {
             var m = method
@@ -804,7 +806,7 @@ public final class EDXSession {
             let interval = EDSSignposts.begin("edx.refresh")
             let spectrum = EDXCompute.spectrum(source: source, region: region, cache: cache)
             if Task.isCancelled { return }
-            let windows = EDXCompute.windows(source: source, spectrum: spectrum, picks: picks, cache: cache)
+            let windows = EDXCompute.windows(source: source, spectrum: spectrum, picks: picks, cache: cache, beamEnergyKeV: beam)
             if Task.isCancelled { return }
             var quantified: EDXCompute.Quantified?
             var failure: String?
