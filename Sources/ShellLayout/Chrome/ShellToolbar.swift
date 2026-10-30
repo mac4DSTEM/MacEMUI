@@ -184,12 +184,30 @@ public struct ToolbarRunDisplay: View {
     ) -> some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
             let reading = metrics(context.date)
-            Text(ToolbarDisplayFormat.busy(operation: operation, elapsed: reading?.elapsed, eta: reading?.eta))
-                .font(.subheadline.monospacedDigit())
-                .lineLimit(1)
-                .truncationMode(.tail)
-                .accessibilityValue(progress.map { "\(Int($0 * 100)) percent" } ?? "")
-                .accessibilityIdentifier("toolbar.display.busy")
+            // The clock sits in a slot of constant width (`LayoutPolicy.operationReadoutWidth`), so a ticking digit never moves the
+            // operation's name; the name truncates first.
+            HStack(spacing: 0) {
+                Text(operation)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                if let reading {
+                    Text(verbatim: " · ").fixedSize()
+                    Text(OperationMetricsFormat.line(elapsed: reading.elapsed, eta: reading.eta))
+                        .lineLimit(1)
+                        .frame(width: Self.metricsWidth, alignment: .leading)
+                }
+            }
+            .font(Self.busyFont)
+            .accessibilityElement(children: .ignore)
+            .accessibilityAddTraits([.isStaticText, .updatesFrequently])
+            .accessibilityLabel(ToolbarDisplayFormat.busy(operation: operation, elapsed: reading?.elapsed, eta: reading?.eta))
+            .accessibilityValue(progress.map { "\(Int($0 * 100)) percent" } ?? "")
+            .accessibilityIdentifier("toolbar.display.busy")
         }
     }
+
+    /// The busy line's font: the toolbar's subheadline with monospaced digits. `operationReadoutWidth` is measured in it.
+    static let busyFont = Font.subheadline.monospacedDigit()
+    /// The width of the elapsed · ETA slot.
+    nonisolated static let metricsWidth = LayoutPolicy.operationReadoutWidth
 }

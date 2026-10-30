@@ -184,21 +184,12 @@ public struct MetalImageView {
     /// not fight whatever does the writing.
     final class ScaleAwareMTKView: MTKView {
         private func matchWindowScale() {
-            #if os(macOS)
             guard let scale = window?.backingScaleFactor, scale > 0 else { return }
-            #else
-            guard let scale = window?.screen.scale, scale > 0 else { return }
-            #endif
             guard layer?.contentsScale != scale else { return }
             layer?.contentsScale = scale
-            #if os(macOS)
             needsDisplay = true
-            #else
-            setNeedsDisplay()
-            #endif
         }
 
-        #if os(macOS)
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
             matchWindowScale()
@@ -210,13 +201,6 @@ public struct MetalImageView {
             super.viewDidChangeBackingProperties()
             matchWindowScale()
         }
-        #else
-        override func didMoveToWindow() {
-            super.didMoveToWindow()
-            matchWindowScale()
-            if window != nil { setNeedsDisplay() }
-        }
-        #endif
     }
 
     // MARK: - Coordinator (the MTKView delegate / renderer)
@@ -275,11 +259,7 @@ public struct MetalImageView {
         public func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
             // `updateMetalView` no longer redraws on every update, so a resize
             // or a backing-scale change asks for its own frame.
-            #if os(macOS)
             view.needsDisplay = true
-            #else
-            view.setNeedsDisplay()
-            #endif
         }
 
         public func draw(in view: MTKView) {
@@ -332,7 +312,6 @@ public struct MetalImageView {
     }
 }
 
-#if os(macOS)
 extension MetalImageView: NSViewRepresentable {
     public func makeCoordinator() -> Coordinator { Coordinator() }
     public func makeNSView(context: Context) -> MTKView { makeMetalView(context.coordinator) }
@@ -340,12 +319,3 @@ extension MetalImageView: NSViewRepresentable {
         updateMetalView(view, context.coordinator)
     }
 }
-#else
-extension MetalImageView: UIViewRepresentable {
-    func makeCoordinator() -> Coordinator { Coordinator() }
-    func makeUIView(context: Context) -> MTKView { makeMetalView(context.coordinator) }
-    func updateUIView(_ view: MTKView, context: Context) {
-        updateMetalView(view, context.coordinator)
-    }
-}
-#endif

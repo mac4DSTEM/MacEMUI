@@ -95,15 +95,13 @@ public nonisolated enum LayoutPolicy {
     /// the easiest way to do it by accident. So the line is laid out at a
     /// width that never moves and truncates inside it.
     ///
-    /// **116, measured 2026-09-12, not chosen.** The widest string
+    /// **124, measured 2026-10-30, not chosen.** The widest string
     /// `OperationMetricsFormat.line` can produce is "5999:59 · ETA 5999:59"
-    /// at 113.59 pt in the strip's own 10 pt `caption2` monospaced-digit font
-    /// — a hundred hours in both fields. It replaces a 190 pt reservation that
-    /// was sized for a throughput token no longer printed, and which spent
-    /// most of its width blank: during a DATASET LOAD `activeOperationMetrics`
-    /// is nil outright, so 190 pt of the strip was guaranteed empty beside a
-    /// loading column that has its own spinner.
-    public static let operationReadoutWidth: CGFloat = 116
+    /// at 123.6 pt in the toolbar's `subheadline` monospaced-digit font
+    /// — a hundred hours in both fields. The toolbar's busy line draws the
+    /// clock in a slot of this width (`ToolbarRunDisplay`). It was 116, measured
+    /// on 2026-09-12 in the old status strip's 10 pt `caption2`.
+    public static let operationReadoutWidth: CGFloat = 124
 
     /// About six digits. A numeric field is never as wide as its row.
     public static let numericFieldWidth: CGFloat = NumericFieldMetrics.width   // one value: ShellControls owns it, this forwards
