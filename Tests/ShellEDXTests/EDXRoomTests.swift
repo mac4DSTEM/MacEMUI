@@ -117,7 +117,9 @@ nonisolated final class EDXRoomTests: XCTestCase {
             XCTAssertEqual(state.tool, .pointer)
         }
         let room = try source("Sources/ShellSpectroscopy/EDX/EDXRoom.swift")
-        XCTAssertTrue(room.contains(".onExitCommand { state.escape() }"), "the room routes Esc to it")
+        let squeezedRoom = squeezed(room)
+        XCTAssertTrue(squeezedRoom.contains("Button(\"Arrow Tool\") { state.escape() } .keyboardShortcut(.cancelAction) .disabled(state.tool == .pointer)"),
+                      "the room routes Esc to it, whatever holds the focus, only while a drawing tool is chosen")
     }
 
     // MARK: Strings
