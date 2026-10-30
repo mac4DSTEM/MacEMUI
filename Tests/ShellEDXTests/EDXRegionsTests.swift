@@ -186,6 +186,61 @@ nonisolated final class EDXRegionsTests: XCTestCase {
         XCTAssertEqual(session.region, .wholeMap)
     }
 
+    // MARK: The keyboard route
+
+    /// Return on a focused map draws the chosen tool's shape in the middle half of the scan (a pixel at least); the arrow tool draws nothing.
+    /// Red under: no keyboard shape; a box off the middle; a shape with no pixel on a tiny scan.
+    func testReturnDrawsTheToolsShapeInTheMiddleOfTheScan() {
+        XCTAssertNil(EDXRegionBridge.keyboardShape(.pointer, nx: 10, ny: 6))
+        XCTAssertEqual(EDXRegionBridge.keyboardShape(.rectangle, nx: 10, ny: 6), .rectangle(x0: 2, y0: 1, x1: 7, y1: 4))
+        XCTAssertEqual(EDXRegionBridge.keyboardShape(.ellipse, nx: 10, ny: 6), .ellipse(x0: 2, y0: 1, x1: 7, y1: 4))
+        XCTAssertEqual(EDXRegionBridge.keyboardShape(.polygon, nx: 10, ny: 6),
+                       .polygon([RegionPoint(x: 2, y: 1), RegionPoint(x: 7, y: 1), RegionPoint(x: 7, y: 4), RegionPoint(x: 2, y: 4)]))
+        XCTAssertEqual(EDXRegionBridge.keyboardShape(.line, nx: 10, ny: 6), .line(RegionPoint(x: 2, y: 3.5), RegionPoint(x: 7, y: 3.5)), "along the middle row of pixel centres")
+        XCTAssertEqual(EDXRegionBridge.keyboardShape(.rectangle, nx: 2, ny: 1), .rectangle(x0: 0, y0: 0, x1: 1, y1: 1), "a pixel at least")
+        XCTAssertNil(EDXRegionBridge.keyboardShape(.rectangle, nx: 0, ny: 0))
+    }
+
+    /// The arrows move a pixel, with shift ten; other keys move nothing.
+    func testTheArrowKeysStepAPixelAndShiftTen() {
+        XCTAssertEqual(EDXRegionBridge.arrowStep(.leftArrow, shift: false)?.dx, -1)
+        XCTAssertEqual(EDXRegionBridge.arrowStep(.rightArrow, shift: true)?.dx, 10)
+        XCTAssertEqual(EDXRegionBridge.arrowStep(.upArrow, shift: false)?.dy, -1)
+        XCTAssertEqual(EDXRegionBridge.arrowStep(.downArrow, shift: true)?.dy, 10)
+        XCTAssertNil(EDXRegionBridge.arrowStep(.return, shift: false))
+    }
+
+    /// The keyboard draws a region as the mouse does (kept, numbered, selected) and the arrows move the selected one, kept on the scan; with the arrow
+    /// tool Return is left alone, and with nothing selected so are the arrows. A line drawn by keyboard is the selection the arrows move.
+    /// Red under: Return ignored; the drawn region not selected; a nudge off the scan; the line not focused.
+    @MainActor func testTheKeyboardDrawsAndMovesARegion() async throws {
+        let session = await openRoom()
+        let state = EDXRoomState()
+        XCTAssertFalse(EDXRegionBridge.drawByKeyboard(in: session, state: state), "the arrow tool draws nothing")
+        XCTAssertFalse(EDXRegionBridge.nudgeSelected(dx: 1, dy: 0, in: session, state: state), "nothing selected")
+        state.tool = .rectangle
+        XCTAssertTrue(EDXRegionBridge.drawByKeyboard(in: session, state: state))
+        await session.settled()
+        XCTAssertEqual(session.pins.map(\.name), ["Region 1"])
+        XCTAssertEqual(session.selectedPin?.region, .rectangle(PixelRect(x0: 0, y0: 0, x1: 1, y1: 1)))
+        XCTAssertTrue(EDXRegionBridge.nudgeSelected(dx: 1, dy: 0, in: session, state: state))
+        await session.settled()
+        XCTAssertEqual(session.selectedPin?.region, .rectangle(PixelRect(x0: 1, y0: 0, x1: 2, y1: 1)))
+        XCTAssertEqual(session.spectrumCounts, EDXSessionTests.spectra().right.map { UInt64($0) }, "the moved region is summed")
+        XCTAssertFalse(EDXRegionBridge.nudgeSelected(dx: 10, dy: 0, in: session, state: state), "kept on the scan")
+        XCTAssertEqual(session.pins.count, 1)
+        let pin = try XCTUnwrap(session.selectedPin)
+        session.setPinVisible(pin.id, false)
+        XCTAssertFalse(EDXRegionBridge.nudgeSelected(dx: -1, dy: 0, in: session, state: state), "a hidden region is not moved unseen")
+        session.setPinVisible(pin.id, true)
+
+        state.tool = .line
+        XCTAssertTrue(EDXRegionBridge.drawByKeyboard(in: session, state: state))
+        XCTAssertTrue(state.linesFocused)
+        let line = try XCTUnwrap(session.lines.first)
+        XCTAssertEqual(line.from.x, 0); XCTAssertEqual(line.to.x, 1); XCTAssertEqual(line.from.y, 0.5)
+    }
+
     func testTheRegionSentencesNameTheShape() {
         XCTAssertEqual(EDXRoomFormat.region(.ellipse(PixelRect(x0: 1, y0: 2, x1: 5, y1: 6)), pixels: 12), "Ellipse · x 1–4, y 2–5 · 12 px")
         XCTAssertEqual(EDXRoomFormat.region(.polygon([PixelPoint(x: 0, y: 0), PixelPoint(x: 3, y: 0), PixelPoint(x: 0, y: 3)]), pixels: 4), "Polygon · 3 vertices · 4 px")
