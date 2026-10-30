@@ -66,17 +66,17 @@ extension EnvironmentValues {
 /// the label, not the chevron"), with the triangle at the leading edge where
 /// macOS puts it. A hairline closes each section. When the caller passes no
 /// `expanded` binding, the section remembers its own state, scoped by
-/// `inspectorScope` and title, via `@SceneStorage`, defaulting to expanded.
+/// `inspectorScope` and title, via `@SceneStorage`; until the person opens or
+/// closes it, it is open, or closed when `startsExpanded` is false (Export).
+/// With an `expanded` binding the caller owns the state and `startsExpanded` is not read.
 ///
 /// `icon` and `emphasized` serve the one header that needs more: a parallax
-/// stage row with an always-visible status glyph, bolder while it is the
-/// active step.
+/// stage row, bolder while it is the active step. `statusGlyph` is drawn at the
+/// trailing edge of the title row (a stage's state, always visible, also when
+/// closed); it is decoration only: VoiceOver hears `status`.
 public struct InspectorSection<Content: View>: View {
-    private let title: String
-    private let icon: Image?
-    private let emphasized: Bool
-    /// Spoken with the header ("Complete" on a finished stage); never drawn.
-    private let status: String?
+    private let header: InspectorSectionHeader
+    private let startsExpanded: Bool
     private let externalExpanded: Binding<Bool>?
     private let content: Content
     @Environment(\.inspectorScope) private var scope
@@ -86,13 +86,13 @@ public struct InspectorSection<Content: View>: View {
         icon: Image? = nil,
         emphasized: Bool = false,
         status: String? = nil,
+        statusGlyph: Image? = nil,
+        startsExpanded: Bool = true,
         expanded: Binding<Bool>? = nil,
         @ViewBuilder content: () -> Content
     ) {
-        self.title = title
-        self.icon = icon
-        self.emphasized = emphasized
-        self.status = status
+        self.header = InspectorSectionHeader(title: title, icon: icon, emphasized: emphasized, status: status, statusGlyph: statusGlyph)
+        self.startsExpanded = startsExpanded
         self.externalExpanded = expanded
         self.content = content()
     }
@@ -106,13 +106,28 @@ public struct InspectorSection<Content: View>: View {
 
     public var body: some View {
         if let externalExpanded {
-            InspectorSectionBody(title: title, icon: icon, emphasized: emphasized, status: status,
-                                  isExpanded: externalExpanded, content: content)
+            InspectorSectionBody(header: header, isExpanded: externalExpanded, content: content)
         } else {
             InspectorSectionRemembering(
-                key: Self.sceneStorageKey(scope: scope, title: title),
-                title: title, icon: icon, emphasized: emphasized, status: status, content: content)
+                key: Self.sceneStorageKey(scope: scope, title: header.title),
+                startsExpanded: startsExpanded, header: header, content: content)
         }
+    }
+}
+
+/// What a section's title row shows and speaks.
+struct InspectorSectionHeader {
+    let title: String
+    let icon: Image?
+    let emphasized: Bool
+    /// Spoken with the header ("Complete" on a finished stage); never drawn as text.
+    let status: String?
+    /// Drawn at the trailing edge; hidden from VoiceOver (it hears `status`).
+    let statusGlyph: Image?
+
+    /// What VoiceOver reads as the header's value: the status, then open or closed. The glyph adds nothing to it.
+    func spokenValue(expanded: Bool) -> String {
+        RoomAccessibilityText.sectionHeaderValue(status: status, expanded: expanded)
     }
 }
 
@@ -124,27 +139,21 @@ public struct InspectorSection<Content: View>: View {
 /// `InspectorSection`'s own `init`, before it is attached to the view
 /// hierarchy, so it is resolved in `InspectorSection.body` instead (where
 /// `@Environment` reads are ordinary) and handed to this view as a plain
-/// `init` parameter, where `@SceneStorage` can use it immediately.
+/// `init` parameter, where `@SceneStorage` can use it immediately. With no
+/// stored value the section opens as `startsExpanded` says.
 private struct InspectorSectionRemembering<Content: View>: View {
-    private let title: String
-    private let icon: Image?
-    private let emphasized: Bool
-    private let status: String?
+    private let header: InspectorSectionHeader
     @SceneStorage private var isExpanded: Bool
     private let content: Content
 
-    init(key: String, title: String, icon: Image?, emphasized: Bool, status: String?, content: Content) {
-        self.title = title
-        self.icon = icon
-        self.emphasized = emphasized
-        self.status = status
-        self._isExpanded = SceneStorage(wrappedValue: true, key)
+    init(key: String, startsExpanded: Bool, header: InspectorSectionHeader, content: Content) {
+        self.header = header
+        self._isExpanded = SceneStorage(wrappedValue: startsExpanded, key)
         self.content = content
     }
 
     var body: some View {
-        InspectorSectionBody(title: title, icon: icon, emphasized: emphasized, status: status,
-                              isExpanded: $isExpanded, content: content)
+        InspectorSectionBody(header: header, isExpanded: $isExpanded, content: content)
     }
 }
 
@@ -152,17 +161,14 @@ private struct InspectorSectionRemembering<Content: View>: View {
 /// paths: a title row that is itself the disclosure control, the rows, a
 /// hairline. Collapsed, only the title row and the hairline remain.
 private struct InspectorSectionBody<Content: View>: View {
-    let title: String
-    let icon: Image?
-    let emphasized: Bool
-    let status: String?
+    let header: InspectorSectionHeader
     let isExpanded: Binding<Bool>
     let content: Content
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            header
+            title
             if isExpanded.wrappedValue {
                 VStack(alignment: .leading, spacing: InspectorMetrics.rowSpacing) {
                     content
@@ -174,7 +180,7 @@ private struct InspectorSectionBody<Content: View>: View {
         .overlay(alignment: .bottom) { Divider() }
     }
 
-    private var header: some View {
+    private var title: some View {
         Button {
             withAnimation(InspectorSectionMotion.animation(reduceMotion: reduceMotion)) {
                 isExpanded.wrappedValue.toggle()
@@ -186,20 +192,25 @@ private struct InspectorSectionBody<Content: View>: View {
                     .foregroundStyle(.secondary)
                     .rotationEffect(.degrees(isExpanded.wrappedValue ? 90 : 0))
                     .accessibilityHidden(true)
-                if let icon {
+                if let icon = header.icon {
                     icon
-                        .foregroundStyle(emphasized ? .primary : .secondary)
+                        .foregroundStyle(header.emphasized ? .primary : .secondary)
                         .accessibilityHidden(true)
                 }
-                Text(title)
-                    .font(.headline.weight(emphasized ? .bold : .semibold))
+                Text(header.title)
+                    .font(.headline.weight(header.emphasized ? .bold : .semibold))
                 Spacer(minLength: 0)
+                if let glyph = header.statusGlyph {
+                    glyph
+                        .foregroundStyle(.secondary)
+                        .accessibilityHidden(true)
+                }
             }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(.isHeader)
-        .accessibilityValue(RoomAccessibilityText.sectionHeaderValue(status: status, expanded: isExpanded.wrappedValue))
+        .accessibilityValue(header.spokenValue(expanded: isExpanded.wrappedValue))
     }
 }
 
