@@ -353,12 +353,13 @@ public struct InfobarRunReadout: View {
 
     public var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
+            let text = line(context.date)
             HStack(spacing: LayoutPolicy.infobarProgressSpacing) {
                 ProgressView(value: progress)
                     .frame(width: LayoutPolicy.inlineProgressWidth)
                     .accessibilityLabel(operation ?? "Progress")
                     .accessibilityValue(progress.map { "\(Int($0 * 100)) percent" } ?? "")
-                Text(line(context.date))
+                Text(text)
                     .font(.callout.monospacedDigit())
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -370,6 +371,10 @@ public struct InfobarRunReadout: View {
                     .frame(minWidth: LayoutPolicy.compressibleSlotMinimum,
                            idealWidth: LayoutPolicy.runReadoutWidth,
                            maxWidth: LayoutPolicy.runReadoutWidth, alignment: .leading)
+                    // The label from the same tick as the drawn text, re-read
+                    // each tick (see `ToolbarRunDisplay`).
+                    .accessibilityLabel(text)
+                    .accessibilityAddTraits(.updatesFrequently)
                     .accessibilityIdentifier("status.footer.metrics")
                 if let onCancel {
                     // "Cancel", matching the toolbar's own button: both name
