@@ -107,6 +107,21 @@ nonisolated final class EDXRoomTests: XCTestCase {
         XCTAssertNil(EDXRoomState().soloTile)
     }
 
+    /// Esc goes back to the arrow tool from any drawing tool; with the arrow already chosen it does nothing and says so.
+    @MainActor func testEscapeReturnsToTheArrowTool() throws {
+        let state = EDXRoomState()
+        XCTAssertFalse(state.escape(), "nothing to leave")
+        for tool in RegionTool.allCases where tool != .pointer {
+            state.tool = tool
+            XCTAssertTrue(state.escape())
+            XCTAssertEqual(state.tool, .pointer)
+        }
+        let room = try source("Sources/ShellSpectroscopy/EDX/EDXRoom.swift")
+        let squeezedRoom = squeezed(room)
+        XCTAssertTrue(squeezedRoom.contains("Button(\"Arrow Tool\") { state.escape() } .keyboardShortcut(.cancelAction) .disabled(state.tool == .pointer)"),
+                      "the room routes Esc to it, whatever holds the focus, only while a drawing tool is chosen")
+    }
+
     // MARK: Strings
 
     func testCountsGroupByThousandsWithAThinSpace() {
