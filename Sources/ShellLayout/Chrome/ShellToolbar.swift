@@ -133,6 +133,25 @@ public nonisolated enum ToolbarDisplayFormat {
         guard let elapsed else { return operation }
         return operation + " · " + OperationMetricsFormat.line(elapsed: elapsed, eta: eta)
     }
+
+    /// One tick of the busy line: the drawn text and what VoiceOver and UI tests read, from one `metrics` reading
+    /// at one date, so the spoken clock can never lag the drawn one.
+    static func busyTick(
+        operation: String, progress: Double?,
+        metrics: (Date) -> (elapsed: TimeInterval, eta: TimeInterval?)?, at date: Date
+    ) -> BusyTick {
+        let reading = metrics(date)
+        let text = busy(operation: operation, elapsed: reading?.elapsed, eta: reading?.eta)
+        return BusyTick(text: text, accessibilityLabel: text,
+                        accessibilityValue: progress.map { "\(Int($0 * 100)) percent" } ?? "")
+    }
+}
+
+/// The busy line at one tick (`ToolbarDisplayFormat.busyTick`).
+nonisolated struct BusyTick: Equatable {
+    let text: String
+    let accessibilityLabel: String
+    let accessibilityValue: String
 }
 
 /// The toolbar's centre — Xcode's activity viewer (the document's
@@ -183,13 +202,17 @@ public struct ToolbarRunDisplay: View {
         metrics: @escaping (Date) -> (elapsed: TimeInterval, eta: TimeInterval?)?
     ) -> some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
-            let reading = metrics(context.date)
-            Text(ToolbarDisplayFormat.busy(operation: operation, elapsed: reading?.elapsed, eta: reading?.eta))
+            let tick = ToolbarDisplayFormat.busyTick(
+                operation: operation, progress: progress, metrics: metrics, at: context.date)
+            Text(tick.text)
                 .font(.subheadline.monospacedDigit())
                 .lineLimit(1)
                 .truncationMode(.tail)
-                .accessibilityValue(progress.map { "\(Int($0 * 100)) percent" } ?? "")
-                .accessibilityIdentifier("toolbar.display.busy")
+                // The label from the same tick as the drawn text, served by an
+                // element that is read live (SwiftUI kept the first second's
+                // label: `liveAccessibilityText`).
+                .liveAccessibilityText(label: tick.accessibilityLabel, value: tick.accessibilityValue,
+                                       identifier: "toolbar.display.busy")
         }
     }
 }

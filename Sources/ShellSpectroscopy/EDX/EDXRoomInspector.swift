@@ -156,6 +156,8 @@ private struct EDXQuantificationSection: View {
     let session: EDXSession
     @State private var showTypedK = false
     @State private var showFactors = false
+    /// Why the last Fit to entry was refused (at or below the minimum); cleared by the next entry.
+    @State private var fitToRefusal: String?
 
     var body: some View {
         let method = session.method
@@ -271,10 +273,16 @@ private struct EDXQuantificationSection: View {
             InspectorRow("Fit to") {
                 OptionalNumericField(title: "Fit to", value: method.fitToKeV,
                                      format: FloatingPointFormatStyle<Double>.number.precision(.significantDigits(1...6)), unit: "keV", prompt: "default") { v in
-                    session.changeMethod { $0.fitToKeV = v > 0.2 ? v : nil }
+                    let entry = EDXRoomFormat.fitTo(entered: v)
+                    fitToRefusal = entry.refusal
+                    session.changeMethod { $0.fitToKeV = entry.keV }
                 }
                 .help("Upper end of the fitted range. Empty: the default, the axis end or the beam energy but at most 20 keV")
                 .accessibilityIdentifier("edx.fitTo")
+            }
+            if let fitToRefusal {
+                InspectorNote(fitToRefusal).accessibilityIdentifier("edx.fitTo.refused")
+                    .onChange(of: session.fileName) { self.fitToRefusal = nil }   // a new file starts with the default range
             }
         }
         // Choosing Typed opens the k-factors sheet. The picker's binding only writes the source; the presentation follows the change here, not

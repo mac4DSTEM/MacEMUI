@@ -136,8 +136,10 @@ public struct MapTileView<Controls: View>: View {
         .overlay { RoundedRectangle(cornerRadius: 3).strokeBorder(.separator) }
         // A map that is selected on the right wears a ring; a click on a map toggles it (what is shown in the colour mix).
         .overlay { if inMix == true { RoundedRectangle(cornerRadius: 3).strokeBorder(Color.accentColor, lineWidth: 2).allowsHitTesting(false) } }
-        .onTapGesture { focused = true; onToggleMix?() }
-        .onTapGesture(count: 2) { transform.reset() }
+        // One gesture: the double click is tried first, so it never also fires the single click (the single click waits for the
+        // double-click interval, as in Finder and Preview).
+        .gesture(TapGesture(count: 2).onEnded { perform(TileClickAction.effects(clickCount: 2, selectable: onToggleMix != nil)) }
+            .exclusively(before: TapGesture().onEnded { perform(TileClickAction.effects(clickCount: 1, selectable: onToggleMix != nil)) }))
         // Zoom: the wheel and a pinch about the pointer (the same transform on every tile); a double click returns to the whole scan.
         .onScrollWheel { event in
             if event.modifiers.contains(.option) {
@@ -172,6 +174,12 @@ public struct MapTileView<Controls: View>: View {
         return "\(title) map, \(detail)"
     }
 
+    private func perform(_ effects: Set<TileClickAction>) {
+        if effects.contains(.focus) { focused = true }
+        if effects.contains(.toggleMix) { onToggleMix?() }
+        if effects.contains(.resetView) { transform.reset() }
+    }
+
     /// The pointer moves many times within one pixel: the state and the app are told only when the pixel changes.
     private func setPointer(_ pixel: (x: Int, y: Int)?) {
         let new = pixel.map { MapPixel(x: $0.x, y: $0.y) }
@@ -191,6 +199,21 @@ public struct MapTileView<Controls: View>: View {
             .accessibilityAddTraits(.isButton)
             .accessibilityHint("Opens the colour controls of this map")
             .accessibilityIdentifier("maps.scaleBar.\(title)")
+    }
+}
+
+/// What a click on a map tile does, by its click count. Pure, so a test holds that a double click only resets the view.
+nonisolated enum TileClickAction: Hashable, Sendable {
+    case focus, toggleMix, resetView
+
+    /// A single click focuses the tile and, on a selectable map, toggles it in the colour mix; a double click focuses it and returns
+    /// to the whole scan, and nothing else.
+    static func effects(clickCount: Int, selectable: Bool) -> Set<TileClickAction> {
+        switch clickCount {
+        case ..<1: []
+        case 1: selectable ? [.focus, .toggleMix] : [.focus]
+        default: [.focus, .resetView]
+        }
     }
 }
 

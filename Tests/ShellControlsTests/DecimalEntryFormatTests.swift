@@ -118,4 +118,34 @@ nonisolated final class NumberEntryCommitRuleTests: XCTestCase {
         XCTAssertEqual(Field.resolve(typed: "0,1904", current: 0.1904, emptyClears: false, entry: entry), .keep)
         XCTAssertEqual(Field.resolve(typed: "0.0275", current: 0.1904, emptyClears: false, entry: entry), .set(0.0275))
     }
+
+    /// MacEMUI#42 and #35: with 0.1234 stored and 0.12 shown, typing the shown text sets 0.12; leaving the field
+    /// untouched (blur, Return, teardown) still keeps 0.1234, in a comma region and a period region.
+    func testTypingTheShownTextOverAFinerValueSetsItAndLeavingTheFieldKeeps() {
+        for identifier in ["en_US@rg=dezzzz", "en_US"] {
+            let locale = Locale(identifier: identifier)
+            let twoDigits = DecimalEntryFormat(
+                FloatingPointFormatStyle<Double>.number.precision(.fractionLength(2)).locale(locale), locale: locale)
+            let shown = twoDigits.format(0.1234)
+            XCTAssertEqual(shown, identifier == "en_US" ? "0.12" : "0,12")
+            XCTAssertEqual(Field.resolve(typed: shown, current: 0.1234, emptyClears: false, entry: twoDigits,
+                                         edited: true), .set(0.12), identifier)
+            XCTAssertEqual(Field.resolve(typed: shown, current: 0.1234, emptyClears: false, entry: twoDigits,
+                                         edited: false), .keep, identifier)
+            XCTAssertEqual(Field.resolve(typed: shown, current: 0.1234, emptyClears: false, entry: twoDigits),
+                           .keep, identifier)
+            // An edit to the value already stored is still no change (no provenance flip).
+            XCTAssertEqual(Field.resolve(typed: shown, current: 0.12, emptyClears: false, entry: twoDigits,
+                                         edited: true), .keep, identifier)
+        }
+    }
+
+    /// A Float 0.3 is 0.30000001: typing "0.3" over it parses to the same Float, so it keeps.
+    func testTypingTheShownTextOfAFloatThatIsAlreadyThatValueKeeps() {
+        let locale = Locale(identifier: "en_US")
+        let floatEntry = DecimalEntryFormat(
+            FloatingPointFormatStyle<Float>.number.precision(.fractionLength(0...6)).locale(locale), locale: locale)
+        XCTAssertEqual(NumberEntryField<Float, FloatingPointFormatStyle<Float>>.resolve(
+            typed: "0.3", current: Float(0.3), emptyClears: false, entry: floatEntry, edited: true), .keep)
+    }
 }
