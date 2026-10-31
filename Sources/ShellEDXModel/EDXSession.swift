@@ -204,6 +204,8 @@ public final class EDXSession {
     public var pendingCheck: Task<Void, Never>? { checkTask }
     @ObservationIgnored private var autoIDTask: Task<Void, Never>?
     @ObservationIgnored private var openTask: Task<Void, Never>?
+    /// Counts the opens, so a progress update knows whether its read is still the current one.
+    @ObservationIgnored private var openRun = 0
     @ObservationIgnored private var mapsTask: Task<Void, Never>?
     /// The chain after an open: the first spectrum, then Auto ID. Stop ends it with the rest.
     @ObservationIgnored private var bindTask: Task<Void, Never>?
@@ -257,14 +259,19 @@ public final class EDXSession {
     @discardableResult
     public func open(url: URL) -> Task<Void, Never> {
         openTask?.cancel()
+        openRun += 1
         isOpening = true
         openProgress = 0
         onEvent?("Opening \(url.lastPathComponent)…")
-        let box = WeakSession(self), host = host
+        let box = WeakSession(self), host = host, run = openRun
         let task = Task { [weak self] in
             do {
                 let loaded = try await Self.read(url, host: host) { fraction in
-                    Task { @MainActor in box.session?.openProgress = fraction }
+                    // A late update of a replaced or finished read is dropped: it would overwrite the newer read's progress.
+                    Task { @MainActor in
+                        guard let session = box.session, session.isOpening, session.openRun == run else { return }
+                        session.openProgress = fraction
+                    }
                 }
                 guard let self, !Task.isCancelled else { return }
                 self.isOpening = false
