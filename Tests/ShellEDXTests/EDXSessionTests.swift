@@ -41,12 +41,12 @@ nonisolated final class EDXSessionTests: XCTestCase {
         return (left, right)
     }
 
-    static func source(beam: Double? = 200, geometry: Bool = false, pixelSizeNM: Double? = nil) -> LoadedSpectrumImage {
+    static func source(beam: Double? = 200, geometry: Bool = false, pixelSizeNM: Double? = nil, origin: SpectrumImageOrigin = .veloxEMD) -> LoadedSpectrumImage {
         let p = planted, (left, right) = spectra()
         var meta = SpectrumImageMetadata(fileName: "planted.emd", filePath: "/data/planted.emd", scanWidth: 2, scanHeight: 1,
                                          channelCount: p.axis.channels, energyOffsetEV: p.axis.offset_keV * 1000,
                                          energyDispersionEV: p.axis.scale_keV * 1000)
-        meta.origin = .veloxEMD
+        meta.origin = origin
         meta.beamEnergyKeV = beam
         if let pixelSizeNM { meta.scanPixelSize = pixelSizeNM; meta.scanPixelUnit = "nm" }
         if geometry {
