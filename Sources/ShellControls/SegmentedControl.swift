@@ -10,10 +10,30 @@ import SwiftUI
 
 /// A segmented control over `NSSegmentedControl`: `selection` is the segment's index, -1 for none.
 public struct SegmentedControl: NSViewRepresentable, Equatable {
-    public enum Segment: Equatable, Sendable {
-        case title(String, help: String? = nil)
+    /// One segment. A segment with a `disabledReason` is drawn dimmed, cannot be picked, and has its reason as its tooltip (after its
+    /// `help`, when it has one); the control's accessibility help names the segments that are off and why.
+    public nonisolated enum Segment: Equatable, Sendable {
+        case title(String, help: String? = nil, disabledReason: String? = nil)
         /// An SF symbol; `label` is what VoiceOver says.
-        case symbol(name: String, label: String, help: String? = nil)
+        case symbol(name: String, label: String, help: String? = nil, disabledReason: String? = nil)
+
+        /// Why the segment cannot be picked; nil when it can.
+        public var disabledReason: String? {
+            switch self {
+            case .title(_, _, let reason), .symbol(_, _, _, let reason): reason
+            }
+        }
+
+        public var isEnabled: Bool { disabledReason == nil }
+
+        /// The tooltip: the help, then the reason the segment is off ("Off: …").
+        var toolTip: String? {
+            let help: String? = switch self {
+            case .title(_, let help, _), .symbol(_, _, let help, _): help
+            }
+            let parts = [help, disabledReason.map { "Off: \($0)" }].compactMap { $0 }
+            return parts.isEmpty ? nil : parts.joined(separator: "\n")
+        }
     }
 
     private let label: String
@@ -53,15 +73,19 @@ public struct SegmentedControl: NSViewRepresentable, Equatable {
             control.segmentCount = segments.count
             for (i, segment) in segments.enumerated() {
                 switch segment {
-                case .title(let title, let help):
-                    control.setLabel(title, forSegment: i); control.setImage(nil, forSegment: i); control.setToolTip(help, forSegment: i)
-                case .symbol(let name, let label, let help):
+                case .title(let title, _, _):
+                    control.setLabel(title, forSegment: i); control.setImage(nil, forSegment: i)
+                case .symbol(let name, let label, _, _):
                     // The image's description is the segment's accessibility label.
                     control.setLabel("", forSegment: i)
                     control.setImage(NSImage(systemSymbolName: name, accessibilityDescription: label), forSegment: i)
-                    control.setToolTip(help, forSegment: i)
                 }
+                control.setToolTip(segment.toolTip, forSegment: i)
+                // A disabled segment is dimmed and takes no click (AppKit reports it as not enabled).
+                control.setEnabled(segment.isEnabled, forSegment: i)
             }
+            // AppKit has no per-segment help for a title segment, so the control's own help names the segments that are off and why.
+            control.setAccessibilityHelp(SegmentedMapping.offHelp(segments))
         }
         // -1 clears every segment: a selection not among the items shows none.
         if control.selectedSegment != state.selected {
@@ -92,7 +116,15 @@ public struct SegmentedControl: NSViewRepresentable, Equatable {
 
         init(selection: Binding<Int>) { self.selection = selection }
 
-        @objc func changed(_ sender: NSSegmentedControl) { selection.wrappedValue = sender.selectedSegment }
+        /// A pick of a disabled segment (the keyboard can still reach one) puts the control back where it was and leaves the selection alone.
+        @objc func changed(_ sender: NSSegmentedControl) {
+            let current = selection.wrappedValue
+            let next = SegmentedMapping.pick(sender.selectedSegment, among: applied?.segments ?? [], current: current)
+            if next != current { selection.wrappedValue = next }
+            // Show what the binding now holds: a disabled pick, or a setter that refused the value, leaves the control where it was.
+            let shown = selection.wrappedValue
+            if sender.selectedSegment != shown { sender.selectedSegment = shown }
+        }
     }
 }
 
@@ -120,4 +152,21 @@ nonisolated enum SegmentedMapping {
     static func index<T: Hashable>(of value: T, in values: [T]) -> Int { values.firstIndex(of: value) ?? -1 }
     /// The value of segment `index`; nil for none or out of range.
     static func value<T>(at index: Int, in values: [T]) -> T? { values.indices.contains(index) ? values[index] : nil }
+    /// The control's spoken help: each segment that is off, with its reason ("MLLS off: the fit arrives later."); nil when all are on.
+    static func offHelp(_ segments: [SegmentedControl.Segment]) -> String? {
+        let lines = segments.compactMap { segment -> String? in
+            guard let reason = segment.disabledReason else { return nil }
+            let name = switch segment {
+            case .title(let title, _, _): title
+            case .symbol(_, let label, _, _): label
+            }
+            return "\(name) off: \(reason)"
+        }
+        return lines.isEmpty ? nil : lines.joined(separator: ". ")
+    }
+    /// The selection after the person picks segment `index`: that segment, or `current` when the segment is disabled.
+    static func pick(_ index: Int, among segments: [SegmentedControl.Segment], current: Int) -> Int {
+        guard segments.indices.contains(index) else { return index }
+        return segments[index].isEnabled ? index : current
+    }
 }

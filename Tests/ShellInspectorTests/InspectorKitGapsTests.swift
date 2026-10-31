@@ -103,3 +103,50 @@ nonisolated final class InspectorKitGapsTests: XCTestCase {
         XCTAssertLessThan(narrow.width, roomy.width)
     }
 }
+
+/// `InspectorSection(startsExpanded:)` and `statusGlyph:`. Laid out through a hosting controller; each section has a scope of its
+/// own, so no stored `@SceneStorage` value decides it.
+nonisolated final class InspectorSectionOptionsTests: XCTestCase {
+    @MainActor private func height<V: View>(_ view: V) -> CGFloat {
+        NSHostingController(rootView: view.frame(width: 248)).sizeThatFits(in: CGSize(width: 248, height: 10_000)).height
+    }
+
+    @MainActor private func section(scope: String, startsExpanded: Bool) -> some View {
+        InspectorSection("Export", startsExpanded: startsExpanded) {
+            Color.clear.frame(height: 200)
+        }
+        .environment(\.inspectorScope, scope)
+    }
+
+    /// Mutation: `startsExpanded` not passed on to the `@SceneStorage` default -> red (both are open).
+    @MainActor func testASectionThatStartsClosedShowsOnlyItsTitleRow() {
+        let open = height(section(scope: "test.open.\(UUID().uuidString)", startsExpanded: true))
+        let closed = height(section(scope: "test.closed.\(UUID().uuidString)", startsExpanded: false))
+        XCTAssertGreaterThan(open - closed, 190, "closed hides its 200-pt content: open \(open), closed \(closed)")
+    }
+
+    /// The default is unchanged: a section built with the old init opens.
+    @MainActor func testTheDefaultStillStartsOpen() {
+        let old = height(InspectorSection("Export") { Color.clear.frame(height: 200) }
+            .environment(\.inspectorScope, "test.default.\(UUID().uuidString)"))
+        XCTAssertGreaterThan(old, 200)
+    }
+
+    /// Mutation: the glyph not drawn -> red (the title row is no wider).
+    @MainActor func testTheGlyphIsDrawnOnTheTitleRow() {
+        func ideal(_ glyph: Image?) -> CGFloat {
+            NSHostingController(rootView: InspectorSection("Stage", statusGlyph: glyph, expanded: .constant(false)) { EmptyView() }.fixedSize())
+                .sizeThatFits(in: CGSize(width: 10_000, height: 10_000)).width
+        }
+        XCTAssertGreaterThan(ideal(Image(systemName: "checkmark.circle.fill")), ideal(nil) + 8)
+    }
+
+    /// The glyph is drawn but never spoken: the header's value is the status and the open state alone.
+    @MainActor func testTheGlyphDoesNotChangeTheSpokenValue() {
+        let plain = InspectorSectionHeader(title: "Stage", icon: nil, emphasized: false, status: "Complete", statusGlyph: nil)
+        let glyph = InspectorSectionHeader(title: "Stage", icon: nil, emphasized: false, status: "Complete",
+                                           statusGlyph: Image(systemName: "checkmark.circle.fill"))
+        XCTAssertEqual(glyph.spokenValue(expanded: false), plain.spokenValue(expanded: false))
+        XCTAssertEqual(glyph.spokenValue(expanded: true), "Complete, Expanded")
+    }
+}

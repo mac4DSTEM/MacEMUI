@@ -170,6 +170,18 @@ public nonisolated enum EDXRoomFormat {
         }
     }
 
+    /// The lowest upper end of the fitted range the Fit to field takes, keV: below it no line of the table is left to fit.
+    public static let fitToMinimumKeV = 0.2
+
+    /// What a Fit to entry does: a value above the minimum is the range's upper end; zero is the default (nil, no note); any other value at or
+    /// below the minimum, negative included, is refused, the default kept, and the note says so instead of the field resetting silently.
+    public static func fitTo(entered v: Double, locale: Locale = .autoupdatingCurrent) -> (keV: Double?, refusal: String?) {
+        guard v.isFinite else { return (nil, nil) }
+        if v > fitToMinimumKeV { return (v, nil) }
+        if v == 0 { return (nil, nil) }
+        return (nil, "Fit to must be above \(Num.sig(fitToMinimumKeV, 2, locale: locale)) keV: the default range is used.")
+    }
+
     /// "Fit quality · χ²ᵣ 1.04 · Pearson": the kit's own text.
     public static func fitQuality(_ q: PooledQuantification) -> String {
         let t = q.qualityText
