@@ -94,7 +94,7 @@ struct EDXMapsBlock: View {
                     EDXMapTileHost(item: item, size: size, isAnchor: isAnchor, nx: nx, ny: ny, mapsState: mapsState,
                                    regions: isAnchor ? regions : nil, session: session, state: state)
                 }
-                // The maps are the room's zoomable content: the View menu's Zoom commands act on them.
+                // The maps are what the room zooms: the View menu's Zoom commands act on them.
                 .mapZoomCommandTarget($state.mapView)
             }
         }
