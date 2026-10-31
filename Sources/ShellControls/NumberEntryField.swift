@@ -131,6 +131,9 @@ where Format.FormatInput == Value, Format.FormatOutput == String {
 
     @State private var text = ""
     @State private var editID = UUID()
+    /// The user typed since the field last set its text from `value` (appear, an outside change, a commit, Escape).
+    /// Only then is the shown text an edit (`resolve`'s `edited`).
+    @State private var edited = false
     @FocusState private var isFocused: Bool
 
     private var entry: DecimalEntryFormat<Format> { DecimalEntryFormat(format) }
@@ -142,9 +145,9 @@ where Format.FormatInput == Value, Format.FormatOutput == String {
             .onSubmit(commit)
             .onChange(of: isFocused) { _, focused in if !focused { commit() } }
             // Escape abandons the edit, as in any Mac text field.
-            .onExitCommand { PendingEdits.forget(editID); text = shown; onFinish?() }
+            .onExitCommand { PendingEdits.forget(editID); refresh(); onFinish?() }
             .onAppear {
-                text = shown
+                refresh()
                 // After the field is in the window: a focus set in the same pass is dropped.
                 if focusOnAppear { DispatchQueue.main.async { isFocused = true } }
             }
@@ -152,18 +155,22 @@ where Format.FormatInput == Value, Format.FormatOutput == String {
             .onDisappear(perform: commit)
             // Only a commit or an outside change moves `value` now, so the
             // text follows it even while the field keeps focus.
-            .onChange(of: value) { _, _ in text = shown }
+            .onChange(of: value) { _, _ in refresh() }
             // A click on a toolbar or inspector button does not take focus
             // from a Mac text field, so an uncommitted edit is registered and
             // every action that starts work commits it first
             // (`PendingEdits.run`, Fable review 2026-09-30).
             .onChange(of: text) { _, typed in
-                if typed == shown {
+                // Only typing makes the text differ from `shown`: `refresh` sets it equal and clears `edited`. Once
+                // typed, the shown text retyped is an edit too (MacEMUI#42).
+                if typed != shown { edited = true }
+                if !edited {
                     PendingEdits.forget(editID)
                 } else {
                     PendingEdits.register(editID) { [value, emptyClears, entry, onCommit] in
                         if case .set(let newValue) = Self.resolve(typed: typed, current: value,
-                                                                  emptyClears: emptyClears, entry: entry) {
+                                                                  emptyClears: emptyClears, entry: entry,
+                                                                  edited: true) {
                             onCommit(newValue)
                         }
                     }
@@ -174,18 +181,24 @@ where Format.FormatInput == Value, Format.FormatOutput == String {
     private func commit() {
         PendingEdits.forget(editID)
         if case .set(let newValue) = Self.resolve(typed: text, current: value,
-                                                  emptyClears: emptyClears, entry: entry) {
+                                                  emptyClears: emptyClears, entry: entry, edited: edited) {
             onCommit(newValue)
         }
-        text = shown
+        refresh()
         onFinish?()
+    }
+
+    /// The text follows `value` again; nothing is typed.
+    private func refresh() {
+        edited = false
+        text = shown
     }
 
     nonisolated enum Resolution: Equatable { case keep, set(Value?) }
 
     /// What a committed text does — pure, so the rule is testable without a
     /// host: empty keeps (or clears, when `emptyClears`); the text the field
-    /// shows for the current value keeps; a text that does not parse keeps; the
+    /// shows for the current value, left untouched, keeps; a text that does not parse keeps; the
     /// same value keeps (no provenance flip); else sets.
     ///
     /// The shown text is not an edit: the field commits on
@@ -193,14 +206,15 @@ where Format.FormatInput == Value, Format.FormatOutput == String {
     /// value has (a Defocus of 12.346 shown 12,3; a Float-backed 0.3, which is
     /// 0.30000001) would otherwise store its own rounding every time the field
     /// was merely left — and an Exploratory scale dragged to 0.0125597 lost its
-    /// ACOM result to the 0.0126 it showed. Declared trade-off: while a finer
-    /// value is stored, typing exactly the shown text is a no-op (`0,030` or
-    /// `0.03` still set it).
+    /// ACOM result to the 0.0126 it showed. So the shown text keeps only when
+    /// the user did not type (`edited` false): typed over a finer value, the
+    /// same text sets the number it reads as (0.0126 typed over 0.0125597
+    /// sets 0.0126), MacEMUI#42.
     nonisolated static func resolve(typed raw: String, current: Value?, emptyClears: Bool,
-                        entry: DecimalEntryFormat<Format>) -> Resolution {
+                        entry: DecimalEntryFormat<Format>, edited: Bool = false) -> Resolution {
         let typed = raw.trimmingCharacters(in: .whitespaces)
         if typed.isEmpty { return emptyClears && current != nil ? .set(nil) : .keep }
-        if let current, typed == entry.format(current) { return .keep }
+        if !edited, let current, typed == entry.format(current) { return .keep }
         guard let parsed = try? entry.parseStrategy.parse(typed), parsed != current else { return .keep }
         return .set(parsed)
     }
