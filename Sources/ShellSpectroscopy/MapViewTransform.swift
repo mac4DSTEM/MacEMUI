@@ -1,21 +1,41 @@
 //
 //  MapViewTransform.swift
-//  Role: zoom and pan of the maps (design 2026-10-22): ONE transform shared by every map tile of a room, so the same part of the scan is in view on all of them. It is a plain value: the zoom
-//        (1 = the whole scan fits the tile) and the point of the picture, as fractions of its width and height, that sits at the tile's centre. Pinch and scroll zoom about the pointer, a drag pans,
-//        a double click resets. The arithmetic is pure and held by a test.
+//  Role: zoom and pan of the maps (design 2026-10-22): ONE transform shared by every map tile of a room, so the same part of the scan is in view on all of them. It is a view of the image panes'
+//        `ZoomPan` measured in a tile of unit size, so the maps and the panes zoom by one rule: the zoom (1 = the whole scan fits the tile, never less) and, read through it, the point of the
+//        picture, as fractions of its width and height, that sits at the tile's centre. Pinch and scroll zoom about the pointer, a drag or an ⌥-scroll pans, a double click resets. The
+//        arithmetic is pure and held by a test.
 //
 
 import CoreGraphics
+import ShellControls
+import SwiftUI
 
 public nonisolated struct MapViewTransform: Equatable, Sendable {
-    public static let maximumZoom: CGFloat = 64
+    public static let maximumZoom: CGFloat = ZoomPan.maximumZoom
+    /// The tile the state is measured in: one unit across and down, so its offsets are fractions of the tile and fit every tile size.
+    public static let unitBox = CGSize(width: 1, height: 1)
 
-    /// 1 shows the whole picture; 2 shows half of its width and height.
-    public private(set) var zoom: CGFloat = 1
-    /// The picture's point (0...1 across and down) at the centre of the tile.
-    public private(set) var center = CGPoint(x: 0.5, y: 0.5)
+    /// The zoom and the offset of the picture (in tile fractions, from the tile's centre), as the image panes keep them. Committed values only.
+    public private(set) var zoomPan = ZoomPan()
 
     public init() {}
+
+    /// The maps' view of a pane state in the unit box: never below the fit, never a gesture in flight, never off the picture.
+    public init(_ state: ZoomPan) {
+        var z = ZoomPan()
+        if state.zoom > 1, state.zoom.isFinite {
+            z.zoom = min(state.zoom, Self.maximumZoom)
+            z.offset = ZoomPan.clampedOffset(state.offset, zoom: z.zoom, in: Self.unitBox)
+        }
+        zoomPan = z
+    }
+
+    /// 1 shows the whole picture; 2 shows half of its width and height.
+    public var zoom: CGFloat { zoomPan.zoom }
+    /// The picture's point (0...1 across and down) at the centre of the tile.
+    public var center: CGPoint {
+        CGPoint(x: 0.5 - zoomPan.offset.width / zoom, y: 0.5 - zoomPan.offset.height / zoom)
+    }
 
     public var isFit: Bool { zoom <= 1 }
 
@@ -24,20 +44,24 @@ public nonisolated struct MapViewTransform: Equatable, Sendable {
     /// Zoom by `factor`, keeping the picture point `anchor` (0...1, the point under the pointer) where it is on the tile.
     public mutating func zoom(by factor: CGFloat, about anchor: CGPoint) {
         guard factor.isFinite, factor > 0 else { return }
-        let new = min(max(zoom * factor, 1), Self.maximumZoom)
-        guard new != zoom else { return }
-        // The anchor's offset from the centre, in tile fractions, is (anchor - center) * zoom; keeping it fixed gives the new centre.
-        let fromCenter = CGPoint(x: (anchor.x - center.x) * zoom, y: (anchor.y - center.y) * zoom)
-        center = CGPoint(x: anchor.x - fromCenter.x / new, y: anchor.y - fromCenter.y / new)
-        zoom = new
-        clamp()
+        let target = min(max(zoom * factor, 1), Self.maximumZoom)
+        guard target != zoom else { return }
+        // The anchor as the panes measure it: unit-box points from the tile's centre.
+        let center = center
+        let screen = CGPoint(x: (anchor.x - center.x) * zoom, y: (anchor.y - center.y) * zoom)
+        var next = zoomPan
+        next.step(by: target / zoom, in: Self.unitBox, anchor: screen)
+        next.zoom = target   // exactly the clamped target, not zoom * (target / zoom)
+        next.offset = ZoomPan.clampedOffset(next.offset, zoom: target, in: Self.unitBox)
+        zoomPan = next
     }
 
     /// Move the view by a drag of `translation` points over a tile of `size` points: the picture follows the pointer.
     public mutating func pan(by translation: CGSize, in size: CGSize) {
         guard size.width > 0, size.height > 0, zoom > 1 else { return }
-        center = CGPoint(x: center.x - translation.width / (size.width * zoom), y: center.y - translation.height / (size.height * zoom))
-        clamp()
+        let proposed = CGSize(width: zoomPan.offset.width + translation.width / size.width,
+                              height: zoomPan.offset.height + translation.height / size.height)
+        zoomPan.offset = ZoomPan.clampedOffset(proposed, zoom: zoom, in: Self.unitBox)
     }
 
     /// The picture point (0...1) under a tile point of a tile `size` points across.
@@ -48,7 +72,7 @@ public nonisolated struct MapViewTransform: Equatable, Sendable {
 
     /// Where the picture is drawn: the scale about the tile's centre and the offset in points that put `center` at the centre.
     public func placement(in size: CGSize) -> (scale: CGFloat, offset: CGSize) {
-        (zoom, CGSize(width: (0.5 - center.x) * size.width * zoom, height: (0.5 - center.y) * size.height * zoom))
+        (zoom, CGSize(width: zoomPan.offset.width * size.width, height: zoomPan.offset.height * size.height))
     }
 
     /// The point of the zoomed content (the picture's own, unscaled points) that sits under a tile point: the inverse of `placement`. Gestures read their locations in the tile's own space, which does not
@@ -57,10 +81,49 @@ public nonisolated struct MapViewTransform: Equatable, Sendable {
         let p = placement(in: size)
         return CGPoint(x: size.width / 2 + (point.x - size.width / 2 - p.offset.width) / p.scale, y: size.height / 2 + (point.y - size.height / 2 - p.offset.height) / p.scale)
     }
+}
 
-    /// The view never leaves the picture: the centre stays half a view's span inside every edge.
-    private mutating func clamp() {
-        let half = 0.5 / zoom
-        center = CGPoint(x: min(max(center.x, half), 1 - half), y: min(max(center.y, half), 1 - half))
+/// The View menu's Zoom commands over the maps: a `PaneZoomModel` whose box is the unit tile, kept equal to the room's `MapViewTransform`. The menu
+/// zooms about the tiles' centre (the pointer is in the menu bar, or over one of several tiles), by the panes' step, and Zoom to Fit is the double click.
+@MainActor
+final class MapZoomCommandBridge {
+    let model = PaneZoomModel()
+
+    init() { model.box = MapViewTransform.unitBox }
+
+    /// The room's transform changed (a wheel, a pinch, a drag, a double click): the menu's model follows.
+    func follow(_ transform: MapViewTransform) {
+        if model.state != transform.zoomPan { model.state = transform.zoomPan }
+    }
+
+    /// The menu changed the model: the transform it means (the maps never zoom below the fit), and the model put back on it.
+    func transform() -> MapViewTransform {
+        let t = MapViewTransform(model.state)
+        follow(t)
+        return t
+    }
+}
+
+/// Keeps the bridge and the room's transform equal. Its own view, so a zoom tick re-evaluates this modifier and not the maps block around it.
+private struct MapZoomCommandsModifier: ViewModifier {
+    @Binding var transform: MapViewTransform
+    @State private var bridge = MapZoomCommandBridge()
+
+    func body(content: Content) -> some View {
+        content
+            .zoomCommandTarget(bridge.model, isTarget: true)
+            .onChange(of: transform, initial: true) { _, new in bridge.follow(new) }
+            .onChange(of: bridge.model.state) { _, _ in
+                let next = bridge.transform()
+                if next != transform { transform = next }
+            }
+    }
+}
+
+extension View {
+    /// Publishes the maps' shared `transform` to View > Zoom In, Zoom Out and Zoom to Fit (about the tiles' centre; Zoom to Fit is the
+    /// double click). Apply it once, to the block that holds a room's tiles.
+    public func mapZoomCommandTarget(_ transform: Binding<MapViewTransform>) -> some View {
+        modifier(MapZoomCommandsModifier(transform: transform))
     }
 }

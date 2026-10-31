@@ -94,6 +94,14 @@ public final class EDXRoomState {
 
     public func requestImport() { importRequest &+= 1 }
 
+    /// Esc: back to the arrow tool; a shape half drawn (an open polygon) goes with its tool. False when the arrow was already chosen,
+    /// so the key is left to whatever else wants it.
+    @discardableResult public func escape() -> Bool {
+        guard tool != .pointer else { return false }
+        tool = .pointer
+        return true
+    }
+
     /// Makes the bytes of `kind` from the session and opens the save panel (or, with `directory`, the UI journeys' export folder, writes the file there
     /// as the other rooms' exports do); says why when there is nothing to write.
     @MainActor public func export(_ kind: EDXExportKind, from session: EDXSession, directory: URL? = nil, report: (String) -> Void) async {

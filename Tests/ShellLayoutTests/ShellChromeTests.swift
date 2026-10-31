@@ -94,6 +94,24 @@ nonisolated final class ShellChromeTests: XCTestCase {
                        "Detect Disks · 2:35 · ETA 42 s")
     }
 
+    /// The spoken clock is the drawn clock: both come from one reading at one tick, so 4 s on screen is 4 s for
+    /// VoiceOver and UI tests, never the first tick 0 s (MacEMUI#39).
+    func testTheBusyLineLabelReadsTheSameTickAsTheDrawnClock() {
+        let start = Date(timeIntervalSinceReferenceDate: 1_000)
+        let metrics: (Date) -> (elapsed: TimeInterval, eta: TimeInterval?)? = { date in
+            (elapsed: date.timeIntervalSince(start), eta: nil)
+        }
+        let tick = ToolbarDisplayFormat.busyTick(operation: "Detect Disks", progress: 0.4, metrics: metrics,
+                                                 at: start.addingTimeInterval(4))
+        XCTAssertEqual(tick.text, "Detect Disks · 4 s")
+        XCTAssertEqual(tick.accessibilityLabel, tick.text)
+        XCTAssertEqual(tick.accessibilityValue, "40 percent")
+        let first = ToolbarDisplayFormat.busyTick(operation: "Detect Disks", progress: nil, metrics: metrics,
+                                                  at: start)
+        XCTAssertEqual(first.accessibilityLabel, "Detect Disks · 0 s")
+        XCTAssertEqual(first.accessibilityValue, "")
+    }
+
     // MARK: - Panel intent (mac4DSTEM ContentView)
 
     /// The keys are what saved windows already hold: moving to the package must not reset anyone's panels.

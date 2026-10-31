@@ -62,3 +62,21 @@ nonisolated final class ZoomPanClampTests: XCTestCase {
         )
     }
 }
+
+/// ⌥-scroll pans (issue: one shared zoomable container). The picture follows the scroll, through the drag's clamp.
+nonisolated final class ZoomPanScrollPanTests: XCTestCase {
+    func testAnOptionScrollPansThroughTheClampAndNotAtTheFit() {
+        let box = CGSize(width: 200, height: 100)
+        var z = ZoomPan()
+        z.scrollPan(deltaX: 5, deltaY: 5, isPrecise: true, in: box)
+        XCTAssertEqual(z.offset, .zero, "nothing to pan at the fit")
+        z.step(by: 2, in: box)
+        z.scrollPan(deltaX: 12, deltaY: -8, isPrecise: true, in: box)
+        XCTAssertEqual(z.offset, CGSize(width: 12, height: -8), "a trackpad's deltas are points")
+        z.scrollPan(deltaX: 1, deltaY: 0, isPrecise: false, in: box)
+        XCTAssertEqual(z.offset.width, 22, "a wheel's line is ten points")
+        z.scrollPan(deltaX: 10_000, deltaY: -10_000, isPrecise: true, in: box)
+        XCTAssertEqual(z.offset, ZoomPan.clampedOffset(CGSize(width: 10_000, height: -10_000), zoom: 2, in: box), "stops at the edge")
+        XCTAssertEqual(ZoomPan.scrollTranslation(deltaX: .nan, deltaY: 1, isPrecise: true), .zero)
+    }
+}

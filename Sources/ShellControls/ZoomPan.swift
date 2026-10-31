@@ -94,6 +94,20 @@ public nonisolated struct ZoomPan: Equatable, Sendable {
         step(by: ScrollZoom.factor(delta: delta, isPrecise: isPrecise), in: box, anchor: Self.anchor(for: location, in: box))
     }
 
+    /// The points one scroll event moves the picture by when it pans (⌥-scroll): a trackpad's deltas are points already, a wheel's
+    /// are lines, about ten points each. The picture follows the scroll, as a drag follows the pointer.
+    public static func scrollTranslation(deltaX: CGFloat, deltaY: CGFloat, isPrecise: Bool) -> CGSize {
+        guard deltaX.isFinite, deltaY.isFinite else { return .zero }
+        let points: CGFloat = isPrecise ? 1 : 10
+        return CGSize(width: deltaX * points, height: deltaY * points)
+    }
+
+    /// One ⌥-scroll event: a pan through the same clamp as a drag (a no-op at the fit).
+    public mutating func scrollPan(deltaX: CGFloat, deltaY: CGFloat, isPrecise: Bool, in box: CGSize) {
+        let move = Self.scrollTranslation(deltaX: deltaX, deltaY: deltaY, isPrecise: isPrecise)
+        offset = Self.clampedOffset(CGSize(width: offset.width + move.width, height: offset.height + move.height), zoom: zoom, in: box)
+    }
+
     /// A pinch in flight: the live zoom and the live offset that keep `anchor` still. The zoom is clamped as the commit will
     /// clamp it, so the picture never shows a zoom the gesture will not keep.
     public mutating func pinch(magnification: CGFloat, anchor: CGPoint, in box: CGSize) {
@@ -328,14 +342,20 @@ private struct ZoomPanWheelModifier: ViewModifier {
     func body(content: Content) -> some View {
         // The one AppKit route (`onScrollWheel`, a bounded local monitor; never the old application-wide one).
         content.onScrollWheel { event in
-            guard event.delta != 0 else { return }
-            model.update { $0.wheel(delta: event.delta, isPrecise: event.isPrecise, at: event.location, in: box) }
+            if event.modifiers.contains(.option) {
+                // ⌥-scroll pans, as in Preview's and the EDS maps' zoomed views.
+                guard event.delta != 0 || event.deltaX != 0 else { return }
+                model.update { $0.scrollPan(deltaX: event.deltaX, deltaY: event.delta, isPrecise: event.isPrecise, in: box) }
+            } else {
+                guard event.delta != 0 else { return }
+                model.update { $0.wheel(delta: event.delta, isPrecise: event.isPrecise, at: event.location, in: box) }
+            }
         }
     }
 }
 
 extension View {
-    /// The wheel and a two-finger scroll zoom about the pointer, as a pinch does. Apply it to the same view as `zoomPan`, with
+    /// The wheel and a two-finger scroll zoom about the pointer, as a pinch does; with ⌥ held they pan. Apply it to the same view as `zoomPan`, with
     /// the same `box`. Separate from `zoomPan` so a pane that already routes the wheel (or that wants it for scrolling) opts in.
     public func zoomPanWheel(_ model: PaneZoomModel, box: CGSize) -> some View {
         modifier(ZoomPanWheelModifier(model: model, box: box))

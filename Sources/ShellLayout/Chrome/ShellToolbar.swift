@@ -133,6 +133,25 @@ public nonisolated enum ToolbarDisplayFormat {
         guard let elapsed else { return operation }
         return operation + " · " + OperationMetricsFormat.line(elapsed: elapsed, eta: eta)
     }
+
+    /// One tick of the busy line: the drawn text and what VoiceOver and UI tests read, from one `metrics` reading
+    /// at one date, so the spoken clock can never lag the drawn one.
+    static func busyTick(
+        operation: String, progress: Double?,
+        metrics: (Date) -> (elapsed: TimeInterval, eta: TimeInterval?)?, at date: Date
+    ) -> BusyTick {
+        let reading = metrics(date)
+        let text = busy(operation: operation, elapsed: reading?.elapsed, eta: reading?.eta)
+        return BusyTick(text: text, accessibilityLabel: text,
+                        accessibilityValue: progress.map { "\(Int($0 * 100)) percent" } ?? "")
+    }
+}
+
+/// The busy line at one tick (`ToolbarDisplayFormat.busyTick`).
+nonisolated struct BusyTick: Equatable {
+    let text: String
+    let accessibilityLabel: String
+    let accessibilityValue: String
 }
 
 /// The toolbar's centre — Xcode's activity viewer (the document's
@@ -184,6 +203,10 @@ public struct ToolbarRunDisplay: View {
     ) -> some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
             let reading = metrics(context.date)
+            // One tick from that same reading gives the spoken label and value (`liveAccessibilityText`: SwiftUI kept the first
+            // second's label otherwise).
+            let tick = ToolbarDisplayFormat.busyTick(
+                operation: operation, progress: progress, metrics: { _ in reading }, at: context.date)
             // The clock sits in a slot of constant width (`LayoutPolicy.operationReadoutWidth`), so a ticking digit never moves the
             // operation's name; the name truncates first.
             HStack(spacing: 0) {
@@ -198,11 +221,8 @@ public struct ToolbarRunDisplay: View {
                 }
             }
             .font(Self.busyFont)
-            .accessibilityElement(children: .ignore)
-            .accessibilityAddTraits([.isStaticText, .updatesFrequently])
-            .accessibilityLabel(ToolbarDisplayFormat.busy(operation: operation, elapsed: reading?.elapsed, eta: reading?.eta))
-            .accessibilityValue(progress.map { "\(Int($0 * 100)) percent" } ?? "")
-            .accessibilityIdentifier("toolbar.display.busy")
+            .liveAccessibilityText(label: tick.accessibilityLabel, value: tick.accessibilityValue,
+                                   identifier: "toolbar.display.busy")
         }
     }
 

@@ -85,3 +85,59 @@ nonisolated final class MapViewTransformTests: XCTestCase {
         XCTAssertEqual(ScrollZoom.factor(delta: .nan, isPrecise: true), 1)
     }
 }
+
+/// The maps' transform is a view of the panes' `ZoomPan` in a unit tile: the same picture point sits under the same tile point either way,
+/// and the View menu's commands move it as the wheel and the double click do.
+nonisolated final class MapZoomParityTests: XCTestCase {
+    /// The zoom-about-a-point rule of the old transform (centre in picture fractions), kept here as the reference the port must equal.
+    private func referenceZoom(zoom: CGFloat, center: CGPoint, by factor: CGFloat, about anchor: CGPoint) -> (CGFloat, CGPoint) {
+        let new = min(max(zoom * factor, 1), 64)
+        let c = CGPoint(x: anchor.x - (anchor.x - center.x) * zoom / new, y: anchor.y - (anchor.y - center.y) * zoom / new)
+        let half = 0.5 / new
+        return (new, CGPoint(x: min(max(c.x, half), 1 - half), y: min(max(c.y, half), 1 - half)))
+    }
+
+    func testATilePointMapsToTheSamePicturePointAsBeforeThePort() {
+        var t = MapViewTransform()
+        var ref: (zoom: CGFloat, center: CGPoint) = (1, CGPoint(x: 0.5, y: 0.5))
+        let steps: [(CGFloat, CGPoint)] = [(3, CGPoint(x: 0.2, y: 0.7)), (1.7, CGPoint(x: 0.9, y: 0.1)), (0.5, CGPoint(x: 0.4, y: 0.4)), (40, CGPoint(x: 0, y: 1))]
+        let size = CGSize(width: 300, height: 120)
+        for (factor, anchor) in steps {
+            t.zoom(by: factor, about: anchor)
+            ref = referenceZoom(zoom: ref.zoom, center: ref.center, by: factor, about: anchor)
+            XCTAssertEqual(t.zoom, ref.zoom, accuracy: 1e-12)
+            XCTAssertEqual(t.center.x, ref.center.x, accuracy: 1e-12); XCTAssertEqual(t.center.y, ref.center.y, accuracy: 1e-12)
+            let tilePoint = CGPoint(x: 75, y: 30)
+            let picture = t.picturePoint(forTile: tilePoint, in: size)
+            XCTAssertEqual(picture.x, ref.center.x + (75.0 / 300 - 0.5) / ref.zoom, accuracy: 1e-12)
+            XCTAssertEqual(picture.y, ref.center.y + (30.0 / 120 - 0.5) / ref.zoom, accuracy: 1e-12)
+        }
+    }
+
+    /// A pane state read as the maps' transform never zooms below the fit and never leaves the picture.
+    func testAPaneStateBelowTheFitOrOffThePictureIsTheMapsFit() {
+        var below = ZoomPan(); below.zoom = 0.5
+        XCTAssertEqual(MapViewTransform(below), MapViewTransform())
+        var off = ZoomPan(); off.zoom = 2; off.offset = CGSize(width: 9, height: -9)
+        XCTAssertEqual(MapViewTransform(off).center.x, 0.25, accuracy: 1e-12)
+        XCTAssertEqual(MapViewTransform(off).center.y, 0.75, accuracy: 1e-12)
+    }
+
+    /// Zoom In, Zoom Out and Zoom to Fit move the maps' transform as the wheel and the double click do (about the tiles' centre: the pointer is in the menu).
+    @MainActor func testTheViewMenuZoomsTheMaps() {
+        let bridge = MapZoomCommandBridge()
+        var wheel = MapViewTransform()
+        bridge.follow(wheel)
+        bridge.model.zoomIn()
+        wheel.zoom(by: 2, about: CGPoint(x: 0.5, y: 0.5))
+        XCTAssertEqual(bridge.transform(), wheel)
+        bridge.model.zoomOut(); bridge.model.zoomOut()
+        XCTAssertEqual(bridge.transform(), MapViewTransform(), "Zoom Out stops at the fit")
+        XCTAssertEqual(bridge.model.state.zoom, 1, "and the menu's model is put back on the fit, so the next Zoom In is one step")
+        bridge.model.zoomIn(); _ = bridge.transform()
+        wheel.reset(); wheel.zoom(by: 2, about: CGPoint(x: 0.3, y: 0.3))
+        bridge.follow(wheel)
+        bridge.model.fit()
+        XCTAssertEqual(bridge.transform(), MapViewTransform(), "Zoom to Fit is the double click")
+    }
+}
