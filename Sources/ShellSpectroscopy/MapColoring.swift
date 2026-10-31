@@ -64,19 +64,18 @@ public nonisolated struct MapAdjustment: Equatable, Hashable, Sendable, Codable 
 /// The maps added into the colour mix. By default every map is in; a click on a map makes the choice the person's (`isCustom`), which can take every map out: the mix is then empty and the room shows the
 /// reference image in its place.
 public nonisolated struct ColorMix: Equatable, Sendable, Codable {
-    public var isOn = false
     /// The ids of the maps in the mix when `isCustom`; ignored otherwise (every map is in).
     public var members: [String] = []
     public var isCustom = false
 
     public init() {}
 
-    private enum CodingKeys: String, CodingKey { case isOn, members, isCustom }
+    private enum CodingKeys: String, CodingKey { case members, isCustom }
 
-    /// Tolerant: a mix saved before `isCustom` existed read its members as the choice when it had any.
+    /// Tolerant: a mix saved before `isCustom` existed read its members as the choice when it had any; the `isOn` an older mix
+    /// saved is ignored (the mix is always shown).
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        isOn = try c.decodeIfPresent(Bool.self, forKey: .isOn) ?? false
         members = try c.decodeIfPresent([String].self, forKey: .members) ?? []
         isCustom = try c.decodeIfPresent(Bool.self, forKey: .isCustom) ?? !members.isEmpty
     }
@@ -94,15 +93,6 @@ public nonisolated struct ColorMix: Equatable, Sendable, Codable {
         let ordered = all.filter { chosen.contains($0) }
         if ordered.count == all.count { members = []; isCustom = false } else { members = ordered; isCustom = true }
     }
-
-    /// Adds `id` to the mix or takes it out of the listed members (for a caller that keeps the whole list itself).
-    public mutating func toggle(_ id: String) {
-        if let i = members.firstIndex(of: id) { members.remove(at: i) } else { members.append(id) }
-        isCustom = true
-    }
-
-    /// The mix is shown when it is on and holds at least two of the maps `all` (the default mix holds every one of them).
-    public func isShown(among all: [String]) -> Bool { isOn && selection(among: all).count >= 2 }
 }
 
 /// A document's map appearance: the colouring the person chose per map (by the map's id; a map with none keeps its default) and the colour mix. Codable for the
@@ -133,11 +123,6 @@ public nonisolated struct MapAppearance: Equatable, Sendable, Codable {
 
     /// Sets a map's colouring, or with nil returns it to its default.
     public mutating func set(_ coloring: MapColoring?, for id: String) { colorings[id] = coloring }
-
-    /// Returns only the listed maps to their defaults (colouring and adjustment); other maps and the mix stay.
-    public mutating func reset(maps ids: [String]) {
-        for id in ids { colorings[id] = nil; adjustments[id] = nil }
-    }
 
     public mutating func reset() { colorings = [:]; adjustments = [:]; mix = ColorMix() }
 }
