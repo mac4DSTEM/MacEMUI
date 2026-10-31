@@ -122,6 +122,15 @@ nonisolated final class EDXRoomTests: XCTestCase {
                       "the room routes Esc to it, whatever holds the focus, only while a drawing tool is chosen")
     }
 
+    /// The maps hear Return and the arrows from a focused tile and hand them to the keyboard route (`EDXRegionBridge`, held in `EDXRegionsTests`).
+    /// Red under: either key press removed from the maps block.
+    func testTheMapsRouteReturnAndTheArrowsToTheKeyboardRegion() throws {
+        let block = squeezed(try source("Sources/ShellSpectroscopy/EDX/EDXMapsBlock.swift"))
+        XCTAssertTrue(block.contains(".onKeyPress(.return) { EDXRegionBridge.drawByKeyboard(in: session, state: state) ? .handled : .ignored }"))
+        XCTAssertTrue(block.contains(".onKeyPress(keys: [.leftArrow, .rightArrow, .upArrow, .downArrow])"))
+        XCTAssertTrue(block.contains("EDXRegionBridge.nudgeSelected(dx: step.dx, dy: step.dy, in: session, state: state)"))
+    }
+
     // MARK: Strings
 
     func testCountsGroupByThousandsWithAThinSpace() {
