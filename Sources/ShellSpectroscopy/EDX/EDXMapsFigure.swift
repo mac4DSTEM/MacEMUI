@@ -1,7 +1,8 @@
 //
 //  EDXMapsFigure.swift
-//  Role: the maps as one PNG (the Export section's "Maps as PNG…"): the shown tiles in a grid, each with its title, the selected
-//        region drawn over it, a scale bar from the file's pixel size and, for a composition tile, the footer that carries the
+//  Role: the maps as one PNG (the Export section's "Maps as PNG…"): the shown tiles in a grid, each with its title, the regions
+//        where the room draws them (every shown pin and line on the colour mix, in its own colour; on every tile when the figure
+//        has no mix), a scale bar from the file's pixel size and, for a composition tile, the footer that carries the
 //        factor source and the `validation: none` badge. The picture is a SwiftUI view rendered by `ImageRenderer`; the pixels of a
 //        tile are `EDXMapRaster`'s, the bar's numbers ImagoKit's (`EDXExports.scaleBar`). Presentation only.
 //
@@ -44,11 +45,21 @@ public struct EDXFigureContent {
     package private(set) var showsRegion = true
     /// Pictures another room made (the EELS maps, its colour mix first), drawn after the EDS tiles with the same frame, region and scale bar.
     package private(set) var cells: [EDXFigureCell] = []
+    /// The room's pins and lines as its colour mix draws them (hidden ones stay hidden, the selected one heavier). nil: only `region`, in white, on every tile.
+    public private(set) var regions: SpectralRegionSet?
 
     public init(title: String, subtitle: String, tiles: [EDXMapTile], region: EDXRegion, nx: Int, ny: Int, bar: (fraction: Double, label: String)?,
-                mix: [EDXMapTile] = [], showsScaleBar: Bool = true, showsRegion: Bool = true, cells: [EDXFigureCell] = []) {
+                mix: [EDXMapTile] = [], showsScaleBar: Bool = true, showsRegion: Bool = true, cells: [EDXFigureCell] = [], regions: SpectralRegionSet? = nil) {
         self.title = title; self.subtitle = subtitle; self.tiles = tiles; self.region = region; self.nx = nx; self.ny = ny; self.bar = bar
-        self.mix = mix; self.showsScaleBar = showsScaleBar; self.showsRegion = showsRegion; self.cells = cells
+        self.mix = mix; self.showsScaleBar = showsScaleBar; self.showsRegion = showsRegion; self.cells = cells; self.regions = regions
+    }
+
+    /// Whether a tile draws the regions: with the room's set, the colour mix only (as in the room), or every tile when the figure has no mix;
+    /// without it, every tile (the selected region).
+    package func drawsRegions(onMix isMix: Bool) -> Bool {
+        guard showsRegion else { return false }
+        guard regions != nil else { return true }
+        return isMix || mix.isEmpty
     }
 }
 
@@ -90,7 +101,7 @@ public struct EDXMapsFigure: View {
             Color.black
                 .aspectRatio(CGFloat(max(first.width, 1)) / CGFloat(max(first.height, 1)), contentMode: .fit)
                 .overlay { if let image { Image(decorative: image, scale: 1).interpolation(.none).resizable() } }
-                .overlay { GeometryReader { geo in overlay(size: geo.size) } }
+                .overlay { GeometryReader { geo in overlay(size: geo.size, isMix: true) } }
         }
         .frame(width: Self.cellWidth, alignment: .leading)
     }
@@ -132,10 +143,14 @@ public struct EDXMapsFigure: View {
         .frame(width: Self.cellWidth, alignment: .leading)
     }
 
-    private func overlay(size: CGSize) -> some View {
+    private func overlay(size: CGSize, isMix: Bool = false) -> some View {
         ZStack(alignment: .bottomLeading) {
-            if content.showsRegion, let outline = EDXMapOutline.outline(of: content.region, in: size, nx: content.nx, ny: content.ny) {
-                outline.stroke(.white, lineWidth: 1.5)
+            if content.drawsRegions(onMix: isMix) {
+                if let set = content.regions {
+                    RegionOverlay(set: set, scanWidth: content.nx, scanHeight: content.ny)
+                } else if let outline = EDXMapOutline.outline(of: content.region, in: size, nx: content.nx, ny: content.ny) {
+                    outline.stroke(.white, lineWidth: 1.5)
+                }
             }
             if content.showsScaleBar, let bar = content.bar {
                 VStack(alignment: .leading, spacing: 2) {
@@ -168,14 +183,27 @@ public struct EDXMapsFigure: View {
 }
 
 extension EDXSession {
-    /// What "Maps as PNG…" draws: the tiles the grid shows, the region, the file's scale bar.
-    public func figureContent(scaleBar: Bool = true, regions: Bool = true, mix: [EDXMapTile] = []) -> EDXFigureContent? {
+    /// The room's pins and lines; a selected region that is no pin (a shape not kept) joins them in white, as the figure drew it before.
+    func figureRegions(linesFocused: Bool) -> SpectralRegionSet {
+        var set = EDXRegionBridge.set(self, linesFocused: linesFocused)
+        if selectedPin == nil, let g = EDXRegionBridge.geometry(region) {
+            let id = UUID()
+            set = SpectralRegionSet(regions: set.regions + [SpectralRegion(id: id, name: "Selected", color: RegionColor(red: 1, green: 1, blue: 1), isVisible: true, geometry: g)],
+                                    selectedID: linesFocused ? set.selectedID : id)
+        }
+        return set
+    }
+
+    /// What "Maps as PNG…" draws: the tiles the grid shows, the pins and lines as the colour mix shows them, the file's scale bar.
+    /// `linesFocused` says whether the selection (drawn heavier) is a line, as the room's state does.
+    public func figureContent(scaleBar: Bool = true, regions: Bool = true, mix: [EDXMapTile] = [], linesFocused: Bool = false) -> EDXFigureContent? {
         guard let source else { return nil }
         let m = source.metadata
         return EDXFigureContent(title: fileName,
                                 subtitle: EDXRoomFormat.region(region, pixels: regionPixels) + " \u{00B7} " + (mapMode == .net ? "net counts" : mapMode.title),
                                 tiles: shownTiles, region: region, nx: source.nx, ny: source.ny,
                                 bar: EDXExports.scaleBar(pixelSize: m.scanPixelSize, unit: m.scanPixelUnit, nx: source.nx, ny: source.ny),
-                                mix: mix, showsScaleBar: scaleBar, showsRegion: regions)
+                                mix: mix, showsScaleBar: scaleBar, showsRegion: regions,
+                                regions: figureRegions(linesFocused: linesFocused))
     }
 }
