@@ -238,7 +238,9 @@ nonisolated final class EDXRegionsTests: XCTestCase {
         XCTAssertTrue(EDXRegionBridge.drawByKeyboard(in: session, state: state))
         XCTAssertTrue(state.linesFocused)
         let line = try XCTUnwrap(session.lines.first)
-        XCTAssertEqual(line.from.x, 0); XCTAssertEqual(line.to.x, 1); XCTAssertEqual(line.from.y, 0.5)
+        XCTAssertEqual(line.from.x, 0)
+        XCTAssertEqual(line.to.x, 1)
+        XCTAssertEqual(line.from.y, 0.5)
     }
 
     func testTheRegionSentencesNameTheShape() {
