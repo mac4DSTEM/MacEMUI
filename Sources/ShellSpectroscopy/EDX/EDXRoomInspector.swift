@@ -40,7 +40,7 @@ public struct EDXRoomSettings: View {
             EDXExportSection(session: session, state: state, actions: actions)
         } else {
             ContentUnavailableView(EDXRoomFormat.emptyTitle, systemImage: "waveform.path.ecg",
-                                   description: Text("\(EDXRoomFormat.openPrompt) Its controls appear here."))
+                                   description: Text("Open a spectrum image. Its controls appear here."))
         }
     }
 }

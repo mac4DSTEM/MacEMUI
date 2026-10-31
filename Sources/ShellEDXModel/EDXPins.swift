@@ -98,7 +98,7 @@ public nonisolated enum EDXPins {
 
     /// The pins a `csv` file lists: name, shape and geometry (the numbers are recomputed from the image, not read back). nil for a file
     /// that is not this CSV; a row whose shape or geometry does not parse is skipped.
-    public static func parse(_ text: String) -> [EDXPin]? {
+    package static func parse(_ text: String) -> [EDXPin]? {
         let lines = text.split(separator: "\n", omittingEmptySubsequences: true).map(String.init).filter { !$0.hasPrefix("#") }
         guard let header = lines.first, header.hasPrefix("name,shape,geometry,pixels,counts") else { return nil }
         return lines.dropFirst().compactMap { line in
