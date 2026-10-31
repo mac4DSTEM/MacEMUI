@@ -10,18 +10,6 @@ import ShellControls
 import ShellMetal
 import SwiftUI
 
-/// What a tile's colour scale shows: black (or the colormap's start) at `low`, the full colour at `high`, in `unit`.
-public struct MapColorbarSpec: Equatable, Sendable {
-    public var low: Double
-    public var high: Double
-    public var unit: String
-    public var coloring: MapColoring
-
-    public init(low: Double, high: Double, unit: String, coloring: MapColoring) {
-        self.low = low; self.high = high; self.unit = unit; self.coloring = coloring
-    }
-}
-
 /// The regions and tools of the anchor tile: what is drawn over it and what drawing and editing hand back (scan pixels).
 public struct MapTileRegions {
     public var set: SpectralRegionSet
@@ -72,12 +60,11 @@ public struct MapTileView<Controls: View>: View {
     /// - `pixelSize` / `pixelUnit`: the scan's real-space step ("nm") for the scale bar; nil draws the bar in scan pixels.
     /// - `inMix` / `onToggleMix`: on an element map, whether the map is in the colour mix (a ring on the tile) and the click that adds it or takes it out; nil on tiles that are not selectable.
     /// - `regions`: set on the anchor tile only. `filteredTag`: the picture is drawn through a display filter; a small tag beside the name says so.
-    /// - `colorbar`, `valueText`: no longer drawn (the status line carries the value); kept so mac4DSTEM compiles. delete at MacEMUI 0.4.0
     /// - `controls`: the content of the popover the scale bar opens (the map's colour, histogram and gamma).
     public init(title: String, detail: String? = nil, image: CGImage?, size: CGSize, scanWidth: Int, scanHeight: Int,
-                pixelSize: Double? = nil, pixelUnit: String? = nil, colorbar: MapColorbarSpec? = nil, regions: MapTileRegions? = nil, filteredTag: Bool = false,
+                pixelSize: Double? = nil, pixelUnit: String? = nil, regions: MapTileRegions? = nil, filteredTag: Bool = false,
                 inMix: Bool? = nil, onToggleMix: (() -> Void)? = nil, placeholder: String? = nil, transform: Binding<MapViewTransform> = .constant(MapViewTransform()),
-                valueText: @escaping (Int, Int) -> String? = { _, _ in nil }, onHover: @escaping ((x: Int, y: Int)?) -> Void,
+                onHover: @escaping ((x: Int, y: Int)?) -> Void,
                 @ViewBuilder controls: () -> Controls) {
         self.placeholder = placeholder; self._transform = transform
         self.title = title; self.detail = detail; self.image = image; self.size = size; self.scanWidth = scanWidth; self.scanHeight = scanHeight
@@ -240,46 +227,6 @@ private struct HoverReader: View {
                 .gesture(DragGesture(minimumDistance: 2, coordinateSpace: .named("mapTile"))
                     .onChanged { v in onPan(CGSize(width: v.translation.width - lastPan.width, height: v.translation.height - lastPan.height)); lastPan = v.translation }
                     .onEnded { _ in lastPan = .zero })
-        }
-    }
-}
-
-/// The colour scale of a map: its ramp with the two ends and the unit, on a legibility plate.
-public struct MapColorbarView: View {
-    private let spec: MapColorbarSpec
-
-    public init(spec: MapColorbarSpec) { self.spec = spec }
-
-    public var body: some View {
-        VStack(spacing: 1) {
-            LinearGradient(colors: Self.stops(spec.coloring), startPoint: .leading, endPoint: .trailing)
-                .frame(width: 90, height: 5)
-                .clipShape(RoundedRectangle(cornerRadius: 2))
-            HStack {
-                Text(verbatim: Self.number(spec.low))
-                Spacer(minLength: 6)
-                Text(verbatim: "\(Self.number(spec.high)) \(spec.unit)")
-            }
-            .font(.system(size: 9, design: .monospaced))
-        }
-        .foregroundStyle(.white)
-        .padding(.horizontal, 6).padding(.vertical, 3)
-        .frame(width: 106)
-        .background(Color.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 5))
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Colour scale")
-        .accessibilityValue("\(Self.number(spec.low)) to \(Self.number(spec.high)) \(spec.unit)")
-        .accessibilityIdentifier("maps.colorbar")
-    }
-
-    nonisolated static func number(_ v: Double) -> String { v.formatted(.number.grouping(.never).precision(.significantDigits(1...4))) }
-
-    static func stops(_ coloring: MapColoring) -> [Color] {
-        switch coloring {
-        case .color(let c): return [.black, c.color]
-        case .colormap(let kind):
-            let lut = Colormaps.lutRGBA(kind, count: 9)
-            return (0..<9).map { Color(.sRGB, red: Double(lut[4 * $0]) / 255, green: Double(lut[4 * $0 + 1]) / 255, blue: Double(lut[4 * $0 + 2]) / 255, opacity: 1) }
         }
     }
 }

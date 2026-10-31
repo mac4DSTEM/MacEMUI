@@ -1,69 +1,10 @@
 //
 //  RegionViews.swift
-//  Role: the regions' two views (design 2026-10-22 §2.1): the list in the inspector (select, show or hide, rename, recolour, delete) and the outline overlay a
-//        map tile draws over its image. Both read a `SpectralRegionSet`; the drawing tools that make the shapes stay with the app's tile.
+//  Role: the outline overlay a map tile draws over its image, read from a `SpectralRegionSet`; the drawing tools that make the shapes stay with the tile.
 //
 
 import SwiftUI
 import ShellInspector
-
-/// The inspector's Regions list: one row per region with its colour (a picker), name (editable), kind, a show/hide eye and a delete button. A tap selects.
-public struct RegionsList: View {
-    @Binding private var set: SpectralRegionSet
-    @Environment(\.self) private var environment
-
-    public init(set: Binding<SpectralRegionSet>) {
-        self._set = set
-    }
-
-    public var body: some View {
-        if set.regions.isEmpty {
-            InspectorNote("Draw a rectangle, ellipse, polygon or line on a map to compare regions.")
-        } else {
-            VStack(spacing: 2) {
-                ForEach(set.regions) { region in row(region) }
-            }
-            .accessibilityIdentifier("regions.list")
-        }
-    }
-
-    private func row(_ region: SpectralRegion) -> some View {
-        let id = region.id
-        let selected = set.selectedID == id
-        return HStack(spacing: 6) {
-            ColorPicker("Colour of \(region.name)", selection: Binding(
-                get: { region.color.color },
-                set: { set.setColor(id, RegionColor($0, resolvedIn: environment)) }), supportsOpacity: false)
-                .labelsHidden()
-                .accessibilityIdentifier("regions.color.\(region.name)")
-            TextField("Name", text: Binding(get: { region.name }, set: { set.rename(id, to: $0) }))
-                .textFieldStyle(.plain)
-                .lineLimit(1)
-                .opacity(region.isVisible ? 1 : 0.5)
-                .accessibilityIdentifier("regions.name.\(region.name)")
-            Text(region.geometry.kindName).font(.caption).foregroundStyle(.secondary)
-            Button { set.setVisible(id, !region.isVisible) } label: {
-                Image(systemName: region.isVisible ? "eye" : "eye.slash")
-            }
-            .buttonStyle(.borderless)
-            .help(region.isVisible ? "Hide \(region.name)" : "Show \(region.name)")
-            .accessibilityLabel(region.isVisible ? "Hide \(region.name)" : "Show \(region.name)")
-            .accessibilityIdentifier("regions.visibility.\(region.name)")
-            Button { set.remove(id) } label: { Image(systemName: "trash") }
-                .buttonStyle(.borderless)
-                .help("Delete \(region.name)")
-                .accessibilityLabel("Delete \(region.name)")
-                .accessibilityIdentifier("regions.delete.\(region.name)")
-        }
-        .padding(.horizontal, 6).padding(.vertical, 3)
-        .background(selected ? Color.accentColor.opacity(0.18) : .clear, in: RoundedRectangle(cornerRadius: 6))
-        .contentShape(Rectangle())
-        .onTapGesture { set.select(id) }
-        .accessibilityElement(children: .contain)
-        .accessibilityAddTraits(selected ? .isSelected : [])
-        .accessibilityIdentifier("regions.row.\(region.name)")
-    }
-}
 
 /// The visible regions' outlines over a map tile, in their colours (the selected one drawn heavier), with an optional marker for the pixel under the
 /// pointer. The view is as large as the image it covers: `scanWidth` x `scanHeight` pixels map to its frame.

@@ -34,20 +34,11 @@ nonisolated final class ShellChromeTests: XCTestCase {
         XCTAssertEqual(TestRoom.prepare.shortcutNumber, 1)
         XCTAssertEqual(TestRoom.image.shortcutNumber, 2)
         XCTAssertEqual(TestRoom.edx.shortcutNumber, 3)
-        XCTAssertEqual(TestRoom.image.shortcutKey, KeyEquivalent("2"))
     }
 
     func testNoRoomPastTheNinthGetsAShortcut() {
         XCTAssertEqual(NumberedRoom(number: 9).shortcutNumber, 9)
         XCTAssertNil(NumberedRoom(number: 10).shortcutNumber)
-        XCTAssertNil(NumberedRoom(number: 10).shortcutKey)
-    }
-
-    func testTheMenuMapsANumberToItsRoomAndSkipsAnUnavailableOne() {
-        XCTAssertEqual(WorkspaceRoomShortcuts.room(forShortcut: 2, in: TestRoom.allCases), .image)
-        XCTAssertNil(WorkspaceRoomShortcuts.room(forShortcut: 3, in: TestRoom.allCases),
-                     "a room not built is listed and cannot be entered")
-        XCTAssertNil(WorkspaceRoomShortcuts.room(forShortcut: 7, in: TestRoom.allCases))
     }
 
     // MARK: - The room's verb (mac4DSTEM `PrimaryActionButton`)

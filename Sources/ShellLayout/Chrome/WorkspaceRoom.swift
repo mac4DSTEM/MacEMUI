@@ -24,11 +24,6 @@ public nonisolated protocol WorkspaceRoom: Hashable, Identifiable, Sendable wher
 
 nonisolated extension WorkspaceRoom {
     public var isAvailable: Bool { true }
-
-    /// The key of the ⌘N shortcut, for `.keyboardShortcut` in the app's Workspace menu.
-    public var shortcutKey: KeyEquivalent? {
-        shortcutNumber.map { KeyEquivalent(Character(String($0))) }
-    }
 }
 
 nonisolated extension WorkspaceRoom where Self: CaseIterable {
@@ -36,13 +31,5 @@ nonisolated extension WorkspaceRoom where Self: CaseIterable {
         guard let index = Self.allCases.firstIndex(of: self) else { return nil }
         let number = Self.allCases.distance(from: Self.allCases.startIndex, to: index) + 1
         return number <= 9 ? number : nil
-    }
-}
-
-/// The room a ⌘N shortcut goes to. Pure, so the menu's mapping is tested.
-public nonisolated enum WorkspaceRoomShortcuts {
-    /// The room whose `shortcutNumber` is `number`, if it is available.
-    public static func room<Room: WorkspaceRoom>(forShortcut number: Int, in rooms: [Room]) -> Room? {
-        rooms.first { $0.shortcutNumber == number && $0.isAvailable }
     }
 }
