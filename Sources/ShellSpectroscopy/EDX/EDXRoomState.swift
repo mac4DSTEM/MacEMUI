@@ -116,7 +116,7 @@ public final class EDXRoomState {
         case .mapsPNG:
             let mixIDs = Set(EDXMapsComposition.selection(appearance.mix, scan: session.source?.scanImage, tiles: session.shownTiles))
             let mix = session.shownTiles.filter { mixIDs.contains($0.symbol) }
-            data = session.figureContent(scaleBar: exportScaleBar, regions: exportRegions, mix: mix).flatMap { EDXMapsFigure.png($0) }
+            data = session.figureContent(scaleBar: exportScaleBar, regions: exportRegions, mix: mix, linesFocused: linesFocused).flatMap { EDXMapsFigure.png($0) }
         case .compositionByClass: data = nil   // made by the window, which holds the pools (`save`)
         }
         save(data, kind: kind, stem: session.exportStem, directory: directory, report: report)
