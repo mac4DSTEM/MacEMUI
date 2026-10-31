@@ -63,7 +63,7 @@ nonisolated final class ZoomPanClampTests: XCTestCase {
     }
 }
 
-/// ⌥-scroll pans (issue: one shared zoomable container). The picture follows the scroll, through the drag's clamp.
+/// ⌥-scroll pans (issue: one shared image viewport). The picture follows the scroll, through the drag's clamp.
 nonisolated final class ZoomPanScrollPanTests: XCTestCase {
     func testAnOptionScrollPansThroughTheClampAndNotAtTheFit() {
         let box = CGSize(width: 200, height: 100)

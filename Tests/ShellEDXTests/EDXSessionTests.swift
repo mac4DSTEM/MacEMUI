@@ -101,6 +101,32 @@ nonisolated final class EDXSessionTests: XCTestCase {
         XCTAssertTrue(Set(session.picks.map(\.symbol)).isSuperset(of: ["Al", "Mg", "Si"]))
     }
 
+    /// A typed beam energy is the line windows' as well as the fit's, and it is read when it is typed, not when the file was opened. On a file that
+    /// states none, typed 1 keV puts Al K (1.49 keV) above the beam: no Al map, the row says why as the kit's windows at 1 keV do, and a pinned
+    /// region's row has no Al count; typed 200 keV brings them back, without the verb. Red under: the windows or the pin rows reading the file's
+    /// beam energy only; a typed beam energy waiting for Quantify.
+    @MainActor func testTheTypedBeamEnergyIsTheWindowsToo() async throws {
+        let session = await openRoom(beam: nil)
+        let source = try XCTUnwrap(session.source)
+        session.toggle("Al")
+        session.drawRectangle(PixelRect(x0: 0, y0: 0, x1: 1, y1: 1))
+        await session.settled()
+        XCTAssertTrue(session.tiles.contains { $0.symbol == "Al" }, "no beam energy: every line is a candidate")
+
+        let atOne = ElementWindows.build(picks: [ElementWindows.Pick(symbol: "Al")], axis: source.energyAxis, beamEnergyKeV: 1)
+        let refused = try XCTUnwrap(atOne.first?.failure, "precondition: the kit has no Al window at 1 keV")
+        session.changeMethod { $0.beamEnergyKeV = 1 }
+        await session.settled()
+        XCTAssertFalse(session.tiles.contains { $0.symbol == "Al" }, "Al K is above a 1 keV beam")
+        XCTAssertEqual(session.windowRows.first { $0.symbol == "Al" }?.failure, refused)
+        XCTAssertEqual(session.pinRows.first?.net, [nil], "the pinned region reads the same windows")
+
+        session.changeMethod { $0.beamEnergyKeV = 200 }
+        await session.settled()
+        XCTAssertTrue(session.tiles.contains { $0.symbol == "Al" })
+        XCTAssertNotNil(session.pinRows.first?.net.first ?? nil)
+    }
+
     // MARK: Region
 
     /// A rectangle sums only its pixels, exactly; the whole map comes back. Red under: the mask ignored; the cache keyed by
@@ -330,6 +356,41 @@ nonisolated final class EDXSessionTests: XCTestCase {
         XCTAssertTrue(session.spectrumCounts.isEmpty)
     }
 
+    /// A newer open replaces one in flight, and a progress update the replaced read sends late does not overwrite the newer
+    /// read's progress. Red under: every progress callback writing `openProgress` (the bar jumps to the old read's 0.9).
+    @MainActor func testALateProgressOfAReplacedOpenIsIgnored() async throws {
+        let gates = OpenGates()
+        var heard = gates.heard.makeAsyncIterator()
+        let host = EDXRoomHost(appName: "Test", roomSource: "Test EDS room", regionsTitle: "Test EDS regions",
+                               readableExtensions: ["emd"]) { url, progress in
+            if url.lastPathComponent == "old.emd" {
+                gates.say("old started"); gates.releaseOld.wait()
+                progress(0.9); gates.say("old reported")
+                throw CancellationError()
+            }
+            progress(0.1); gates.say("new started"); gates.releaseNew.wait()
+            throw CancellationError()
+        }
+        let session = EDXSession(host: host)
+        let old = session.open(url: URL(fileURLWithPath: "/nonexistent/old.emd"))
+        let first = await heard.next()
+        XCTAssertEqual(first, "old started")
+        let new = session.open(url: URL(fileURLWithPath: "/nonexistent/new.emd"))
+        let second = await heard.next()
+        XCTAssertEqual(second, "new started")
+        gates.releaseOld.signal()
+        let third = await heard.next()
+        XCTAssertEqual(third, "old reported")
+        await old.value
+        for _ in 0..<20 { await Task.yield() }
+        XCTAssertTrue(session.isOpening, "the newer open is still reading")
+        XCTAssertEqual(session.openProgress, 0.1, "the replaced read's late 0.9 is ignored")
+        gates.releaseNew.signal()
+        await new.value
+        for _ in 0..<20 { await Task.yield() }
+        XCTAssertFalse(session.isOpening)
+    }
+
     /// Quantify with no beam energy fails in the kit's words and leaves no fit and no fitting flag. Red under: the failure swallowed.
     @MainActor func testAFitWithoutABeamEnergyFailsInWords() async {
         let session = EDXSession(host: .test)
@@ -447,4 +508,16 @@ nonisolated final class EDXSessionTests: XCTestCase {
         XCTAssertEqual(part.start, 3.5, accuracy: 1e-12)
         XCTAssertTrue(plot.fitted([1, 2]).values.isEmpty, "a curve shorter than the range")
     }
+}
+
+/// The reads of a test host, held at a gate until the test releases them; each step is told to the test in words.
+private nonisolated final class OpenGates: @unchecked Sendable {
+    let releaseOld = DispatchSemaphore(value: 0)
+    let releaseNew = DispatchSemaphore(value: 0)
+    let heard: AsyncStream<String>
+    private let tell: AsyncStream<String>.Continuation
+
+    init() { (heard, tell) = AsyncStream.makeStream(of: String.self) }
+
+    func say(_ step: String) { tell.yield(step) }
 }

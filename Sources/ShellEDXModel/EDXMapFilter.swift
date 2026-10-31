@@ -6,7 +6,7 @@
 import Foundation
 import ImagoFilters
 
-public nonisolated enum EDXMapFilter: String, CaseIterable, Identifiable, Sendable {
+package nonisolated enum EDXMapFilter: String, CaseIterable, Identifiable, Sendable {
     case off, mean3x3, gaussian1px
 
     public var id: String { rawValue }
@@ -20,10 +20,10 @@ public nonisolated enum EDXMapFilter: String, CaseIterable, Identifiable, Sendab
     }
 
     /// The kernel as a tile's tag names it.
-    public var isOn: Bool { self != .off }
+    package var isOn: Bool { self != .off }
 
     /// `values` (row-major, `width` × `height`) through the kernel; unchanged when off or when the shape is wrong.
-    public func apply(_ values: [Double], width: Int, height: Int) -> [Double] {
+    package func apply(_ values: [Double], width: Int, height: Int) -> [Double] {
         guard isOn, width > 0, height > 0, values.count == width * height else { return values }
         let data = values.map { $0.isFinite ? $0 : 0 }, mask = values.map { $0.isFinite ? 1.0 : 0.0 }
         func smooth(_ a: [Double]) -> [Double]? {
@@ -38,7 +38,7 @@ public nonisolated enum EDXMapFilter: String, CaseIterable, Identifiable, Sendab
     }
 
     /// The `low` to `high` percentiles (fractions, linear between ranks as NumPy does) of the finite values; nil when there are none or no span.
-    public static func displayRange(of values: [Double], low: Double = 0.01, high: Double = 0.99) -> ClosedRange<Double>? {
+    package static func displayRange(of values: [Double], low: Double = 0.01, high: Double = 0.99) -> ClosedRange<Double>? {
         let sorted = values.filter(\.isFinite).sorted()
         guard let first = sorted.first, let last = sorted.last, last > first else { return nil }
         func percentile(_ q: Double) -> Double {

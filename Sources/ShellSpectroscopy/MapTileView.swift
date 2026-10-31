@@ -10,18 +10,6 @@ import ShellControls
 import ShellMetal
 import SwiftUI
 
-/// What a tile's colour scale shows: black (or the colormap's start) at `low`, the full colour at `high`, in `unit`.
-public struct MapColorbarSpec: Equatable, Sendable {
-    public var low: Double
-    public var high: Double
-    public var unit: String
-    public var coloring: MapColoring
-
-    public init(low: Double, high: Double, unit: String, coloring: MapColoring) {
-        self.low = low; self.high = high; self.unit = unit; self.coloring = coloring
-    }
-}
-
 /// The regions and tools of the anchor tile: what is drawn over it and what drawing and editing hand back (scan pixels).
 public struct MapTileRegions {
     public var set: SpectralRegionSet
@@ -72,12 +60,11 @@ public struct MapTileView<Controls: View>: View {
     /// - `pixelSize` / `pixelUnit`: the scan's real-space step ("nm") for the scale bar; nil draws the bar in scan pixels.
     /// - `inMix` / `onToggleMix`: on an element map, whether the map is in the colour mix (a ring on the tile) and the click that adds it or takes it out; nil on tiles that are not selectable.
     /// - `regions`: set on the anchor tile only. `filteredTag`: the picture is drawn through a display filter; a small tag beside the name says so.
-    /// - `colorbar`, `valueText`: no longer drawn (the status line carries the value); kept so mac4DSTEM compiles. delete at MacEMUI 0.4.0
     /// - `controls`: the content of the popover the scale bar opens (the map's colour, histogram and gamma).
     public init(title: String, detail: String? = nil, image: CGImage?, size: CGSize, scanWidth: Int, scanHeight: Int,
-                pixelSize: Double? = nil, pixelUnit: String? = nil, colorbar: MapColorbarSpec? = nil, regions: MapTileRegions? = nil, filteredTag: Bool = false,
+                pixelSize: Double? = nil, pixelUnit: String? = nil, regions: MapTileRegions? = nil, filteredTag: Bool = false,
                 inMix: Bool? = nil, onToggleMix: (() -> Void)? = nil, placeholder: String? = nil, transform: Binding<MapViewTransform> = .constant(MapViewTransform()),
-                valueText: @escaping (Int, Int) -> String? = { _, _ in nil }, onHover: @escaping ((x: Int, y: Int)?) -> Void,
+                onHover: @escaping ((x: Int, y: Int)?) -> Void,
                 @ViewBuilder controls: () -> Controls) {
         self.placeholder = placeholder; self._transform = transform
         self.title = title; self.detail = detail; self.image = image; self.size = size; self.scanWidth = scanWidth; self.scanHeight = scanHeight
@@ -136,8 +123,10 @@ public struct MapTileView<Controls: View>: View {
         .overlay { RoundedRectangle(cornerRadius: 3).strokeBorder(.separator) }
         // A map that is selected on the right wears a ring; a click on a map toggles it (what is shown in the colour mix).
         .overlay { if inMix == true { RoundedRectangle(cornerRadius: 3).strokeBorder(Color.accentColor, lineWidth: 2).allowsHitTesting(false) } }
-        .onTapGesture { focused = true; onToggleMix?() }
-        .onTapGesture(count: 2) { transform.reset() }
+        // One gesture: the double click is tried first, so it never also fires the single click (the single click waits for the
+        // double-click interval, as in Finder and Preview).
+        .gesture(TapGesture(count: 2).onEnded { perform(TileClickAction.effects(clickCount: 2, selectable: onToggleMix != nil)) }
+            .exclusively(before: TapGesture().onEnded { perform(TileClickAction.effects(clickCount: 1, selectable: onToggleMix != nil)) }))
         // Zoom: the wheel and a pinch about the pointer (the same transform on every tile); a double click returns to the whole scan.
         .onScrollWheel { event in
             if event.modifiers.contains(.option) {
@@ -172,6 +161,12 @@ public struct MapTileView<Controls: View>: View {
         return "\(title) map, \(detail)"
     }
 
+    private func perform(_ effects: Set<TileClickAction>) {
+        if effects.contains(.focus) { focused = true }
+        if effects.contains(.toggleMix) { onToggleMix?() }
+        if effects.contains(.resetView) { transform.reset() }
+    }
+
     /// The pointer moves many times within one pixel: the state and the app are told only when the pixel changes.
     private func setPointer(_ pixel: (x: Int, y: Int)?) {
         let new = pixel.map { MapPixel(x: $0.x, y: $0.y) }
@@ -191,6 +186,21 @@ public struct MapTileView<Controls: View>: View {
             .accessibilityAddTraits(.isButton)
             .accessibilityHint("Opens the colour controls of this map")
             .accessibilityIdentifier("maps.scaleBar.\(title)")
+    }
+}
+
+/// What a click on a map tile does, by its click count. Pure, so a test holds that a double click only resets the view.
+nonisolated enum TileClickAction: Hashable, Sendable {
+    case focus, toggleMix, resetView
+
+    /// A single click focuses the tile and, on a selectable map, toggles it in the colour mix; a double click focuses it and returns
+    /// to the whole scan, and nothing else.
+    static func effects(clickCount: Int, selectable: Bool) -> Set<TileClickAction> {
+        switch clickCount {
+        case ..<1: []
+        case 1: selectable ? [.focus, .toggleMix] : [.focus]
+        default: [.focus, .resetView]
+        }
     }
 }
 
@@ -217,46 +227,6 @@ private struct HoverReader: View {
                 .gesture(DragGesture(minimumDistance: 2, coordinateSpace: .named("mapTile"))
                     .onChanged { v in onPan(CGSize(width: v.translation.width - lastPan.width, height: v.translation.height - lastPan.height)); lastPan = v.translation }
                     .onEnded { _ in lastPan = .zero })
-        }
-    }
-}
-
-/// The colour scale of a map: its ramp with the two ends and the unit, on a legibility plate.
-public struct MapColorbarView: View {
-    private let spec: MapColorbarSpec
-
-    public init(spec: MapColorbarSpec) { self.spec = spec }
-
-    public var body: some View {
-        VStack(spacing: 1) {
-            LinearGradient(colors: Self.stops(spec.coloring), startPoint: .leading, endPoint: .trailing)
-                .frame(width: 90, height: 5)
-                .clipShape(RoundedRectangle(cornerRadius: 2))
-            HStack {
-                Text(verbatim: Self.number(spec.low))
-                Spacer(minLength: 6)
-                Text(verbatim: "\(Self.number(spec.high)) \(spec.unit)")
-            }
-            .font(.system(size: 9, design: .monospaced))
-        }
-        .foregroundStyle(.white)
-        .padding(.horizontal, 6).padding(.vertical, 3)
-        .frame(width: 106)
-        .background(Color.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 5))
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Colour scale")
-        .accessibilityValue("\(Self.number(spec.low)) to \(Self.number(spec.high)) \(spec.unit)")
-        .accessibilityIdentifier("maps.colorbar")
-    }
-
-    nonisolated static func number(_ v: Double) -> String { v.formatted(.number.grouping(.never).precision(.significantDigits(1...4))) }
-
-    static func stops(_ coloring: MapColoring) -> [Color] {
-        switch coloring {
-        case .color(let c): return [.black, c.color]
-        case .colormap(let kind):
-            let lut = Colormaps.lutRGBA(kind, count: 9)
-            return (0..<9).map { Color(.sRGB, red: Double(lut[4 * $0]) / 255, green: Double(lut[4 * $0 + 1]) / 255, blue: Double(lut[4 * $0 + 2]) / 255, opacity: 1) }
         }
     }
 }

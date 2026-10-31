@@ -1,40 +1,11 @@
 //
 //  SpectrumTabs.swift
-//  Role: the lower block of a spectroscopy room (design 2026-10-22 §2.2): three views of the same regions, picked by a tab row: the spectra overlaid, a profile
-//        along a line drawn on a map, and the table of per-region numbers. The room supplies each view; the tab row, the remembered choice and the
-//        profile chart are shared.
+//  Role: the profile view of a spectroscopy room's lower block (design 2026-10-22 §2.2): the values along a line drawn on a map, as a chart. The room
+//        supplies the series; the chart is shared.
 //
 
 import SwiftUI
 import Charts
-
-public nonisolated enum SpectrumPane: String, CaseIterable, Identifiable, Sendable {
-    case spectrum, profile, table
-
-    public var id: String { rawValue }
-    public var title: String { rawValue.capitalized }
-}
-
-/// The tab row: Spectrum, Profile, Table. A pane the room has nothing for (no line drawn, no region) can be left out of `available`.
-public struct SpectrumPaneTabs: View {
-    @Binding private var selection: SpectrumPane
-    private let available: [SpectrumPane]
-
-    public init(selection: Binding<SpectrumPane>, available: [SpectrumPane] = SpectrumPane.allCases) {
-        self._selection = selection
-        self.available = available
-    }
-
-    public var body: some View {
-        Picker("View", selection: $selection) {
-            ForEach(available) { Text($0.title).tag($0) }
-        }
-        .labelsHidden()
-        .pickerStyle(.segmented)
-        .fixedSize()
-        .accessibilityIdentifier("spectrum.tabs")
-    }
-}
 
 /// One profile along a line: a value per sample, `spacing` apart (in `unit`, e.g. nm, or pixels when the scan is uncalibrated).
 public nonisolated struct ProfileSeries: Identifiable, Equatable, Sendable {

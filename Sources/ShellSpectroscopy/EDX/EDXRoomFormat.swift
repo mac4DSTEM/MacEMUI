@@ -15,15 +15,15 @@ import ShellEDXModel
 public nonisolated enum EDXLayout {
     /// A periodic-table cell is 18 pt tall (the 320-pt inspector holds 18 of them at about 17 pt wide); the gap before the folded rows is 4.
     /// The sheets that type factors: the number fields (k, σ, a factor), the sheet widths.
-    public static let kFieldWidth: CGFloat = 90
-    public static let sigmaFieldWidth: CGFloat = 70
-    public static let factorFieldWidth: CGFloat = 110
-    public static let typedKSheetWidth: CGFloat = 380
-    public static let factorsSheetWidth: CGFloat = 400
+    package static let kFieldWidth: CGFloat = 90
+    package static let sigmaFieldWidth: CGFloat = 70
+    package static let factorFieldWidth: CGFloat = 110
+    package static let typedKSheetWidth: CGFloat = 380
+    package static let factorsSheetWidth: CGFloat = 400
     /// The scale bar's thickness in a figure.
-    public static let figureBarThickness: CGFloat = 3
+    package static let figureBarThickness: CGFloat = 3
     /// The EELS header's progress bar; the particle table sheet's smallest size.
-    public static let progressBarWidth: CGFloat = 90
+    package static let progressBarWidth: CGFloat = 90
     public static let tableSheetMinimum = CGSize(width: 560, height: 360)
     /// The opening bar.
     public static let openingBarWidth: CGFloat = 260
@@ -35,9 +35,15 @@ public nonisolated enum EDXLayout {
 }
 
 public nonisolated enum EDXRoomFormat {
-    public static let openPrompt = "Open a Velox .emd or a GMS .dm4 spectrum image."
-    public static let emptyTitle = "No spectrum image open"
-    public static let noElementsDetail = "Pick elements in the periodic table, or let Auto ID propose them."
+    /// The empty room's line, naming the formats the Open panel offers: "Open a spectrum image (.emd, .dm4 or .msa).".
+    package static func openPrompt(extensions: [String]) -> String {
+        let names = extensions.map { ".\($0)" }
+        guard let last = names.last else { return "Open a spectrum image." }
+        let list = names.count == 1 ? last : names.dropLast().joined(separator: ", ") + " or " + last
+        return "Open a spectrum image (\(list))."
+    }
+    package static let emptyTitle = "No spectrum image open"
+    package static let noElementsDetail = "Pick elements in the periodic table, or let Auto ID propose them."
 
     /// The header's status text, secondary and never a control (design §2.3): "Quantified · live ✓" once the fit follows every change,
     /// "Identified" once an element is picked to quantify, nothing before.
@@ -59,7 +65,7 @@ public nonisolated enum EDXRoomFormat {
     }
 
     /// "12.35 ± 0.56": a value and its 1σ, the σ to two significant digits and the value to the same decimal place.
-    public static func plusMinus(_ value: Double, _ sigma: Double, locale: Locale = .autoupdatingCurrent) -> String {
+    package static func plusMinus(_ value: Double, _ sigma: Double, locale: Locale = .autoupdatingCurrent) -> String {
         guard value.isFinite else { return "–" }
         guard sigma.isFinite, sigma > 0 else { return Num.fixed(value, 2, locale: locale) }
         let places = max(0, min(4, 1 - Int(floor(log10(sigma)))))
@@ -78,7 +84,7 @@ public nonisolated enum EDXRoomFormat {
     }
 
     /// The infobar-sized line under the room's title: the counts in the region.
-    public static func spectrumSubtitle(counts total: UInt64, region r: EDXRegion, pixels: Int) -> String {
+    package static func spectrumSubtitle(counts total: UInt64, region r: EDXRegion, pixels: Int) -> String {
         "\(counts(Double(total))) counts · " + region(r, pixels: pixels)
     }
 
@@ -102,7 +108,7 @@ public nonisolated enum EDXRoomFormat {
 
     /// The window a spectrum opens in: from 0 to a little past the highest marked line, or, with none, to where 99.5 % of the
     /// counts lie; never narrower than 2 keV nor wider than the axis (mac4DSTEM's `SpectrumAutoZoom`, simplified).
-    public static func autoWindow(plot: EDXPlot, markers: [EDXMarker]) -> ClosedRange<Double> {
+    package static func autoWindow(plot: EDXPlot, markers: [EDXMarker]) -> ClosedRange<Double> {
         guard plot.energyStep > 0, !plot.data.isEmpty else { return 0...20 }
         let end = plot.energyStart + plot.energyStep * Double(plot.data.count)
         var hi = markers.map(\.energy).max().map { $0 * 1.25 + 0.5 } ?? 0
@@ -142,22 +148,22 @@ public nonisolated enum EDXRoomFormat {
 
     // MARK: Fit rows
 
-    public struct FitRow: Identifiable, Equatable {
+    package struct FitRow: Identifiable, Equatable {
         public let element: String
         public let line: String
         public let net: String
         /// The reference element of the computed k (its k is 1 by definition).
-        public var isReference = false
-        public let atPercent: String
-        public let wtPercent: String
+        package var isReference = false
+        package let atPercent: String
+        package let wtPercent: String
         /// The wt% as a number, for the accessibility value a UI test reads.
-        public let wtValue: Double?
+        package let wtValue: Double?
         public let note: String?
         public var id: String { element + "|" + line }
     }
 
     /// The table of a fit: the quantified elements, fitted area and composition, a failure or a flag in the note.
-    public static func fitRows(_ q: PooledQuantification) -> [FitRow] {
+    package static func fitRows(_ q: PooledQuantification) -> [FitRow] {
         q.rows.map { r in
             var note: [String] = []
             if let f = r.failure { note.append(f) }
@@ -170,8 +176,20 @@ public nonisolated enum EDXRoomFormat {
         }
     }
 
+    /// The lowest upper end of the fitted range the Fit to field takes, keV: below it no line of the table is left to fit.
+    package static let fitToMinimumKeV = 0.2
+
+    /// What a Fit to entry does: a value above the minimum is the range's upper end; zero is the default (nil, no note); any other value at or
+    /// below the minimum, negative included, is refused, the default kept, and the note says so instead of the field resetting silently.
+    package static func fitTo(entered v: Double, locale: Locale = .autoupdatingCurrent) -> (keV: Double?, refusal: String?) {
+        guard v.isFinite else { return (nil, nil) }
+        if v > fitToMinimumKeV { return (v, nil) }
+        if v == 0 { return (nil, nil) }
+        return (nil, "Fit to must be above \(Num.sig(fitToMinimumKeV, 2, locale: locale)) keV: the default range is used.")
+    }
+
     /// "Fit quality · χ²ᵣ 1.04 · Pearson": the kit's own text.
-    public static func fitQuality(_ q: PooledQuantification) -> String {
+    package static func fitQuality(_ q: PooledQuantification) -> String {
         let t = q.qualityText
         guard t.hasSuffix(")"), let open = t.range(of: " (", options: .backwards) else { return t }
         return String(t[..<open.lowerBound]) + " \u{00B7} " + t[open.upperBound..<t.index(before: t.endIndex)]

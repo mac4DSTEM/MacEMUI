@@ -24,11 +24,11 @@ public nonisolated enum RegionTool: String, CaseIterable, Identifiable, Sendable
     }
     public var hint: String {
         switch self {
-        case .pointer: "Click a region to select it, drag to move the view; ⌫ deletes the selected region. Pick a shape to draw."
-        case .rectangle: "Drag a rectangle on any map to sum its pixels."
-        case .ellipse: "Drag to draw the ellipse inscribed in a rectangle."
-        case .polygon: "Click the vertices on any map; click the first vertex to close the polygon."
-        case .line: "Drag a line on any map: the Profile tab plots each map along it."
+        case .pointer: "Click a region to select it, drag to move the view; ⌫ deletes the selected region, the arrow keys move it. Pick a shape to draw."
+        case .rectangle: "Drag a rectangle on any map to sum its pixels, or press Return to draw one in the middle."
+        case .ellipse: "Drag to draw the ellipse inscribed in a rectangle, or press Return to draw one in the middle."
+        case .polygon: "Click the vertices on any map; click the first vertex to close the polygon. Return draws one in the middle."
+        case .line: "Drag a line on any map: the Profile tab plots each map along it. Return draws one across the middle."
         }
     }
 }

@@ -22,14 +22,18 @@ public struct EDXRoom: View {
     let session: EDXSession
     let state: EDXRoomState
     let actions: EDXRoomActions
+    let openExtensions: [String]
     @State private var showImporter = false
 
-    public init(session: EDXSession, state: EDXRoomState, actions: EDXRoomActions) {
-        self.session = session; self.state = state; self.actions = actions
+    /// `openExtensions`: the file extensions the Open panel offers and the empty room names ("emd", "dm4", "msa"), the ones the
+    /// app's opener reads.
+    public init(session: EDXSession, state: EDXRoomState, actions: EDXRoomActions, openExtensions: [String]) {
+        self.session = session; self.state = state; self.actions = actions; self.openExtensions = openExtensions
     }
 
-    private var importTypes: [UTType] {
-        let types = session.host.readableExtensions.compactMap { UTType(filenameExtension: $0) }
+    /// The Open panel's types: one per extension; any file when none is known.
+    package static func importTypes(for extensions: [String]) -> [UTType] {
+        let types = extensions.compactMap { UTType(filenameExtension: $0) }
         return types.isEmpty ? [.data] : types
     }
 
@@ -65,7 +69,7 @@ public struct EDXRoom: View {
                 ContentUnavailableView {
                     Label(EDXRoomFormat.emptyTitle, systemImage: "waveform.path.ecg")
                 } description: {
-                    Text(EDXRoomFormat.openPrompt)
+                    Text(EDXRoomFormat.openPrompt(extensions: openExtensions))
                 } actions: {
                     Button("Open Spectrum Image…") { state.requestImport() }
                         .buttonStyle(.borderedProminent)
@@ -75,7 +79,7 @@ public struct EDXRoom: View {
         }
         .onChange(of: state.importRequest) { showImporter = true }
         .onChange(of: session.fileName) { state.window = nil; state.soloTile = nil; state.appearance = MapAppearance() }
-        .fileImporter(isPresented: $showImporter, allowedContentTypes: importTypes, allowsMultipleSelection: false) { result in
+        .fileImporter(isPresented: $showImporter, allowedContentTypes: Self.importTypes(for: openExtensions), allowsMultipleSelection: false) { result in
             switch result {
             case .success(let urls): if let url = urls.first { session.open(url: url) }
             case .failure(let error): actions.present(error)

@@ -4,16 +4,6 @@ import XCTest
 import ShellControls
 
 nonisolated final class MapTilesTests: XCTestCase {
-    /// The grid reflows to the size: at the same width a smaller tile fits more per row, and one tile always fits.
-    func testTheGridReflowsToTheTileSize() {
-        XCTAssertEqual(MapTileSize.small.columns(in: 740), 4)
-        XCTAssertEqual(MapTileSize.medium.columns(in: 740), 3)
-        XCTAssertEqual(MapTileSize.large.columns(in: 740), 2)
-        XCTAssertEqual(MapTileSize.large.columns(in: 100), 1, "a narrow block still shows one tile")
-        XCTAssertLessThan(MapTileSize.small.widths.max, MapTileSize.medium.widths.min + 100)
-        XCTAssertEqual(MapTileSize.allCases.map(\.title), ["Small", "Medium", "Large"])
-    }
-
     /// Each pane keeps its floor while there is room for two; below two floors the split halves.
     func testTheSplitKeepsBothFloors() {
         let wide = VerticalPaneSplit<EmptyView, EmptyView>.bounds(usable: 800, minimumTop: 160, minimumBottom: 200)
@@ -93,6 +83,22 @@ nonisolated final class MapViewTransformTests: XCTestCase {
         XCTAssertTrue(t.isFit)
         XCTAssertGreaterThan(ScrollZoom.factor(delta: 5, isPrecise: false), 1); XCTAssertLessThan(ScrollZoom.factor(delta: -5, isPrecise: true), 1)
         XCTAssertEqual(ScrollZoom.factor(delta: .nan, isPrecise: true), 1)
+    }
+}
+
+nonisolated final class TileClickActionTests: XCTestCase {
+    /// A double click returns to the whole scan and does not also toggle the map in the colour mix (it used to fire both handlers).
+    func testADoubleClickOnlyResetsTheView() {
+        let double = TileClickAction.effects(clickCount: 2, selectable: true)
+        XCTAssertTrue(double.contains(.resetView))
+        XCTAssertFalse(double.contains(.toggleMix), "a double click leaves the mix as it was")
+    }
+
+    /// A single click toggles a selectable map and never resets the view; on any tile it takes the focus.
+    func testASingleClickTogglesOnlyASelectableMap() {
+        XCTAssertEqual(TileClickAction.effects(clickCount: 1, selectable: true), [.focus, .toggleMix])
+        XCTAssertEqual(TileClickAction.effects(clickCount: 1, selectable: false), [.focus])
+        XCTAssertEqual(TileClickAction.effects(clickCount: 0, selectable: true), [])
     }
 }
 

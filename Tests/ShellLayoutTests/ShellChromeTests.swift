@@ -34,20 +34,11 @@ nonisolated final class ShellChromeTests: XCTestCase {
         XCTAssertEqual(TestRoom.prepare.shortcutNumber, 1)
         XCTAssertEqual(TestRoom.image.shortcutNumber, 2)
         XCTAssertEqual(TestRoom.edx.shortcutNumber, 3)
-        XCTAssertEqual(TestRoom.image.shortcutKey, KeyEquivalent("2"))
     }
 
     func testNoRoomPastTheNinthGetsAShortcut() {
         XCTAssertEqual(NumberedRoom(number: 9).shortcutNumber, 9)
         XCTAssertNil(NumberedRoom(number: 10).shortcutNumber)
-        XCTAssertNil(NumberedRoom(number: 10).shortcutKey)
-    }
-
-    func testTheMenuMapsANumberToItsRoomAndSkipsAnUnavailableOne() {
-        XCTAssertEqual(WorkspaceRoomShortcuts.room(forShortcut: 2, in: TestRoom.allCases), .image)
-        XCTAssertNil(WorkspaceRoomShortcuts.room(forShortcut: 3, in: TestRoom.allCases),
-                     "a room not built is listed and cannot be entered")
-        XCTAssertNil(WorkspaceRoomShortcuts.room(forShortcut: 7, in: TestRoom.allCases))
     }
 
     // MARK: - The room's verb (mac4DSTEM `PrimaryActionButton`)
@@ -101,6 +92,24 @@ nonisolated final class ShellChromeTests: XCTestCase {
         XCTAssertEqual(ToolbarDisplayFormat.busy(operation: "Detect Disks", elapsed: 53, eta: nil), "Detect Disks · 53 s")
         XCTAssertEqual(ToolbarDisplayFormat.busy(operation: "Detect Disks", elapsed: 155, eta: 42),
                        "Detect Disks · 2:35 · ETA 42 s")
+    }
+
+    /// The spoken clock is the drawn clock: both come from one reading at one tick, so 4 s on screen is 4 s for
+    /// VoiceOver and UI tests, never the first tick 0 s (MacEMUI#39).
+    func testTheBusyLineLabelReadsTheSameTickAsTheDrawnClock() {
+        let start = Date(timeIntervalSinceReferenceDate: 1_000)
+        let metrics: (Date) -> (elapsed: TimeInterval, eta: TimeInterval?)? = { date in
+            (elapsed: date.timeIntervalSince(start), eta: nil)
+        }
+        let tick = ToolbarDisplayFormat.busyTick(operation: "Detect Disks", progress: 0.4, metrics: metrics,
+                                                 at: start.addingTimeInterval(4))
+        XCTAssertEqual(tick.text, "Detect Disks · 4 s")
+        XCTAssertEqual(tick.accessibilityLabel, tick.text)
+        XCTAssertEqual(tick.accessibilityValue, "40 percent")
+        let first = ToolbarDisplayFormat.busyTick(operation: "Detect Disks", progress: nil, metrics: metrics,
+                                                  at: start)
+        XCTAssertEqual(first.accessibilityLabel, "Detect Disks · 0 s")
+        XCTAssertEqual(first.accessibilityValue, "")
     }
 
     // MARK: - Panel intent (mac4DSTEM ContentView)

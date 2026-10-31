@@ -34,21 +34,19 @@ public struct Colorbar: View {
 
     public var body: some View {
         // Built here, on the main actor, so the Canvas closure captures plain values.
-        let lut = Colormaps.lutRGBA(colormap, count: 128)
+        // The image's own LUT (`MetalImageView` uploads 256 entries), sampled as its shader samples it.
+        let lut = Colormaps.lutRGBA(colormap, count: 256)
         let barGamma = gamma, barLow = low, barHigh = high, barMarksZero = marksZero
         VStack(alignment: .leading, spacing: 3) {
             Canvas { context, size in
-                let stripWidth = size.width / 128
-                for index in 0..<128 {
-                    let fraction = Float(index) / 127
+                // One column per point, at least the old 128, so no step is wider than a point.
+                let columns = max(128, Int(size.width.rounded(.up)))
+                let stripWidth = size.width / CGFloat(columns)
+                for index in 0..<columns {
+                    let fraction = Float(index) / Float(columns - 1)
                     let mapped = pow(fraction, 1 / max(barGamma, 0.05))
-                    let lutIndex = min(127, Int((mapped * 127).rounded()))
-                    let offset = lutIndex * 4
-                    let color = Color(
-                        red: Double(lut[offset]) / 255,
-                        green: Double(lut[offset + 1]) / 255,
-                        blue: Double(lut[offset + 2]) / 255
-                    )
+                    let rgb = Self.stripRGB(lut, at: mapped)
+                    let color = Color(red: rgb.x, green: rgb.y, blue: rgb.z)
                     context.fill(Path(CGRect(x: CGFloat(index) * stripWidth, y: 0,
                                              width: stripWidth + 0.5, height: size.height)),
                                  with: .color(color))
@@ -105,6 +103,21 @@ public struct Colorbar: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Color scale from \(Self.format(low)) to \(Self.format(high)) \(unitLabel)"
                             + (showsMasked ? ", gray marks masked pixels with no fit" : ""))
+    }
+
+    /// The strip colour at `v` (0...1, after gamma), as the Metal view samples its LUT texture: a linear filter
+    /// between texel centres at (i + 0.5) / count, clamped to the edge entries (`Colormaps.metal`, `lutSampler`).
+    /// The strip is then the same colour function as the image beside it, smooth at any width (MacEMUI#44).
+    nonisolated static func stripRGB(_ lut: [UInt8], at v: Float) -> SIMD3<Double> {
+        let count = lut.count / 4
+        let position = Double(min(max(v, 0), 1)) * Double(count) - 0.5
+        let below = Int(position.rounded(.down))
+        let weight = position - Double(below)
+        let lower = min(max(below, 0), count - 1), upper = min(max(below + 1, 0), count - 1)
+        func entry(_ index: Int) -> SIMD3<Double> {
+            SIMD3(Double(lut[index * 4]), Double(lut[index * 4 + 1]), Double(lut[index * 4 + 2]))
+        }
+        return (entry(lower) * (1 - weight) + entry(upper) * weight) / 255
     }
 
     /// The range ends in the reader's locale, the same decimal mark as the scale bar beside them.
