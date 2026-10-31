@@ -22,16 +22,6 @@ public nonisolated enum RegionGeometry: Equatable, Sendable, Codable {
     /// An open segment; it pools no spectrum, it draws a profile.
     case line(RegionPoint, RegionPoint)
 
-    /// "rectangle", "ellipse", "polygon", "line": the word a list row and an export use.
-    public var kindName: String {
-        switch self {
-        case .rectangle: "rectangle"
-        case .ellipse: "ellipse"
-        case .polygon: "polygon"
-        case .line: "line"
-        }
-    }
-
     /// Whether the shape encloses pixels, so a spectrum can be pooled from it (a line cannot).
     public var poolsSpectrum: Bool {
         if case .line = self { false } else { true }

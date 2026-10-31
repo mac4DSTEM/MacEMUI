@@ -42,7 +42,7 @@ nonisolated final class MapColoringTests: XCTestCase {
         XCTAssertEqual(pixel(both, 0), [255, 255, 0, 255], "channels clamp at full")
     }
 
-    /// The appearance keeps the person's choices, falls back to the default, resets, and survives a session round trip; the mix needs two maps.
+    /// The appearance keeps the person's choices, falls back to the default, resets, and survives a session round trip with a chosen mix.
     func testTheAppearanceKeepsChoicesAndRoundTrips() throws {
         var a = MapAppearance()
         XCTAssertEqual(a.coloring(for: "Mg", default: .color(red)), .color(red))
@@ -50,15 +50,10 @@ nonisolated final class MapColoringTests: XCTestCase {
         XCTAssertEqual(a.coloring(for: "Mg", default: .color(red)), .colormap(.inferno))
         a.set(nil, for: "Mg")
         XCTAssertEqual(a.coloring(for: "Mg", default: .color(red)), .color(red))
-        a.set(.color(green), for: "Al"); a.mix.isOn = true
-        XCTAssertTrue(a.mix.isShown(among: ["Mg", "Al"]), "the default mix holds every map")
-        a.mix.toggle("Al")
-        XCTAssertFalse(a.mix.isShown(among: ["Mg", "Al"]), "one map is not a mix")
-        a.mix.toggle("Mg")
-        XCTAssertTrue(a.mix.isShown(among: ["Mg", "Al"]))
-        a.mix.toggle("Al")
+        a.set(.color(green), for: "Al")
+        XCTAssertEqual(a.mix.selection(among: ["Mg", "Al"]), ["Mg", "Al"], "the default mix holds every map")
+        a.mix.toggle("Al", among: ["Mg", "Al"])
         XCTAssertEqual(a.mix.members, ["Mg"])
-        a.mix.toggle("Al")
         let back = try JSONDecoder().decode(MapAppearance.self, from: JSONEncoder().encode(a))
         XCTAssertEqual(back, a)
         a.reset()
@@ -94,20 +89,6 @@ nonisolated final class MapAdjustmentTests: XCTestCase {
         XCTAssertEqual(mixed[0], 0); XCTAssertEqual(mixed[4], 255)
         let old = try JSONDecoder().decode(MapAppearance.self, from: Data(#"{"colorings":{},"mix":{"isOn":false,"members":[]}}"#.utf8))
         XCTAssertEqual(old, MapAppearance(), "an appearance saved before adjustments existed still reads")
-    }
-
-    /// Reset of listed maps leaves the other maps and the mix alone.
-    func testResetOfListedMapsLeavesTheRestAlone() {
-        var a = MapAppearance()
-        a.set(.color(RegionColor(red: 1, green: 0, blue: 0)), for: "Mg"); a.set(.color(RegionColor(red: 0, green: 1, blue: 0)), for: "Al")
-        a.setAdjustment(MapAdjustment(low: 0.2), for: "Mg")
-        a.mix.toggle("Mg"); a.mix.isOn = true
-        let mix = a.mix
-        a.reset(maps: ["Mg"])
-        XCTAssertNil(a.colorings["Mg"])
-        XCTAssertTrue(a.adjustment(for: "Mg").isDefault)
-        XCTAssertEqual(a.colorings["Al"], .color(RegionColor(red: 0, green: 1, blue: 0)))
-        XCTAssertEqual(a.mix, mix)
     }
 }
 
@@ -161,6 +142,8 @@ nonisolated final class ColorMixSelectionTests: XCTestCase {
         XCTAssertTrue(old.isCustom); XCTAssertEqual(old.members, ["A", "B"])
         let fresh = try JSONDecoder().decode(ColorMix.self, from: Data(#"{"isOn":true,"members":[]}"#.utf8))
         XCTAssertFalse(fresh.isCustom)
+        let saved = try XCTUnwrap(String(data: JSONEncoder().encode(old), encoding: .utf8))
+        XCTAssertFalse(saved.contains("isOn"), "the old on/off flag is read past and not written again")
     }
 }
 

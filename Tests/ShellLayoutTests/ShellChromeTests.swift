@@ -12,7 +12,6 @@ private nonisolated enum TestRoom: String, CaseIterable, WorkspaceRoom {
     var title: String { rawValue.capitalized }
     var symbolName: String { "circle" }
     var subtitle: String { "The \(rawValue) room" }
-    var isAvailable: Bool { self != .edx }
 }
 
 /// Twelve rooms, to meet the ⌘9 limit.

@@ -51,7 +51,8 @@ public struct WorkspaceRoomsSection<Room: WorkspaceRoom, Selection: Hashable, Fo
     /// - Parameters:
     ///   - rooms: In list order, which is also the ⌘N order.
     ///   - tag: The room's selection value in the enclosing list.
-    ///   - isAvailable: Whether the room can be entered in this window. Default: the room's own `isAvailable`.
+    ///   - isAvailable: Whether the room can be entered in this window (mac4DSTEM: not a 4D room in a spectrum-only
+    ///     window; macTEM: not a room that is not built). Default: every room.
     ///   - unavailableHelp: The hover help of a room that cannot be entered ("Prepare works on a 4D-STEM scan; this
     ///     window holds a spectrum image only.").
     ///   - badge: A count as macOS carries one — a `.badge`, which hides itself at zero (mac4DSTEM: saved results
@@ -60,7 +61,7 @@ public struct WorkspaceRoomsSection<Room: WorkspaceRoom, Selection: Hashable, Fo
     public init(
         rooms: [Room],
         tag: @escaping (Room) -> Selection,
-        isAvailable: @escaping (Room) -> Bool = { $0.isAvailable },
+        isAvailable: @escaping (Room) -> Bool = { _ in true },
         unavailableHelp: @escaping (Room) -> String = { "\($0.subtitle) — not built yet" },
         badge: @escaping (Room) -> Int = { _ in 0 },
         @ViewBuilder footer: () -> Footer
@@ -120,7 +121,7 @@ extension WorkspaceRoomsSection where Footer == EmptyView {
     public init(
         rooms: [Room],
         tag: @escaping (Room) -> Selection,
-        isAvailable: @escaping (Room) -> Bool = { $0.isAvailable },
+        isAvailable: @escaping (Room) -> Bool = { _ in true },
         unavailableHelp: @escaping (Room) -> String = { "\($0.subtitle) — not built yet" },
         badge: @escaping (Room) -> Int = { _ in 0 }
     ) {
