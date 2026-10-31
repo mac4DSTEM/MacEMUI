@@ -14,7 +14,7 @@ public nonisolated struct HistogramStatistics: Sendable, Equatable {
 }
 
 /// A pure drawing of an intensity histogram: the bars, two draggable contrast-window handles over dimmed tails, the Log y-axis
-/// switch, and the min · mean · max readouts. It counts nothing and knows no app: the bins and the statistics come from the
+/// switch, and the min · mean · max readouts (low · mean · high while the window is narrowed). It counts nothing and knows no app: the bins and the statistics come from the
 /// caller (computed once per image, off the main actor), the window is two bindings, and the number text is a closure.
 ///
 /// The window is held as FRACTIONS of the data range in [0, 1] (`rangeLo`, `rangeHi`), as a contrast window is applied to the
@@ -108,11 +108,11 @@ public struct HistogramChart: View {
 
             if let statistics {
                 HStack {
-                    edgeReadout("min", isLow: true, statistics: statistics)
+                    edgeReadout(isLow: true, statistics: statistics)
                     Spacer()
                     readout("mean", statistics.mean)
                     Spacer()
-                    edgeReadout("max", isLow: false, statistics: statistics)
+                    edgeReadout(isLow: false, statistics: statistics)
                 }
                 .font(.caption2.monospaced())
                 .foregroundStyle(.secondary)
@@ -206,12 +206,13 @@ public struct HistogramChart: View {
         }
     }
 
-    /// The min / max readout. With a real span it shows the contrast window's
-    /// edge — the data's own min / max while the window is full — and a click
-    /// turns it into a numeric field in the same units (Return or blur commits,
-    /// Escape cancels).
+    /// The low / high readout. With a real span it shows the contrast window's
+    /// edge — the data's own min / max while the window is full, captioned
+    /// "min" / "max", else "low" / "high" — and a click turns it into a numeric
+    /// field in the same units (Return or blur commits, Escape cancels).
     @ViewBuilder
-    private func edgeReadout(_ label: String, isLow: Bool, statistics: HistogramStatistics) -> some View {
+    private func edgeReadout(isLow: Bool, statistics: HistogramStatistics) -> some View {
+        let label = HistogramWindowRules.edgeCaption(isLow: isLow, isWindowed: isWindowed)
         if statistics.maximum > statistics.minimum {
             let own = isLow ? rangeLo : rangeHi
             let other = isLow ? rangeHi : rangeLo
@@ -294,6 +295,13 @@ public struct HistogramChart: View {
 /// The window edge a typed value maps to — pure, so the rules are testable without a view. (The readouts' text is the caller's
 /// formatter, or `HistogramChart.defaultValueText`.)
 public nonisolated enum HistogramWindowRules {
+    /// The caption over an edge readout: "min"/"max" while the window covers the full range (the edge is the data extreme),
+    /// "low"/"high" once it is narrowed (the edge is the window edge, not the data extreme).
+    public static func edgeCaption(isLow: Bool, isWindowed: Bool) -> String {
+        if isWindowed { return isLow ? "low" : "high" }
+        return isLow ? "min" : "max"
+    }
+
     /// A non-positive scale is meaningless; 1 stands in.
     public static func safeScale(_ scale: Float) -> Float { scale > 0 ? scale : 1 }
 

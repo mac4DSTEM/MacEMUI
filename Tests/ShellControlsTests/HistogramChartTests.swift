@@ -34,6 +34,18 @@ nonisolated final class HistogramWindowRulesTests: XCTestCase {
         XCTAssertEqual(HistogramWindowRules.safeScale(0), 1)
         XCTAssertEqual(HistogramWindowRules.safeScale(4120), 4120)
     }
+
+    /// The edge readouts show the window edges, not the data extremes, once the window is narrowed: "min"/"max" there named
+    /// numbers that were not the data minimum and maximum.
+    func testEdgeCaptionsReadLowAndHighWhileWindowed() {
+        XCTAssertEqual(HistogramWindowRules.edgeCaption(isLow: true, isWindowed: true), "low")
+        XCTAssertEqual(HistogramWindowRules.edgeCaption(isLow: false, isWindowed: true), "high")
+    }
+
+    func testEdgeCaptionsReadMinAndMaxOverTheFullRange() {
+        XCTAssertEqual(HistogramWindowRules.edgeCaption(isLow: true, isWindowed: false), "min")
+        XCTAssertEqual(HistogramWindowRules.edgeCaption(isLow: false, isWindowed: false), "max")
+    }
 }
 
 /// The footer showed seven significant digits (macTEM) and "1.23e+03" (mac4DSTEM). The default is four significant digits, whole
