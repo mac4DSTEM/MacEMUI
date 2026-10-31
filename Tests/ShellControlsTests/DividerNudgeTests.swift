@@ -12,7 +12,6 @@ import XCTest
 
 nonisolated final class DividerNudgeTests: XCTestCase {
 
-
     func testPaneNudgeMovesByTheStepAndStaysInsideTheFloor() {
         let usable: CGFloat = 1000, smallest: CGFloat = 0.2
         XCTAssertEqual(DividerNudge.paneFraction(from: 0.5, by: DividerNudge.step, usable: usable, smallest: smallest),

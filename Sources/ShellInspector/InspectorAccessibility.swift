@@ -1,8 +1,8 @@
 import Foundation
 import SwiftUI
 
-/// What VoiceOver says for values the screen shows as symbols, abbreviations or a prompt — pure strings, so a test can hold them
-///. Nothing here is drawn.
+/// What VoiceOver says for values the screen shows as symbols, abbreviations or a prompt — pure strings, so a test can hold them.
+/// Nothing here is drawn.
 /// An app adds its own room strings in an extension of this enum.
 public nonisolated enum RoomAccessibilityText {
     /// The longest hint left as it is: Apple asks for "a brief phrase" ("Purchases the item").

@@ -128,7 +128,6 @@ nonisolated final class PeriodicTableGridTests: XCTestCase {
     }
 }
 
-
 nonisolated final class ColorMixSelectionTests: XCTestCase {
     private let all = ["O", "Ni", "Ge"]
 
