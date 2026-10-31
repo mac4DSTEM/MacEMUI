@@ -15,6 +15,17 @@ import SwiftUI
 import SpectroEDX
 import ShellEDXModel
 
+/// The minimum widths of the results tables' number columns: the longest "value ± σ" `EDXRoomFormat.plusMinus` writes inside the bound
+/// `EDXResultsColumnsTests` states, measured in the cell font, plus the cell's own inset. A narrower column cut the σ off.
+nonisolated enum EDXResultsColumns {
+    /// The cell's inset around its text, both sides together (an allowance, not a measured AppKit constant).
+    static let cellAllowance: CGFloat = 12
+    /// at% and wt%: "100.000 ± 0.010", 104 pt.
+    static let percentMinimum: CGFloat = 116
+    /// Net counts: "10000000 ± 31307", 121 pt.
+    static let netMinimum: CGFloat = 134
+}
+
 struct EDXResultsPanel: View {
     let session: EDXSession
 
@@ -90,7 +101,7 @@ private struct WindowTable: View {
                 } else {
                     Text(EDXRoomFormat.plusMinus(r.net, r.sigma)).monospacedDigit().help(r.note ?? "σ² = G + s²B, counting only")
                 }
-            }.width(min: 110, ideal: 140)
+            }.width(min: EDXResultsColumns.netMinimum, ideal: EDXResultsColumns.netMinimum + 6)
         }
         .alternatingRowBackgrounds(.disabled)   // three rows, not a page of stripes
         .accessibilityIdentifier("edx.results.table")
@@ -111,13 +122,13 @@ private struct FitTable: View {
                     if let n = r.note { Image(systemName: "exclamationmark.circle").foregroundStyle(.secondary).help(n).accessibilityLabel(n) }
                 }
             }.width(min: 56, ideal: 70)
-            TableColumn("Net") { r in Text(r.net).monospacedDigit().lineLimit(1).help(r.line) }.width(min: 96, ideal: 112)
-            TableColumn("at%") { r in Text(r.atPercent).monospacedDigit().lineLimit(1) }.width(min: 70, ideal: 90)
+            TableColumn("Net") { r in Text(r.net).monospacedDigit().lineLimit(1).help(r.line) }.width(min: EDXResultsColumns.netMinimum, ideal: EDXResultsColumns.netMinimum + 6)
+            TableColumn("at%") { r in Text(r.atPercent).monospacedDigit().lineLimit(1) }.width(min: EDXResultsColumns.percentMinimum, ideal: EDXResultsColumns.percentMinimum + 6)
             TableColumn("wt%") { r in
                 Text(r.wtPercent).monospacedDigit().lineLimit(1)
                     .accessibilityIdentifier("edx.composition.\(r.element).wt")
                     .accessibilityValue(r.wtValue.map { String(format: "%.4f", $0) } ?? "")
-            }.width(min: 70, ideal: 90)
+            }.width(min: EDXResultsColumns.percentMinimum, ideal: EDXResultsColumns.percentMinimum + 6)
         }
         .alternatingRowBackgrounds(.disabled)
         .accessibilityIdentifier("edx.compositionTable")
