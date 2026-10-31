@@ -2,6 +2,27 @@
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). MacEMUI follows semantic versioning; before 1.0.0 a minor version may break the API, and its Migration paragraph says how.
 
+## [0.5.0](https://github.com/mac4DSTEM/MacEMUI/compare/0.4.0...0.5.0) (2026-10-31)
+
+
+### Features
+
+* a SegmentedPicker segment can be disabled, with its reason ([#33](https://github.com/mac4DSTEM/MacEMUI/issues/33)) ([576ee05](https://github.com/mac4DSTEM/MacEMUI/commit/576ee051d6dfa3314eb32bd9bbc1fe1747ea4a7a))
+* Esc returns the EDS room to the arrow tool ([#36](https://github.com/mac4DSTEM/MacEMUI/issues/36)) ([9b8baec](https://github.com/mac4DSTEM/MacEMUI/commit/9b8baecd45150030e920dc64d883d293497b2199))
+* InspectorSection can start closed and draws a status glyph ([#32](https://github.com/mac4DSTEM/MacEMUI/issues/32)) ([83f96a7](https://github.com/mac4DSTEM/MacEMUI/commit/83f96a7bf54a3201dbfa1f231210bed8c2b38607))
+* the maps zoom by the panes' ZoomPan; ⌥-scroll pans; View &gt; Zoom acts on the maps ([8ab277f](https://github.com/mac4DSTEM/MacEMUI/commit/8ab277f5cf96e6fad72283c10f5fa31b7b00cfc2))
+* the maps zoom by ZoomPan, option-scroll pans, View &gt; Zoom acts on the maps ([#34](https://github.com/mac4DSTEM/MacEMUI/issues/34)) ([8ab277f](https://github.com/mac4DSTEM/MacEMUI/commit/8ab277f5cf96e6fad72283c10f5fa31b7b00cfc2))
+
+
+### Bug Fixes
+
+* a double click on a map tile no longer also fires its single click ([#31](https://github.com/mac4DSTEM/MacEMUI/issues/31)) ([78c1852](https://github.com/mac4DSTEM/MacEMUI/commit/78c1852dce16207c8d8f9016da79fc445b95668d))
+* a room row whose selection is disabled no longer keeps its highlight ([#50](https://github.com/mac4DSTEM/MacEMUI/issues/50)) ([d29581d](https://github.com/mac4DSTEM/MacEMUI/commit/d29581d49be8e6da81c32b0036279bcb4dfa0dd5))
+* the busy line speaks the same elapsed time it draws ([#45](https://github.com/mac4DSTEM/MacEMUI/issues/45)) ([ea886b1](https://github.com/mac4DSTEM/MacEMUI/commit/ea886b1adf8a044bc2b09b9ebb492ba3002dcd45))
+* the colourbar strip interpolates its LUT like the image does ([#47](https://github.com/mac4DSTEM/MacEMUI/issues/47)) ([afd24f5](https://github.com/mac4DSTEM/MacEMUI/commit/afd24f5f3547401b24ce75e243023ec89ee5035a))
+* the EDS room reads a typed beam energy everywhere and refuses a Fit to below 0.2 keV in words ([#41](https://github.com/mac4DSTEM/MacEMUI/issues/41)) ([c6397eb](https://github.com/mac4DSTEM/MacEMUI/commit/c6397ebcb475b424cf54e1ddd26c6b1dd0b7013b))
+* typing the shown text over a finer stored value sets it ([#46](https://github.com/mac4DSTEM/MacEMUI/issues/46)) ([8e5f497](https://github.com/mac4DSTEM/MacEMUI/commit/8e5f49773fd7500de37ad5242db2f1a9f9be3ea3))
+
 ## [0.4.0](https://github.com/mac4DSTEM/MacEMUI/compare/0.3.2...0.4.0) (2026-10-29)
 
 
