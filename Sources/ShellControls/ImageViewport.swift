@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The one zoomable container a room's picture sits in, so zoom and pan behave the same in every room: a pinch and the wheel zoom
+/// The one image viewport a room's picture sits in, so zoom and pan behave the same in every room: a pinch and the wheel zoom
 /// about the pointer, a drag pans, ⌥-scroll pans, a double click fits, VoiceOver has its zoom and pan actions, and View > Zoom acts
 /// on it. Every route is `ZoomPan`'s arithmetic through the pane's `PaneZoomModel`, measured against one `box`.
 ///
@@ -10,7 +10,7 @@ import SwiftUI
 /// `zoomPanPlacement(_:)`, the same map.
 ///
 /// ```swift
-/// ZoomableImage(zoomModel, box: box, onHover: { hovered($0) }) { zoom in
+/// ImageViewport(zoomModel, box: box, onHover: { hovered($0) }) { zoom in
 ///     Image(decorative: picture, scale: 1).resizable().zoomPanPlacement(zoom)
 /// }
 /// ```
@@ -26,7 +26,7 @@ import SwiftUI
 /// content a new identity (a Metal view rebuilt, a gesture in flight lost).
 ///
 /// What sits outside the container stays the pane's: its footer and scale bar, a border, a context menu, its accessibility element.
-public struct ZoomableImage<Content: View>: View {
+public struct ImageViewport<Content: View>: View {
     private let model: PaneZoomModel
     private let box: CGSize
     private let pane: CGSize?

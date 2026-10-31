@@ -1,6 +1,6 @@
 //
-//  ZoomableImageTests.swift
-//  The one zoomable container every room's picture sits in (`ZoomableImage`): it hands its content the pane's live zoom, so a
+//  ImageViewportTests.swift
+//  The one image viewport every room's picture sits in (`ImageViewport`): it hands its content the pane's live zoom, so a
 //  Metal view, an overlay of marks or a plain picture all draw with the same transform, and it carries every zoom route at once
 //  (pinch and drag, the wheel and ⌥-scroll, the double click, VoiceOver's actions, the View menu). The routes' arithmetic is
 //  `ZoomPan`'s and has its own tests; this file holds the container to it.
@@ -10,7 +10,7 @@ import SwiftUI
 import XCTest
 @testable import ShellControls
 
-nonisolated final class ZoomableImageTests: XCTestCase {
+nonisolated final class ImageViewportTests: XCTestCase {
 
     private func source(_ path: String) throws -> String {
         let root = URL(fileURLWithPath: #filePath).resolvingSymlinksInPath().deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
@@ -48,7 +48,7 @@ nonisolated final class ZoomableImageTests: XCTestCase {
         model.update { $0.step(by: 2, in: box, anchor: CGPoint(x: 40, y: 10)) }
         model.update { $0.pinch(magnification: 1.5, anchor: .zero, in: box) }
         let seen = Seen()
-        let image = try render(ZoomableImage(model, box: box) { state in
+        let image = try render(ImageViewport(model, box: box) { state in
             let _ = seen.states.append(state)
             Color.black
         })
@@ -66,7 +66,7 @@ nonisolated final class ZoomableImageTests: XCTestCase {
         let model = PaneZoomModel()
         let box = CGSize(width: 100, height: 50)
         model.update { $0.zoom = 2; $0.offset = CGSize(width: 20, height: 0) }
-        let image = try render(ZoomableImage(model, box: box) { state in
+        let image = try render(ImageViewport(model, box: box) { state in
             HStack(spacing: 0) { Self.red; Self.blue }.zoomPanPlacement(state)
         })
         XCTAssertTrue(try isRed(image, x: 60, y: 25))
@@ -77,7 +77,7 @@ nonisolated final class ZoomableImageTests: XCTestCase {
     /// letterbox, while the gestures stay a `box`-sized layer. Red under: the content clipped to the box (the corner stays empty).
     @MainActor func testALetterboxedPictureFillsThePane() throws {
         let model = PaneZoomModel()
-        let image = try render(ZoomableImage(model, box: CGSize(width: 100, height: 50), pane: CGSize(width: 200, height: 100)) { _ in
+        let image = try render(ImageViewport(model, box: CGSize(width: 100, height: 50), pane: CGSize(width: 200, height: 100)) { _ in
             Self.red
         })
         XCTAssertEqual(image.width, 200); XCTAssertEqual(image.height, 100)
@@ -88,7 +88,7 @@ nonisolated final class ZoomableImageTests: XCTestCase {
     /// pane's hover), the wheel and ⌥-scroll (`zoomPanWheel`), VoiceOver's zoom and pan actions, and View > Zoom (`zoomCommandTarget`).
     /// Red under: any route dropped.
     func testTheContainerCarriesEveryZoomRoute() throws {
-        let file = squeezed(try source("Sources/ShellControls/ZoomableImage.swift"))
+        let file = squeezed(try source("Sources/ShellControls/ImageViewport.swift"))
         XCTAssertTrue(file.contains("content.zoomPan(model, box: box, onHover: onHover).zoomPanWheel(model, box: box)"))
         XCTAssertTrue(file.contains("content.zoomPanAccessibilityActions(model, box: box).zoomCommandTarget(model, isTarget: isCommandTarget)"))
         XCTAssertTrue(file.contains(".contentShape(Rectangle()) .modifier(ZoomRoutes(model: model, box: box, wheel: wheel, onHover: onHover))"))
