@@ -15,13 +15,13 @@ import ShellEDXModel
 
 /// One picture of the figure made by its room (the EELS room's maps and colour mix): the title, the detail beside it, the RGBA pixels and the footer.
 public struct EDXFigureCell: Identifiable {
-    public var id: String
-    public var title: String
-    public var detail: String
-    public var rgba: [UInt8]
-    public var width: Int
-    public var height: Int
-    public var footer: String?
+    public private(set) var id: String
+    public private(set) var title: String
+    package private(set) var detail: String
+    public private(set) var rgba: [UInt8]
+    public private(set) var width: Int
+    public private(set) var height: Int
+    public private(set) var footer: String?
 
     public init(id: String, title: String, detail: String, rgba: [UInt8], width: Int, height: Int, footer: String?) {
         self.id = id; self.title = title; self.detail = detail; self.rgba = rgba; self.width = width; self.height = height; self.footer = footer
@@ -30,20 +30,20 @@ public struct EDXFigureCell: Identifiable {
 
 /// What the figure draws; a plain value so a test can build one without a session.
 public struct EDXFigureContent {
-    public var title: String
-    public var subtitle: String
-    public var tiles: [EDXMapTile]
-    public var region: EDXRegion
-    public var nx: Int
-    public var ny: Int
-    public var bar: (fraction: Double, label: String)?
+    public private(set) var title: String
+    package private(set) var subtitle: String
+    public private(set) var tiles: [EDXMapTile]
+    public private(set) var region: EDXRegion
+    public private(set) var nx: Int
+    public private(set) var ny: Int
+    package private(set) var bar: (fraction: Double, label: String)?
     /// The maps in the colour mix; drawn as the first tile when there are any.
-    public var mix: [EDXMapTile] = []
+    public private(set) var mix: [EDXMapTile] = []
     /// Whether the scale bar and the selected region are drawn (the export's two toggles).
-    public var showsScaleBar = true
-    public var showsRegion = true
+    package private(set) var showsScaleBar = true
+    package private(set) var showsRegion = true
     /// Pictures another room made (the EELS maps, its colour mix first), drawn after the EDS tiles with the same frame, region and scale bar.
-    public var cells: [EDXFigureCell] = []
+    package private(set) var cells: [EDXFigureCell] = []
 
     public init(title: String, subtitle: String, tiles: [EDXMapTile], region: EDXRegion, nx: Int, ny: Int, bar: (fraction: Double, label: String)?,
                 mix: [EDXMapTile] = [], showsScaleBar: Bool = true, showsRegion: Bool = true, cells: [EDXFigureCell] = []) {

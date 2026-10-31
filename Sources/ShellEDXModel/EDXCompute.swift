@@ -17,7 +17,7 @@ public nonisolated struct EDXPick: Equatable, Sendable {
     public var symbol: String
     public var role: EDXRole
     /// Picked by hand: Auto ID never removes it, and a hand-removed element is not added again.
-    public var manual: Bool
+    package var manual: Bool
     /// The line family the maps sum (nil: the element's default) and the lines the person checked (empty: the family's alpha line), as SpectroKit's `ElementWindows.Pick`.
     public var family: XRayFamily?
     public var lines: [String]
@@ -58,7 +58,7 @@ public nonisolated enum EDXRegion: Equatable, Sendable {
         }
     }
 
-    public var shape: SpectrumRegionShape? {
+    package var shape: SpectrumRegionShape? {
         switch self {
         case .wholeMap: nil
         case .rectangle(let r): .rectangle(r)
@@ -119,13 +119,13 @@ public nonisolated final class EDXComputeCache: @unchecked Sendable {
     public init() {}
 
     public func spectrum(_ key: String) -> [UInt64]? { lock.withLock { spectra[key] } }
-    public func setSpectrum(_ s: [UInt64], _ key: String) { lock.withLock { spectra[key] = s } }
+    package func setSpectrum(_ s: [UInt64], _ key: String) { lock.withLock { spectra[key] = s } }
     public func map(_ key: String) -> [Double]? { lock.withLock { maps[key] } }
-    public func setMap(_ m: [Double], _ key: String) { lock.withLock { maps[key] = m } }
-    public func refinement(_ key: String) -> AxisRefinementResult? { lock.withLock { refinements[key] } }
-    public func setRefinement(_ r: AxisRefinementResult, _ key: String) { lock.withLock { refinements[key] = r } }
+    package func setMap(_ m: [Double], _ key: String) { lock.withLock { maps[key] = m } }
+    package func refinement(_ key: String) -> AxisRefinementResult? { lock.withLock { refinements[key] } }
+    package func setRefinement(_ r: AxisRefinementResult, _ key: String) { lock.withLock { refinements[key] = r } }
     public func proposal(_ key: String) -> ProposalResult? { lock.withLock { proposals[key] } }
-    public func setProposal(_ p: ProposalResult, _ key: String) { lock.withLock { proposals[key] = p } }
+    package func setProposal(_ p: ProposalResult, _ key: String) { lock.withLock { proposals[key] = p } }
 
     /// One window's map key: the channel ranges decide the map, nothing else does.
     public static func key(_ w: ResolvedWindow) -> String {
@@ -173,7 +173,7 @@ public nonisolated enum EDXCompute {
     }
 
     /// An element's map: the sum of its windows' nets (one window unless the element has two lines on the axis).
-    public static func elementMap(_ symbol: String, in w: Windows) -> [Double]? {
+    package static func elementMap(_ symbol: String, in w: Windows) -> [Double]? {
         let parts = w.windows.indices.filter { w.windows[$0].element == symbol }.compactMap { w.maps[$0] }
         guard var sum = parts.first else { return nil }
         for p in parts.dropFirst() { for i in sum.indices { sum[i] += p[i] } }
@@ -192,20 +192,20 @@ public nonisolated enum EDXCompute {
         public var region: String
         public var suggestions: [Suggestion]
         /// Sum-peak questions: an energy that is a pile-up peak or an element, never offered as an element.
-        public var suspects: [String]
+        package var suspects: [String]
         /// Proposals that sit beside a listed line or a split edge: an unexplained excess, not an element.
-        public var excesses: [String]
+        package var excesses: [String]
         /// Proposals by one L or M line whose K or L line the fitted range cannot hold: shown, never added (the confirm-elements step made explicit).
         public var uncorroborated: [String] = []
         /// The proposer's own notes and what it did not test.
         public var notes: [String]
     }
 
-    public static let autoIDNeedsBeamNote = "Auto ID needs the beam energy and the file does not state it: type it under Quantification."
+    package static let autoIDNeedsBeamNote = "Auto ID needs the beam energy and the file does not state it: type it under Quantification."
 
     /// Which proposed K lines anchor an axis refinement: at least two at or above 3 L_D, spanning 3 keV or more (one line cannot tell an
     /// offset from a gain, and a refinement on Cu alone drifted by 46 eV on the owner's file 1339, 2026-10-22). nil: no refinement.
-    public static func refinementAnchors(_ result: ProposalResult) -> [String]? {
+    package static func refinementAnchors(_ result: ProposalResult) -> [String]? {
         let k = result.proposed.filter { XRayLines.line($0.group)?.family == .K && $0.significance >= 3 }
         guard k.count >= 2, let lo = k.map(\.energyKeV).min(), let hi = k.map(\.energyKeV).max(), hi - lo >= 3 else { return nil }
         return k.map(\.element)
@@ -342,7 +342,7 @@ public nonisolated enum EDXCompute {
 
     /// The unlisted-line check and the fit-range sensitivity for a finished fit (the proposer, 5 to 20 s at 4096 channels,
     /// cached per region and settings; then one refit). Throws `ProposerError.cancelled` when the caller's task was cancelled.
-    public static func checked(_ q: Quantified, region: EDXRegion, cache: EDXComputeCache) throws -> PooledQuantification {
+    package static func checked(_ q: Quantified, region: EDXRegion, cache: EDXComputeCache) throws -> PooledQuantification {
         let key = "\(region.cacheKey)|\(q.fit.usedAxis)|\(UnlistedLineChecker.proposerSettings(q.fit))"
         let proposal: ProposalResult
         if let p = cache.proposal(key) { proposal = p } else {

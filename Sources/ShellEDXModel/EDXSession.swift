@@ -33,7 +33,7 @@ public nonisolated struct EDXMapTile: Identifiable, Equatable {
     /// Under the picture, for a composition tile: the k source, what was not applied, the failed pixels and the badge. nil for net counts.
     public var footer: String?
     /// The largest finite value, found once when the tile is made (the colorbar's upper end), not per render.
-    public let maxValue: Double
+    package let maxValue: Double
     public var id: String { symbol }
 
     public init(symbol: String, width: Int, height: Int, values: [Double], version: Int, line: String, note: String?,
@@ -73,7 +73,7 @@ public nonisolated struct EDXMarker: Identifiable, Equatable {
     public let symbol: String
     public let label: String
     public let energy: Double
-    public let quantified: Bool
+    package let quantified: Bool
     public var id: String { symbol + "|" + label }
     public init(symbol: String, label: String, energy: Double, quantified: Bool) {
         self.symbol = symbol; self.label = label; self.energy = energy; self.quantified = quantified
@@ -82,15 +82,15 @@ public nonisolated struct EDXMarker: Identifiable, Equatable {
 
 /// What the spectrum plot draws. With a fit: the fitted channels' model and continuum on the fit's own (refined) axis.
 public nonisolated struct EDXPlot: Equatable {
-    public var energyStart: Double
-    public var energyStep: Double
+    package var energyStart: Double
+    package var energyStep: Double
     public var data: [Double]
     public var background: [Double] = []
     public var model: [Double] = []
-    public var fitChannels: Range<Int> = 0..<0
+    package var fitChannels: Range<Int> = 0..<0
 
     /// The fitted channels of a curve the kit returns over the whole axis (zero outside the fit range), with the energy of the first.
-    public func fitted(_ values: [Double]) -> (start: Double, values: [Double]) {
+    package func fitted(_ values: [Double]) -> (start: Double, values: [Double]) {
         let lo = max(fitChannels.lowerBound, 0), hi = min(fitChannels.upperBound, values.count)
         guard lo < hi else { return (energyStart, []) }
         return (energyStart + energyStep * Double(lo), Array(values[lo..<hi]))
@@ -126,7 +126,7 @@ public final class EDXSession {
 
     public private(set) var source: (any SpectrumImageSource)?
     /// The scan image's finite range (the HAADF colorbar's ends), found when the source is bound.
-    public private(set) var scanRange: ClosedRange<Double>?
+    package private(set) var scanRange: ClosedRange<Double>?
     public private(set) var isOpening = false
     public private(set) var openProgress = 0.0
 
@@ -134,7 +134,7 @@ public final class EDXSession {
 
     public private(set) var picks: [EDXPick] = []
     /// Elements the person took out by hand: Auto ID does not add them again.
-    public private(set) var dismissed: Set<String> = []
+    package private(set) var dismissed: Set<String> = []
     public private(set) var region: EDXRegion = .wholeMap
     /// Regions kept under a name; the spectrum and the fit follow the one selected.
     public private(set) var pins: [EDXPin] = []
@@ -156,9 +156,9 @@ public final class EDXSession {
     /// The visible pins' summed spectra (one layer each on the plot) and every pin's row of the Table tab, for the picks and region set of the last pass.
     public private(set) var pinSpectra: [EDXPin.ID: [Double]] = [:]
     public private(set) var pinRows: [EDXPins.Row] = []
-    public private(set) var markers: [EDXMarker] = []
+    package private(set) var markers: [EDXMarker] = []
     /// The Quantify verb has run: the pooled fit is live from here on.
-    public private(set) var quantifyActive = false
+    package private(set) var quantifyActive = false
     public private(set) var fit: PooledQuantification?
     public private(set) var fitFailure: String?
     public private(set) var isFitting = false
@@ -169,14 +169,14 @@ public final class EDXSession {
     public private(set) var isRefreshing = false
 
     /// What the maps grid draws; wt% and at% come from `EDXQuantMaps` when the typed k allows.
-    public private(set) var mapMode: EDXMapMode = .net
+    package private(set) var mapMode: EDXMapMode = .net
     public private(set) var mapsState: EDXMapsState = .idle
     /// How the maps are quantified; the pooled fit (results table) is always Cliff-Lorimer.
-    public private(set) var mapMethod: EDXMapMethod = .cliffLorimer
+    package private(set) var mapMethod: EDXMapMethod = .cliffLorimer
     /// The zeta / cross-section factors, dose and source the person typed.
-    public private(set) var dose = EDXDoseInputs()
+    package private(set) var dose = EDXDoseInputs()
     /// The composition tiles of the last landed pass, by mode.
-    public private(set) var quantTiles: [EDXMapMode: [EDXMapTile]] = [:]
+    package private(set) var quantTiles: [EDXMapMode: [EDXMapTile]] = [:]
     /// The kit's maps behind `quantTiles` (a test compares them with the kit's per-pixel call).
     public private(set) var quantMaps: EDXQuantificationMaps? { didSet { if quantMaps != oldValue { onQuantMapsChange?() } } }
 
@@ -204,6 +204,8 @@ public final class EDXSession {
     public var pendingCheck: Task<Void, Never>? { checkTask }
     @ObservationIgnored private var autoIDTask: Task<Void, Never>?
     @ObservationIgnored private var openTask: Task<Void, Never>?
+    /// Counts the opens, so a progress update knows whether its read is still the current one.
+    @ObservationIgnored private var openRun = 0
     @ObservationIgnored private var mapsTask: Task<Void, Never>?
     /// The chain after an open: the first spectrum, then Auto ID. Stop ends it with the rest.
     @ObservationIgnored private var bindTask: Task<Void, Never>?
@@ -220,7 +222,7 @@ public final class EDXSession {
     @ObservationIgnored private var pinDataRun = 0
 
     /// The app the room sits in: its names in the export files and its file opener.
-    @ObservationIgnored public let host: EDXRoomHost
+    @ObservationIgnored package let host: EDXRoomHost
 
     public init(host: EDXRoomHost) { self.host = host }
 
@@ -237,7 +239,7 @@ public final class EDXSession {
         return (size, unit)
     }
     public var fileName: String { source?.metadata.fileName ?? "" }
-    public var fileBeamEnergy: Double? { source?.metadata.beamEnergyKeV }
+    package var fileBeamEnergy: Double? { source?.metadata.beamEnergyKeV }
     /// The beam energy a run uses: the typed one, else the file's.
     public var beamEnergy: Double? { method.beamEnergyKeV ?? fileBeamEnergy }
     /// A one-pixel file (an .msa, a single Velox spectrum): there are no maps, no region to draw, and the words say "Spectrum", not "Whole map".
@@ -257,14 +259,19 @@ public final class EDXSession {
     @discardableResult
     public func open(url: URL) -> Task<Void, Never> {
         openTask?.cancel()
+        openRun += 1
         isOpening = true
         openProgress = 0
         onEvent?("Opening \(url.lastPathComponent)…")
-        let box = WeakSession(self), host = host
+        let box = WeakSession(self), host = host, run = openRun
         let task = Task { [weak self] in
             do {
                 let loaded = try await Self.read(url, host: host) { fraction in
-                    Task { @MainActor in box.session?.openProgress = fraction }
+                    // A late update of a replaced or finished read is dropped: it would overwrite the newer read's progress.
+                    Task { @MainActor in
+                        guard let session = box.session, session.isOpening, session.openRun == run else { return }
+                        session.openProgress = fraction
+                    }
                 }
                 guard let self, !Task.isCancelled else { return }
                 self.isOpening = false
@@ -370,7 +377,7 @@ public final class EDXSession {
     }
 
     /// The line family the maps and the fit's windows use for a picked element (the right-click menu's "K lines"); the lines checked before are cleared, they belonged to another family.
-    public func setFamily(_ family: XRayFamily, of symbol: String) {
+    package func setFamily(_ family: XRayFamily, of symbol: String) {
         guard let i = picks.firstIndex(where: { $0.symbol == symbol }), picks[i].family != family else { return }
         picks[i].family = family
         picks[i].lines = []
@@ -379,7 +386,7 @@ public final class EDXSession {
     }
 
     /// Checks or unchecks one line of a picked element (what the maps sum and the spectrum marks).
-    public func toggleLine(_ id: String, of symbol: String) {
+    package func toggleLine(_ id: String, of symbol: String) {
         guard let i = picks.firstIndex(where: { $0.symbol == symbol }) else { return }
         if let at = picks[i].lines.firstIndex(of: id) { picks[i].lines.remove(at: at) } else { picks[i].lines.append(id) }
         picks[i].manual = true
@@ -387,7 +394,7 @@ public final class EDXSession {
     }
 
     /// Back to the element's default lines.
-    public func resetLines(of symbol: String) {
+    package func resetLines(of symbol: String) {
         guard let i = picks.firstIndex(where: { $0.symbol == symbol }), picks[i].family != nil || !picks[i].lines.isEmpty else { return }
         picks[i].family = nil
         picks[i].lines = []
@@ -422,12 +429,12 @@ public final class EDXSession {
     }
 
     /// The ellipse inscribed in a rectangle drawn on a map.
-    public func selectEllipse(_ rect: PixelRect) {
+    package func selectEllipse(_ rect: PixelRect) {
         if let clipped = clipped(rect) { select(.ellipse(clipped)) }
     }
 
     /// A closed polygon of at least three vertices (pixel coordinates); one that holds no pixel centre changes nothing.
-    public func selectPolygon(_ vertices: [PixelPoint]) {
+    package func selectPolygon(_ vertices: [PixelPoint]) {
         guard let source, vertices.count >= 3 else { return }
         let r = EDXRegion.polygon(vertices)
         guard r.pixelCount(nx: source.nx, ny: source.ny) > 0 else { return }
@@ -486,8 +493,8 @@ public final class EDXSession {
 
     /// A region drawn on a map: it is selected and kept as the next numbered region, so drawing a second shape adds a region to compare with the first.
     public func drawRectangle(_ rect: PixelRect) { selectRectangle(rect); keepSelectedRegion() }
-    public func drawEllipse(_ rect: PixelRect) { selectEllipse(rect); keepSelectedRegion() }
-    public func drawPolygon(_ vertices: [PixelPoint]) { selectPolygon(vertices); keepSelectedRegion() }
+    package func drawEllipse(_ rect: PixelRect) { selectEllipse(rect); keepSelectedRegion() }
+    package func drawPolygon(_ vertices: [PixelPoint]) { selectPolygon(vertices); keepSelectedRegion() }
 
     private func keepSelectedRegion() {
         guard region != .wholeMap else { return }
@@ -630,7 +637,7 @@ public final class EDXSession {
     }
 
     /// The visible pins' spectra and every pin's table row, summed off the main actor and landed once; a newer request drops an older one.
-    public func refreshPinData() {
+    package func refreshPinData() {
         pinDataTask?.cancel()
         pinDataRun += 1
         guard let source, !pins.isEmpty else { pinSpectra = [:]; pinRows = []; return }
@@ -655,7 +662,7 @@ public final class EDXSession {
 
     /// Replaces the pins with a set read from a pins CSV, regions clipped away when they hold no pixel of this image.
     @discardableResult
-    public func loadPins(_ loaded: [EDXPin]) -> Int {
+    package func loadPins(_ loaded: [EDXPin]) -> Int {
         guard let source else { return 0 }
         let usable = loaded.filter { $0.region.pixelCount(nx: source.nx, ny: source.ny) > 0 }
         pins = usable
@@ -1013,21 +1020,21 @@ public final class EDXSession {
     // MARK: Typed k and the dose methods
 
     /// Chooses how the maps are quantified. Zeta and cross section need their factors and the dose (the sheet); the pooled fit stays Cliff-Lorimer.
-    public func setMapMethod(_ new: EDXMapMethod) {
+    package func setMapMethod(_ new: EDXMapMethod) {
         guard new != mapMethod else { return }
         mapMethod = new
         if mapMode != .net { startMaps() }
     }
 
     /// Commits the factors sheet for `draft.method` (zeta or cross section); an incomplete draft writes nothing.
-    public func commitFactors(_ draft: EDXFactorsDraft, date: String) {
+    package func commitFactors(_ draft: EDXFactorsDraft, date: String) {
         guard draft.isComplete, draft.method != .cliffLorimer else { return }
         dose = draft.applying(to: dose, date: date)
         if mapMode != .net { startMaps() }
     }
 
     /// Chooses computed or typed k-factors; the fit and the maps follow. Typed keeps what was typed.
-    public func setKFactorSource(_ source: QuantificationMethod.KFactorSource) {
+    package func setKFactorSource(_ source: QuantificationMethod.KFactorSource) {
         changeMethod { m in
             guard m.kFactorSource != source else { return }
             m.kFactorSource = source
@@ -1036,7 +1043,7 @@ public final class EDXSession {
     }
 
     /// Commits the typed-k sheet: k with its σ per element, the source line and the date it was typed.
-    public func commitTypedK(_ draft: EDXTypedKDraft, date: String) {
+    package func commitTypedK(_ draft: EDXTypedKDraft, date: String) {
         guard draft.isComplete else { return }
         changeMethod { m in
             m.kFactorSource = .typed
@@ -1047,7 +1054,7 @@ public final class EDXSession {
     }
 
     /// The quantified elements the typed-k sheet lists.
-    public var quantifiedSymbols: [String] { picks.filter { $0.role == .quantify }.map(\.symbol) }
+    package var quantifiedSymbols: [String] { picks.filter { $0.role == .quantify }.map(\.symbol) }
 
     // MARK: Export
 

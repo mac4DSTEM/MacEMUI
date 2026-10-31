@@ -42,7 +42,7 @@ public nonisolated enum EDXMapMode: String, Sendable, Equatable, CaseIterable, I
 }
 
 /// How the maps are quantified: Cliff-Lorimer with typed k, or the zeta-factor or ionisation cross-section method (both need the dose).
-public nonisolated enum EDXMapMethod: String, Sendable, Equatable, CaseIterable, Identifiable {
+package nonisolated enum EDXMapMethod: String, Sendable, Equatable, CaseIterable, Identifiable {
     case cliffLorimer
     case zeta
     case crossSection
@@ -56,7 +56,7 @@ public nonisolated enum EDXMapMethod: String, Sendable, Equatable, CaseIterable,
         }
     }
     /// The factor's name in a sentence.
-    public var factorName: String {
+    package var factorName: String {
         switch self {
         case .cliffLorimer: "k-factor"
         case .zeta: "zeta factor"
@@ -67,21 +67,21 @@ public nonisolated enum EDXMapMethod: String, Sendable, Equatable, CaseIterable,
 
 /// What the zeta and cross-section methods need beyond the factors: the dose (beam current, live time, probe area), typed, until
 /// FormatoKit reads them from the file, with the source of the factors. One live time for every pixel.
-public nonisolated struct EDXDoseInputs: Equatable, Sendable {
+package nonisolated struct EDXDoseInputs: Equatable, Sendable {
     /// kg/m² per count unit, by element (the kit's convention, eXSpy `quantification_zeta_factor`).
-    public var zeta: [String: Double] = [:]
+    package var zeta: [String: Double] = [:]
     /// Ionisation cross sections, barn, by element.
-    public var sectionsBarn: [String: Double] = [:]
-    public var beamCurrentNA: Double?
+    package var sectionsBarn: [String: Double] = [:]
+    package var beamCurrentNA: Double?
     public var liveTimeSeconds: Double?
-    public var probeAreaNm2: Double?
+    package var probeAreaNm2: Double?
     /// Where the factors come from, in words; required.
     public var source = ""
-    public var date = ""
+    package var date = ""
     public init() {}
 }
 
-public nonisolated enum EDXQuantMaps {
+package nonisolated enum EDXQuantMaps {
 
     /// Why the room cannot draw a composition map yet, in words the status strip shows.
     public enum Refusal: Error, Equatable, LocalizedError {
@@ -116,7 +116,7 @@ public nonisolated enum EDXQuantMaps {
 
     /// The quantified elements that have a map, with their maps in the same order: the inputs of `quantifyMaps`. An element whose
     /// line is off the axis has no window and so no map; it is left out, and the composition is of the elements that have one.
-    public static func inputs(quantified: [String], windows: EDXCompute.Windows) -> (symbols: [String], maps: [[Double]]) {
+    package static func inputs(quantified: [String], windows: EDXCompute.Windows) -> (symbols: [String], maps: [[Double]]) {
         var symbols: [String] = [], maps: [[Double]] = []
         for s in quantified {
             guard let m = EDXCompute.elementMap(s, in: windows) else { continue }
@@ -126,16 +126,16 @@ public nonisolated enum EDXQuantMaps {
     }
 
     /// The kit's setup for `symbols`, with the words that say where its factors came from and what became of absorption.
-    public struct Prepared: Sendable {
-        public let setup: EDXQuantificationSetup
+    package struct Prepared: Sendable {
+        package let setup: EDXQuantificationSetup
         /// "typed k: <source>", "computed k: <source>", "zeta factors: <source>" or "cross sections: <source>".
-        public let factorText: String
+        package let factorText: String
         /// "absorption applied (take-off 21.6°, one angle)" or "absorption not applied: <why>".
-        public let absorptionText: String
+        package let absorptionText: String
     }
 
     /// The line energies (keV) of the picked elements' windows, by element, for `EDXAbsorptionSetting.lineEnergiesKeV`.
-    public static func lineEnergies(_ windows: EDXCompute.Windows) -> [String: Double] {
+    package static func lineEnergies(_ windows: EDXCompute.Windows) -> [String: Double] {
         var out: [String: Double] = [:]
         for w in windows.windows where w.window != nil && out[w.element] == nil {
             if let e = XRayLines.line(w.id)?.energy { out[w.element] = e }
@@ -216,7 +216,7 @@ public nonisolated enum EDXQuantMaps {
     }
 
     /// `prepare`'s setup alone (typed k, or zeta / cross section with the dose; no absorption).
-    public static func setup(method: QuantificationMethod, mapMethod: EDXMapMethod = .cliffLorimer, dose: EDXDoseInputs = EDXDoseInputs(),
+    package static func setup(method: QuantificationMethod, mapMethod: EDXMapMethod = .cliffLorimer, dose: EDXDoseInputs = EDXDoseInputs(),
                               symbols: [String]) throws -> EDXQuantificationSetup {
         var m = method
         m.absorptionCorrection = false
@@ -264,12 +264,12 @@ public nonisolated enum EDXQuantMaps {
 
 /// What the typed-k sheet edits before it commits: one row per quantified element, the source line. The sheet reads and writes
 /// this; the session gets `entries` only when the draft is complete.
-public nonisolated struct EDXTypedKDraft: Equatable, Sendable {
+package nonisolated struct EDXTypedKDraft: Equatable, Sendable {
     public struct Row: Equatable, Identifiable, Sendable {
         public var element: String
-        public var k: Double?
+        package var k: Double?
         /// Relative 1σ in percent; nil takes the method's default (20 %).
-        public var sigmaPercent: Double?
+        package var sigmaPercent: Double?
         public var id: String { element }
         public init(element: String, k: Double? = nil, sigmaPercent: Double? = nil) { self.element = element; self.k = k; self.sigmaPercent = sigmaPercent }
     }
@@ -287,7 +287,7 @@ public nonisolated struct EDXTypedKDraft: Equatable, Sendable {
     }
 
     /// Why Done is disabled; nil when the draft can be committed.
-    public var incompleteReason: String? {
+    package var incompleteReason: String? {
         if rows.isEmpty { return "Pick the elements to quantify first." }
         let missing = rows.filter { !(($0.k ?? 0) > 0) || !($0.k ?? 0).isFinite }.map(\.element)
         if !missing.isEmpty { return "Type a positive k for " + missing.joined(separator: ", ") + "." }
@@ -306,7 +306,7 @@ public nonisolated struct EDXTypedKDraft: Equatable, Sendable {
 // MARK: - The zeta and cross-section sheet's draft
 
 /// What the factors sheet edits for the zeta and cross-section methods: a factor per quantified element, the dose, the source line.
-public nonisolated struct EDXFactorsDraft: Equatable, Sendable {
+package nonisolated struct EDXFactorsDraft: Equatable, Sendable {
     public struct Row: Equatable, Identifiable, Sendable {
         public var element: String
         public var value: Double?
@@ -316,9 +316,9 @@ public nonisolated struct EDXFactorsDraft: Equatable, Sendable {
 
     public var method: EDXMapMethod
     public var rows: [Row]
-    public var beamCurrentNA: Double?
+    package var beamCurrentNA: Double?
     public var liveTimeSeconds: Double?
-    public var probeAreaNm2: Double?
+    package var probeAreaNm2: Double?
     public var source: String
 
     /// Starts from what `current` holds for `elements`. `method` is `.zeta` or `.crossSection`.
@@ -331,7 +331,7 @@ public nonisolated struct EDXFactorsDraft: Equatable, Sendable {
     }
 
     /// Why Done is disabled; nil when the draft can be committed.
-    public var incompleteReason: String? {
+    package var incompleteReason: String? {
         if rows.isEmpty { return "Pick the elements to quantify first." }
         let missing = rows.filter { !(($0.value ?? 0) > 0) || !($0.value ?? 0).isFinite }.map(\.element)
         if !missing.isEmpty { return "Type a positive \(method.factorName) for " + missing.joined(separator: ", ") + "." }
@@ -345,7 +345,7 @@ public nonisolated struct EDXFactorsDraft: Equatable, Sendable {
     public var isComplete: Bool { incompleteReason == nil }
 
     /// `dose` with this draft's factors for its method, the dose and the source written in.
-    public func applying(to dose: EDXDoseInputs, date: String) -> EDXDoseInputs {
+    package func applying(to dose: EDXDoseInputs, date: String) -> EDXDoseInputs {
         var out = dose
         var table = method == .zeta ? out.zeta : out.sectionsBarn
         for r in rows { if let v = r.value { table[r.element] = v } }
