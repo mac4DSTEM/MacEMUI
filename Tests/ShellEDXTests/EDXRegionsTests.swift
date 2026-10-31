@@ -13,7 +13,6 @@ import SwiftUI
 import FormatoCore
 import SpectroCore
 import SpectroEDX
-import ShellSpectroscopy
 import FormatoMSA
 @testable import ShellEDXModel
 @testable import ShellSpectroscopy
