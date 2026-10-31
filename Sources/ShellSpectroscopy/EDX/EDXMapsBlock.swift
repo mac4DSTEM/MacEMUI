@@ -155,6 +155,13 @@ private struct EDXMapTileHost: View {
                         state.readout = pixel.map { p in ["x \(p.x), y \(p.y)", spec.valueText(p.x, p.y)].compactMap { $0 }.joined(separator: " · ") }
                     },
                     controls: { controls })
+            // The keyboard route to a region, heard on the tile itself (it has the focus after a click, or by Tab), never by the split's divider beside it:
+            // Return draws the chosen tool's shape in the middle of the scan, the arrows move the selected region a pixel (shift: ten).
+            .onKeyPress(.return) { EDXRegionBridge.drawByKeyboard(in: session, state: state) ? .handled : .ignored }
+            .onKeyPress(keys: [.leftArrow, .rightArrow, .upArrow, .downArrow]) { press in
+                guard let step = EDXRegionBridge.arrowStep(press.key, shift: press.modifiers.contains(.shift)) else { return .ignored }
+                return EDXRegionBridge.nudgeSelected(dx: step.dx, dy: step.dy, in: session, state: state) ? .handled : .ignored
+            }
             .opacity(mapsState == .running ? 0.5 : 1)
             .task(id: spec.pictureKey) {
                 if spec.isEmpty { image = nil; return }
