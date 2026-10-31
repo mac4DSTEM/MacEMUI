@@ -3,7 +3,7 @@
 //  Role: zoom and pan of the maps (design 2026-10-22): ONE transform shared by every map tile of a room, so the same part of the scan is in view on all of them. It is a view of the image panes'
 //        `ZoomPan` measured in a tile of unit size, so the maps and the panes zoom by one rule: the zoom (1 = the whole scan fits the tile, never less) and, read through it, the point of the
 //        picture, as fractions of its width and height, that sits at the tile's centre. Pinch and scroll zoom about the pointer, a drag or an ⌥-scroll pans, a double click resets. The
-//        arithmetic is pure and held by a test.
+//        arithmetic is pure and held by a test. Each tile sits in the shared `ImageViewport` with its own `PaneZoomModel`, kept equal to this transform by `MapTileZoomSync`.
 //
 
 import CoreGraphics
@@ -80,6 +80,59 @@ public nonisolated struct MapViewTransform: Equatable, Sendable {
     public func contentPoint(forTile point: CGPoint, in size: CGSize) -> CGPoint {
         let p = placement(in: size)
         return CGPoint(x: size.width / 2 + (point.x - size.width / 2 - p.offset.width) / p.scale, y: size.height / 2 + (point.y - size.height / 2 - p.offset.height) / p.scale)
+    }
+}
+
+nonisolated extension MapViewTransform {
+    /// The pane state of a tile `size` points across that draws this transform: the same zoom, the offset in the tile's points (what
+    /// the tile's `ImageViewport` and `zoomPanPlacement` take).
+    public func paneState(in size: CGSize) -> ZoomPan {
+        var state = ZoomPan()
+        state.zoom = zoom
+        state.offset = CGSize(width: zoomPan.offset.width * size.width, height: zoomPan.offset.height * size.height)
+        return state
+    }
+
+    /// The transform a tile's pane state means, a gesture in flight included (its effective zoom and offset), never below the fit.
+    public init(pane state: ZoomPan, in size: CGSize) {
+        guard size.width > 0, size.height > 0 else { self.init(); return }
+        var unit = ZoomPan()
+        unit.zoom = state.effectiveZoom
+        unit.offset = CGSize(width: state.effectiveOffset.width / size.width, height: state.effectiveOffset.height / size.height)
+        self.init(unit)
+    }
+}
+
+/// How one tile's pane zoom and the room's one shared transform are kept equal. Pure, so a test holds the two rules that matter: a
+/// gesture in flight on a tile is shared live and never written back onto that tile, and nothing stays below the fit.
+nonisolated enum MapTileZoomSync {
+    static func inFlight(_ state: ZoomPan) -> Bool { state.liveZoom != 1 || state.liveOffset != .zero }
+
+    /// Equal but for rounding: a transform read back through a tile's points (times the size, then divided by it) may differ in the
+    /// last bit, and tiles of two sizes must not hand such a difference back and forth.
+    static func same(_ a: ZoomPan, _ b: ZoomPan, tolerance: CGFloat) -> Bool {
+        abs(a.zoom - b.zoom) <= 1e-9 && abs(a.offset.width - b.offset.width) <= tolerance && abs(a.offset.height - b.offset.height) <= tolerance
+            && a.liveZoom == b.liveZoom && a.liveOffset == b.liveOffset
+    }
+
+    /// The tile's pane changed (a gesture, the wheel, VoiceOver): the shared transform to write (nil: unchanged) and, once no gesture
+    /// is in flight, the pane state to put back on the tile (nil: it is already the transform; set when it went below the fit).
+    static func fromPane(_ state: ZoomPan, shared: MapViewTransform, size: CGSize) -> (shared: MapViewTransform?, pane: ZoomPan?) {
+        let meant = MapViewTransform(pane: state, in: size)
+        var back: ZoomPan?
+        if !inFlight(state) {
+            let normal = meant.paneState(in: size)
+            if !same(normal, state, tolerance: 1e-6) { back = normal }
+        }
+        return (same(meant.zoomPan, shared.zoomPan, tolerance: 1e-9) ? nil : meant, back)
+    }
+
+    /// The shared transform changed (another tile, the View menu, a double click, a drag on the regions layer): the state to put on
+    /// this tile's pane, nil when it already shows it or a gesture is in flight on it (it is the source).
+    static func fromShared(_ shared: MapViewTransform, pane: ZoomPan, size: CGSize) -> ZoomPan? {
+        guard !inFlight(pane) else { return nil }
+        let state = shared.paneState(in: size)
+        return same(state, pane, tolerance: 1e-6) ? nil : state
     }
 }
 

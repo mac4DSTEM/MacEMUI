@@ -3,7 +3,8 @@
 //  Role: the EDS room's maps (the corrected design, 2026-10-22): the colour mix as the ANCHOR tile on the left, where regions are drawn and edited (and shown nowhere else), the scan image and one
 //        net-count (or composition) map per quantified element fitted into the rest; everything scales with the panes. The frame of a map (name, scale bar and its popover, one cursor; no chip, no
 //        hover colour scale) is MacEMUI's `MapTileView`, the popover is its `MapDisplayPopover`; here are the pictures and the wiring to the session. The wt%, at% and Thickness tiles are drawn through
-//        the display filter (`EDXMapFilter`), composition tiles only; the readout and every export use the raw values.
+//        the display filter (`EDXMapFilter`), composition tiles only; the readout and every export use the raw values. The app's own marks
+//        (`EDXRoomActions.mapOverlay`) go in each tile's overlay slot.
 //
 
 import ShellControls
@@ -72,6 +73,8 @@ public enum EDXMapsComposition {
 struct EDXMapsBlock: View {
     let session: EDXSession
     @Bindable var state: EDXRoomState
+    /// The app's marks over a tile (`EDXRoomActions.mapOverlay`); nil draws nothing.
+    var overlay: ((_ tileID: String, _ context: MapTileOverlayContext) -> AnyView)? = nil
 
     var body: some View {
         // One read of each observed property, here, handed down as values.
@@ -92,7 +95,7 @@ struct EDXMapsBlock: View {
                 AnchoredMapsBlock(anchor: composition.anchor, items: composition.rest, aspect: CGFloat(max(nx, 1)) / CGFloat(max(ny, 1)), storageKey: "edx.mapsSplit",
                                   solo: $state.soloTile, soloEnabled: false) { item, size, isAnchor in
                     EDXMapTileHost(item: item, size: size, isAnchor: isAnchor, nx: nx, ny: ny, mapsState: mapsState,
-                                   regions: isAnchor ? regions : nil, session: session, state: state)
+                                   regions: isAnchor ? regions : nil, session: session, state: state, overlay: overlay)
                 }
                 // The maps are what the room zooms: the View menu's Zoom commands act on them.
                 .mapZoomCommandTarget($state.mapView)
@@ -113,6 +116,7 @@ private struct EDXMapTileHost: View {
     let regions: SpectralRegionSet?
     let session: EDXSession
     @Bindable var state: EDXRoomState
+    let overlay: ((_ tileID: String, _ context: MapTileOverlayContext) -> AnyView)?
     @State private var image: CGImage?
 
     private var appearance: MapAppearance { state.appearance }
@@ -154,7 +158,11 @@ private struct EDXMapTileHost: View {
                         state.hoverPixel = pixel.map { EDXHoverPixel(x: $0.x, y: $0.y) }
                         state.readout = pixel.map { p in ["x \(p.x), y \(p.y)", spec.valueText(p.x, p.y)].compactMap { $0 }.joined(separator: " · ") }
                     },
-                    controls: { controls })
+                    controls: { controls },
+                    // The app's marks over this tile (mac4DSTEM's precipitate glyphs), by the tile's id: the scan image, an element, the colour mix.
+                    overlay: { context in
+                        if let overlay { overlay(tileID ?? EDXGridItem.mixID, context) }
+                    })
             // The keyboard route to a region, heard on the tile itself (it has the focus after a click, or by Tab), never by the split's divider beside it:
             // Return draws the chosen tool's shape in the middle of the scan, the arrows move the selected region a pixel (shift: ten).
             .onKeyPress(.return) { EDXRegionBridge.drawByKeyboard(in: session, state: state) ? .handled : .ignored }

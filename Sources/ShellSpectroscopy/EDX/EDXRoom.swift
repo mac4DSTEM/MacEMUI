@@ -58,7 +58,7 @@ public struct EDXRoom: View {
                     } else {
                         VerticalPaneSplit(storageKey: "edx.lowerSplit", defaultFraction: 0.6, resizeLabel: "Resize the maps and the spectrum",
                                           topName: "Maps", minimumTop: EDXLayout.lowerPaneMinimumHeight, minimumBottom: EDXLayout.lowerPaneMinimumHeight) {
-                            EDXMapsBlock(session: session, state: state)
+                            EDXMapsBlock(session: session, state: state, overlay: actions.mapOverlay)
                                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                         } bottom: {
                             EDXLowerPane(session: session, state: state)
