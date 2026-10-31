@@ -93,4 +93,12 @@ nonisolated final class ImageViewportTests: XCTestCase {
         XCTAssertTrue(file.contains("content.zoomPanAccessibilityActions(model, box: box).zoomCommandTarget(model, isTarget: isCommandTarget)"))
         XCTAssertTrue(file.contains(".contentShape(Rectangle()) .modifier(ZoomRoutes(model: model, box: box, wheel: wheel, onHover: onHover))"))
     }
+
+    /// A pane inside a view that publishes View > Zoom for it (the map tiles) publishes nothing, not even nil, so a focused pane cannot
+    /// mask the value above it; VoiceOver's actions stay. Red under: the opt-out still writing the focused scene value.
+    func testAPaneCanPublishNothingToTheZoomCommands() throws {
+        let file = squeezed(try source("Sources/ShellControls/ImageViewport.swift"))
+        XCTAssertTrue(file.contains("if !publishesCommands { // No focused scene value at all"))
+        XCTAssertTrue(file.contains("if accessibilityActions { content.zoomPanAccessibilityActions(model, box: box) } else { content } } else if accessibilityActions {"))
+    }
 }

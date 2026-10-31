@@ -33,6 +33,7 @@ public struct ImageViewport<Content: View>: View {
     private let wheel: Bool
     private let accessibilityActions: Bool
     private let isCommandTarget: Bool
+    private let publishesCommands: Bool
     private let onHover: ((HoverPhase) -> Void)?
     private let content: (ZoomPan) -> Content
 
@@ -43,12 +44,15 @@ public struct ImageViewport<Content: View>: View {
     /// - `accessibilityActions`: VoiceOver's zoom and pan actions on the container; false when the pane puts them
     ///   (`zoomPanAccessibilityActions`) on its own labelled accessibility element, so they are listed once, where the label is.
     /// - `isCommandTarget`: whether View > Zoom acts on this pane (one pane of a room publishes, the one last clicked or the only one).
+    /// - `publishesCommands`: false publishes nothing to View > Zoom, not even "no pane": for a pane inside a view that publishes
+    ///   for it (the map tiles, whose block publishes the shared transform), so a focused tile does not mask that value. Fixed for the pane's life.
     /// - `onHover`: the pointer over the picture, in `box` points, for a pane that reads the value under it.
     /// - `content`: the picture, given the live zoom (a pinch or drag in flight included).
     public init(_ model: PaneZoomModel, box: CGSize, pane: CGSize? = nil, wheel: Bool = true, accessibilityActions: Bool = true,
-                isCommandTarget: Bool = true, onHover: ((HoverPhase) -> Void)? = nil, @ViewBuilder content: @escaping (ZoomPan) -> Content) {
+                isCommandTarget: Bool = true, publishesCommands: Bool = true, onHover: ((HoverPhase) -> Void)? = nil,
+                @ViewBuilder content: @escaping (ZoomPan) -> Content) {
         self.model = model; self.box = box; self.pane = pane; self.wheel = wheel; self.accessibilityActions = accessibilityActions
-        self.isCommandTarget = isCommandTarget; self.onHover = onHover; self.content = content
+        self.isCommandTarget = isCommandTarget; self.publishesCommands = publishesCommands; self.onHover = onHover; self.content = content
     }
 
     public var body: some View {
@@ -60,14 +64,14 @@ public struct ImageViewport<Content: View>: View {
                     Color.clear.frame(width: box.width, height: box.height).contentShape(Rectangle())
                         .modifier(ZoomRoutes(model: model, box: box, wheel: wheel, onHover: onHover))
                 }
-                .modifier(ZoomPaneScope(model: model, box: box, accessibilityActions: accessibilityActions, isCommandTarget: isCommandTarget))
+                .modifier(ZoomPaneScope(model: model, box: box, accessibilityActions: accessibilityActions, isCommandTarget: isCommandTarget, publishesCommands: publishesCommands))
         } else {
             content(model.state)
                 .frame(width: box.width, height: box.height)
                 .clipped()
                 .contentShape(Rectangle())
                 .modifier(ZoomRoutes(model: model, box: box, wheel: wheel, onHover: onHover))
-                .modifier(ZoomPaneScope(model: model, box: box, accessibilityActions: accessibilityActions, isCommandTarget: isCommandTarget))
+                .modifier(ZoomPaneScope(model: model, box: box, accessibilityActions: accessibilityActions, isCommandTarget: isCommandTarget, publishesCommands: publishesCommands))
         }
     }
 }
@@ -95,9 +99,13 @@ private struct ZoomPaneScope: ViewModifier {
     let box: CGSize
     let accessibilityActions: Bool
     let isCommandTarget: Bool
+    var publishesCommands = true
 
     func body(content: Content) -> some View {
-        if accessibilityActions {
+        if !publishesCommands {
+            // No focused scene value at all, not even nil: a pane inside a view that publishes for it (the maps) must not mask that value.
+            if accessibilityActions { content.zoomPanAccessibilityActions(model, box: box) } else { content }
+        } else if accessibilityActions {
             content.zoomPanAccessibilityActions(model, box: box).zoomCommandTarget(model, isTarget: isCommandTarget)
         } else {
             content.zoomCommandTarget(model, isTarget: isCommandTarget)
