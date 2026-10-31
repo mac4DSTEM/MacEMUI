@@ -371,11 +371,9 @@ public struct InfobarRunReadout: View {
                     .frame(minWidth: LayoutPolicy.compressibleSlotMinimum,
                            idealWidth: LayoutPolicy.runReadoutWidth,
                            maxWidth: LayoutPolicy.runReadoutWidth, alignment: .leading)
-                    // The label from the same tick as the drawn text, re-read
-                    // each tick (see `ToolbarRunDisplay`).
-                    .accessibilityLabel(text)
-                    .accessibilityAddTraits(.updatesFrequently)
-                    .accessibilityIdentifier("status.footer.metrics")
+                    // The label from the same tick as the drawn text, read live
+                    // (see `liveAccessibilityText`).
+                    .liveAccessibilityText(label: text, value: "", identifier: "status.footer.metrics")
                 if let onCancel {
                     // "Cancel", matching the toolbar's own button: both name
                     // the same action on the same run. `.fixedSize()` +

@@ -208,13 +208,11 @@ public struct ToolbarRunDisplay: View {
                 .font(.subheadline.monospacedDigit())
                 .lineLimit(1)
                 .truncationMode(.tail)
-                // An explicit label from the same tick as the drawn text, and
-                // `.updatesFrequently` so the accessibility tree re-reads it
-                // each tick instead of keeping the first second's text.
-                .accessibilityLabel(tick.accessibilityLabel)
-                .accessibilityValue(tick.accessibilityValue)
-                .accessibilityAddTraits(.updatesFrequently)
-                .accessibilityIdentifier("toolbar.display.busy")
+                // The label from the same tick as the drawn text, served by an
+                // element that is read live (SwiftUI kept the first second's
+                // label: `liveAccessibilityText`).
+                .liveAccessibilityText(label: tick.accessibilityLabel, value: tick.accessibilityValue,
+                                       identifier: "toolbar.display.busy")
         }
     }
 }
