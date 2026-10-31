@@ -157,10 +157,11 @@ public nonisolated enum EDXCompute {
     }
 
     /// The line windows of the picked elements on the file's axis, their net counts in `spectrum` and their net-count maps
-    /// (only the windows whose map is not cached are summed).
-    public static func windows(source: any SpectrumImageSource, spectrum: [UInt64], picks: [EDXPick], cache: EDXComputeCache) -> Windows {
+    /// (only the windows whose map is not cached are summed). `beamEnergyKeV`: the one the method uses (the typed value); nil, the file's.
+    public static func windows(source: any SpectrumImageSource, spectrum: [UInt64], picks: [EDXPick], cache: EDXComputeCache,
+                               beamEnergyKeV: Double? = nil) -> Windows {
         let windows = ElementWindows.build(picks: picks.map { ElementWindows.Pick(symbol: $0.symbol, family: $0.family, lines: $0.lines) },
-                                           axis: source.energyAxis, beamEnergyKeV: source.metadata.beamEnergyKeV)
+                                           axis: source.energyAxis, beamEnergyKeV: beamEnergyKeV ?? source.metadata.beamEnergyKeV)
         let counts = ElementWindows.netCounts(spectrum: spectrum, windows: windows)
         let missing = windows.filter { w in w.window.map { cache.map(EDXComputeCache.key($0)) == nil } ?? false }
         if !missing.isEmpty {
