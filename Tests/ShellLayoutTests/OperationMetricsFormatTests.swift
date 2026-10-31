@@ -101,11 +101,16 @@ nonisolated final class OperationMetricsFormatTests: XCTestCase {
         )
     }
 
-    /// `.caption2.monospacedDigit()`, which is what the status bar draws in.
+    /// The toolbar's busy line takes the reserved slot (it is the one place that draws the clock).
+    func testTheToolbarsClockTakesTheReservedSlot() {
+        XCTAssertEqual(ToolbarRunDisplay.metricsWidth, LayoutPolicy.operationReadoutWidth)
+    }
+
+    /// `.subheadline.monospacedDigit()`, which is what the toolbar's busy line draws in (`ToolbarRunDisplay.busyFont`).
     /// Measured rather than assumed: the constant above is only defensible
     /// against the font that actually renders it.
     private func statusBarFont() -> NSFont {
-        let base = NSFont.preferredFont(forTextStyle: .caption2)
+        let base = NSFont.preferredFont(forTextStyle: .subheadline)
         return NSFont.monospacedDigitSystemFont(
             ofSize: base.pointSize, weight: .regular
         )

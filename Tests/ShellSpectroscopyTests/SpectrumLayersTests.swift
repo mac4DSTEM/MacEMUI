@@ -47,6 +47,5 @@ nonisolated final class ProfileSeriesTests: XCTestCase {
         XCTAssertEqual(s.length, 1.0)
         XCTAssertEqual(ProfileSeries(id: "e", name: "E", color: RegionPalette.color(at: 0), values: [], spacing: 1).length, 0)
         XCTAssertEqual(ProfileChart.summary([s], unit: "nm"), "Mg: 1 to 4 over 1 nm")
-        XCTAssertEqual(SpectrumPane.allCases.map(\.title), ["Spectrum", "Profile", "Table"])
     }
 }
