@@ -41,11 +41,12 @@ public nonisolated enum EDXPins {
     }
 
     /// The rows for `pins`: spectra summed (cached by region), windows of the quantified `symbols` read in each, and the composition
-    /// from `setup` where it applies. `setup.elements` must be `symbols` in order, or nil.
+    /// from `setup` where it applies. `setup.elements` must be `symbols` in order, or nil. `beamEnergyKeV`: the one the method uses (the typed
+    /// value); nil, the file's.
     public static func rows(pins: [EDXPin], source: any SpectrumImageSource, symbols: [String], setup: EDXQuantificationSetup?,
-                             cache: EDXComputeCache) -> [Row] {
+                             cache: EDXComputeCache, beamEnergyKeV: Double? = nil) -> [Row] {
         let windows = ElementWindows.build(picks: symbols.map { ElementWindows.Pick(symbol: $0) }, axis: source.energyAxis,
-                                           beamEnergyKeV: source.metadata.beamEnergyKeV)
+                                           beamEnergyKeV: beamEnergyKeV ?? source.metadata.beamEnergyKeV)
         return pins.map { pin in
             let spectrum = EDXCompute.spectrum(source: source, region: pin.region, cache: cache)
             let counts = ElementWindows.netCounts(spectrum: spectrum, windows: windows)

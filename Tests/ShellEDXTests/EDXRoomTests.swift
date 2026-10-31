@@ -131,6 +131,25 @@ nonisolated final class EDXRoomTests: XCTestCase {
         XCTAssertTrue(block.contains("EDXRegionBridge.nudgeSelected(dx: step.dx, dy: step.dy, in: session, state: state)"))
     }
 
+    // MARK: Fit to
+
+    /// A Fit to entry at or below 0.2 keV is refused in words and the default kept; zero is the default without a note; above it is the range's end.
+    /// The inspector shows the refusal under the field. Red under: the field resetting silently (no refusal, or the note not shown).
+    func testAFitToBelowTheMinimumIsRefusedInWords() throws {
+        let posix = Locale(identifier: "en_US_POSIX")
+        XCTAssertEqual(EDXRoomFormat.fitTo(entered: 8, locale: posix).keV, 8)
+        XCTAssertNil(EDXRoomFormat.fitTo(entered: 8, locale: posix).refusal)
+        XCTAssertNil(EDXRoomFormat.fitTo(entered: 0, locale: posix).keV)
+        XCTAssertNil(EDXRoomFormat.fitTo(entered: 0, locale: posix).refusal, "an emptied field is the default, said nowhere")
+        for v in [0.1, 0.2, -5] {
+            XCTAssertNil(EDXRoomFormat.fitTo(entered: v, locale: posix).keV)
+            XCTAssertEqual(EDXRoomFormat.fitTo(entered: v, locale: posix).refusal, "Fit to must be above 0.2 keV: the default range is used.")
+        }
+        let inspector = squeezed(try source("Sources/ShellSpectroscopy/EDX/EDXRoomInspector.swift"))
+        XCTAssertTrue(inspector.contains("let entry = EDXRoomFormat.fitTo(entered: v) fitToRefusal = entry.refusal session.changeMethod { $0.fitToKeV = entry.keV }"))
+        XCTAssertTrue(inspector.contains("if let fitToRefusal { InspectorNote(fitToRefusal)"))
+    }
+
     // MARK: Strings
 
     func testCountsGroupByThousandsWithAThinSpace() {
@@ -256,9 +275,6 @@ nonisolated final class EDXRoomTests: XCTestCase {
         XCTAssertNotEqual(EDXRoomFormat.hue(symbol: "Al"), EDXRoomFormat.hue(symbol: "Si"))
         for s in EDXElements.symbols { XCTAssertTrue((0..<1).contains(EDXRoomFormat.hue(symbol: s)), s) }
     }
-
-    // MARK: The periodic table
-
 
     // MARK: The shell's slots
 

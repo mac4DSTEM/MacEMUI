@@ -81,6 +81,10 @@ public struct WorkspaceRoomsSection<Room: WorkspaceRoom, Selection: Hashable, Fo
                     .tag(tag(room))
                     .disabled(!available)
                     .selectionDisabled(!available)
+                    // A new row when the room's availability changes: the table kept a selected row lit after it
+                    // became selection-disabled, beside the room the selection moved to (macTEM with a lone .msa:
+                    // Image and EDS both lit). A fresh row starts from the current selection.
+                    .id(RowIdentity(room: room.id, available: available))
             }
             footer
         }
@@ -105,6 +109,11 @@ public struct WorkspaceRoomsSection<Room: WorkspaceRoom, Selection: Hashable, Fo
         .accessibilityIdentifier("workspace.\(room.id)")
         .accessibilityHint(available ? room.subtitle : "Not available")
     }
+}
+
+private nonisolated struct RowIdentity: Hashable {
+    let room: String
+    let available: Bool
 }
 
 extension WorkspaceRoomsSection where Footer == EmptyView {
