@@ -56,7 +56,7 @@ public nonisolated enum EDXMapRaster {
     }
 
     /// The pixel under a point of the fitted picture (`size`), clamped to the grid; nil outside the picture.
-    public static func pixel(at point: CGPoint, in size: CGSize, nx: Int, ny: Int) -> (x: Int, y: Int)? {
+    package static func pixel(at point: CGPoint, in size: CGSize, nx: Int, ny: Int) -> (x: Int, y: Int)? {
         guard size.width > 0, size.height > 0, point.x >= 0, point.y >= 0, point.x <= size.width, point.y <= size.height else { return nil }
         return (min(Int(point.x / size.width * Double(nx)), nx - 1), min(Int(point.y / size.height * Double(ny)), ny - 1))
     }

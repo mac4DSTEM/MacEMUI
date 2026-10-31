@@ -53,7 +53,7 @@ public nonisolated enum EDXExportKind: String, Identifiable, CaseIterable {
     }
 }
 
-public struct EDXHoverPixel: Equatable {
+package struct EDXHoverPixel: Equatable {
     public var x: Int
     public var y: Int
     public init(x: Int, y: Int) { self.x = x; self.y = y }
@@ -72,9 +72,9 @@ public final class EDXRoomState {
     /// How the maps are coloured and the colour mix (the inspector's Maps section); window-wide, reset with a new file.
     public var appearance = MapAppearance()
     /// The display filter of the wt%, at% and Thickness tiles (never of the net maps or the HAADF, never of a number).
-    public var mapFilter: EDXMapFilter = .mean3x3
+    package var mapFilter: EDXMapFilter = .mean3x3
     /// The pixel under the pointer on any map (its spectrum is the temporary layer); nil off the maps.
-    public var hoverPixel: EDXHoverPixel?
+    package var hoverPixel: EDXHoverPixel?
     /// The status line's cursor readout: the pixel and its value over a map, the energy and counts over the spectrum; nil when the pointer is elsewhere.
     public var readout: String?
     /// Whether the Regions list's selection (and the heavier outline) belongs to a line, the last thing the person drew or picked, or to a region.
@@ -96,7 +96,7 @@ public final class EDXRoomState {
 
     /// Esc: back to the arrow tool; a shape half drawn (an open polygon) goes with its tool. False when the arrow was already chosen,
     /// so the key is left to whatever else wants it.
-    @discardableResult public func escape() -> Bool {
+    @discardableResult package func escape() -> Bool {
         guard tool != .pointer else { return false }
         tool = .pointer
         return true

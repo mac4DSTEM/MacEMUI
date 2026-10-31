@@ -62,7 +62,7 @@ public enum EDXRegionBridge {
     }
 
     /// What the Regions list changed: the edits of `new` against `old` become the session's calls (rename, colour, show/hide, delete, select).
-    public static func apply(_ new: SpectralRegionSet, to session: EDXSession, from old: SpectralRegionSet, state: EDXRoomState) {
+    package static func apply(_ new: SpectralRegionSet, to session: EDXSession, from old: SpectralRegionSet, state: EDXRoomState) {
         let kept = Set(new.regions.map(\.id))
         for region in old.regions where !kept.contains(region.id) {
             if session.pins.contains(where: { $0.id == region.id }) { session.removePin(region.id) } else { session.removeLine(region.id) }
