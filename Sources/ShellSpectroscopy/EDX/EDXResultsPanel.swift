@@ -1,12 +1,9 @@
 //
 //  EDXResultsPanel.swift
 //  Role: the EDX room's results, beside the spectrum: before Quantify the window net counts of the picked elements, after it
-//        the pooled fit's rows (net, at%, wt%), with everything the fit says about itself under the table: the validation
-//        badge, the warnings, the unlisted-line check, the fit quality and the fit's own footer lines. Presentation only:
+//        the pooled fit's rows (net, at%, wt%), with the method in the header and everything the fit says about itself under
+//        the table: the warnings, the unlisted-line check, the fit quality and the fit's own footer lines. Presentation only:
 //        every number and sentence is the kit's (`PooledQuantification`), formatted by `EDXRoomFormat`.
-//
-//        at% rests on a computed or typed k whose validation is "none": it is badged unvalidated wherever it is shown and is
-//        never called validated (the rule "Unvalidated stays labelled").
 //
 
 import ShellInspector
@@ -41,14 +38,12 @@ struct EDXResultsPanel: View {
             HStack(spacing: LayoutPolicy.inspectorRowSpacing) {
                 Text("Results · \(session.regionName)").font(.callout.weight(.semibold)).lineLimit(1)
                 Spacer(minLength: 0)
-                // The badge, once, here: the at% and wt% columns say only their names.
-                if fit?.hasAbundance == true {
-                    Text("at%, wt%: validation none")
-                        .font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                        .padding(.horizontal, 6).padding(.vertical, 1)
-                        .background(.quaternary, in: Capsule())
-                        .help("at% and wt% rest on a k with validation \u{201C}none\u{201D}: unvalidated")
-                        .accessibilityIdentifier("edx.validationBadge")
+                // The method, once, here: the at% and wt% columns say only their names.
+                if let fit, fit.hasAbundance {
+                    Text(EDXRoomFormat.methodCaption(fit.method))
+                        .font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                        .help(fit.method.kSource.isEmpty ? "The method at% and wt% come from" : "k-factors: \(EDXQuantMaps.sourceWithoutValidationClause(fit.method.kSource))")
+                        .accessibilityIdentifier("edx.method")
                 }
                 if isFitting { ProgressView().controlSize(.small) }
             }
@@ -143,7 +138,7 @@ private struct FitFooter: View {
     let isChecking: Bool
     @State private var open = false
 
-    /// What the fit says about its abundances and its lines, each the kit's own sentence (the validation badge is in the panel header), then what the last Auto ID run found and doubted.
+    /// What the fit says about its abundances and its lines, each the kit's own sentence (the method is in the panel header), then what the last Auto ID run found and doubted.
     private static func notes(of fit: PooledQuantification?, autoID: EDXCompute.AutoIDOutcome?) -> [String] {
         var out: [String] = []
         if let fit {

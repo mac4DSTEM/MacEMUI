@@ -194,4 +194,14 @@ public nonisolated enum EDXRoomFormat {
         guard t.hasSuffix(")"), let open = t.range(of: " (", options: .backwards) else { return t }
         return String(t[..<open.lowerBound]) + " \u{00B7} " + t[open.upperBound..<t.index(before: t.endIndex)]
     }
+
+    /// The method the results table's at% and wt% come from, in the panel header: "Cliff-Lorimer · computed k" or
+    /// "Cliff-Lorimer · k from <source>" (the results table is always Cliff-Lorimer).
+    package static func methodCaption(_ m: QuantificationMethod) -> String {
+        let source = m.kSource.trimmingCharacters(in: .whitespacesAndNewlines)
+        switch m.kFactorSource {
+        case .computed: return "Cliff-Lorimer \u{00B7} computed k"
+        case .typed: return source.isEmpty ? "Cliff-Lorimer \u{00B7} typed k" : "Cliff-Lorimer \u{00B7} k from \(source)"
+        }
+    }
 }

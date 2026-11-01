@@ -169,7 +169,7 @@ package nonisolated enum EDXQuantMaps {
                     if let k = fitK.first(where: { $0.element == s })?.k, k > 0, k.isFinite { ks.append(k) } else { missing.append(s) }
                 }
                 guard missing.isEmpty else { throw Refusal.needsFit }
-                factorText = "computed k: " + source
+                factorText = "computed k: " + sourceWithoutValidationClause(source)
             }
             setup = EDXQuantificationSetup(elements: symbols, method: .cliffLorimer(kFactors: ks, thicknessNm: nil))
         case .zeta, .crossSection:
@@ -240,12 +240,19 @@ package nonisolated enum EDXQuantMaps {
         }
     }
 
-    /// The tile footer: the quantity, the factor source, what became of absorption, how many pixels failed and why, and the badge. The
-    /// kit's `validation` string is the badge's key ("none" until a standard of known composition is measured).
+    /// The kit's computed-k source sentence without its closing "UNVALIDATED" clause: the room names the method and its sources,
+    /// not a validation label. The rest of the sentence (cross sections, yields, detector model, reference, beam) is kept word for word.
+    package static func sourceWithoutValidationClause(_ source: String) -> String {
+        source.components(separatedBy: "; ")
+            .filter { $0.trimmingCharacters(in: .whitespaces).caseInsensitiveCompare("UNVALIDATED") != .orderedSame }
+            .joined(separator: "; ")
+    }
+
+    /// The tile footer: the quantity, the factor source, what became of absorption, how many pixels failed and why.
     public static func footer(mode: EDXMapMode, factorText: String, absorptionText: String, dose: EDXDoseInputs? = nil,
                                result: EDXQuantificationMaps, masked: Int) -> String {
         let failed = result.failures.compactMap { $0 }
-        // The order and the words of mac4DSTEM's tile footer (failed, masked, per-pixel, absorption, validation), with this app's own k source
+        // The order and the words of mac4DSTEM's tile footer (failed, masked, per-pixel, absorption), with this app's own k source
         // and dose where it has them: one vocabulary for the shared EDX room (rooms design section 1).
         var parts: [String] = []
         if let first = failed.first { parts.append("\(failed.count) failed px: \(first)") }
@@ -255,7 +262,6 @@ package nonisolated enum EDXQuantMaps {
         parts.append(factorText)
         if let dose, let c = dose.beamCurrentNA, let t = dose.liveTimeSeconds { parts.append("\(String(format: "%g", c)) nA, \(String(format: "%g", t)) s") }
         parts.append(absorptionText)
-        parts.append("validation: \(result.validation)")
         return parts.joined(separator: " \u{00B7} ")
     }
 }

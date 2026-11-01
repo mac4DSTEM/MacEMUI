@@ -98,7 +98,7 @@ public nonisolated struct EDXPoolRegion: Equatable, Sendable {
     public var name: String
     public var mask: PixelMask
     public var key: String
-    /// "none" for a phase map's pools (the phase map is unvalidated); nil for a group.
+    /// The source product's self-reported string, kept as provenance and not shown ("none" for a phase map's pools); nil for a group.
     public var validation: String?
     public init(kind: String, name: String, mask: PixelMask, key: String, validation: String? = nil) {
         self.kind = kind; self.name = name; self.mask = mask; self.key = key; self.validation = validation

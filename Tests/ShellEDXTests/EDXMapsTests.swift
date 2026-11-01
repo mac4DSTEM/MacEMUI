@@ -43,7 +43,7 @@ nonisolated final class EDXMapsTests: XCTestCase {
     // MARK: The maps are the kit's
 
     /// With typed k, wt% and at% maps are the kit's per-pixel Cliff-Lorimer on the net-count maps, to the bit; the tiles carry the
-    /// kit's values, the k source and the badge; at% is the conversion of the same wt% pixel. Red under: arithmetic of the room's
+    /// kit's values, the k source; at% is the conversion of the same wt% pixel. Red under: arithmetic of the room's
     /// own; the wrong element order; the badge missing from a footer.
     @MainActor func testTypedKMapsAreTheKitsPerPixelQuantification() async throws {
         let session = await openRoom()
@@ -72,7 +72,7 @@ nonisolated final class EDXMapsTests: XCTestCase {
             XCTAssertEqual(tile.mode, .weight)
             XCTAssertEqual(tile.values, maps.weightPercent[i])
             let footer = try XCTUnwrap(tile.footer)
-            XCTAssertTrue(footer.contains("validation: none"), footer)
+            XCTAssertFalse(footer.localizedCaseInsensitiveContains("validat"), "no validation label on a tile: \(footer)")
             XCTAssertTrue(footer.contains("typed k: \(Self.source)"), footer)
             XCTAssertTrue(footer.contains("absorption not applied: type the thickness"), footer)
         }
@@ -141,7 +141,8 @@ nonisolated final class EDXMapsTests: XCTestCase {
             }
         }
         let footer = try XCTUnwrap(session.shownTiles.first?.footer)
-        XCTAssertTrue(footer.contains("computed k: ") && footer.contains("validation: none"), footer)
+        XCTAssertTrue(footer.contains("computed k: "), footer)
+        XCTAssertFalse(footer.localizedCaseInsensitiveContains("validat"), footer)
 
         type(session)
         await session.settled()
@@ -245,7 +246,8 @@ nonisolated final class EDXMapsTests: XCTestCase {
         XCTAssertEqual(maps.weightPercent[0][0] + maps.weightPercent[1][0], 100, accuracy: 1e-9)
         let footer = EDXQuantMaps.footer(mode: .atomic, factorText: "typed k: unit", absorptionText: "absorption not applied to maps", result: maps, masked: 0)
         XCTAssertTrue(footer.contains("1 failed px: Intensities must be finite and not negative."), footer)
-        XCTAssertTrue(footer.hasSuffix("validation: none"), footer)
+        XCTAssertTrue(footer.hasSuffix("absorption not applied to maps"), "the absorption text closes the footer, no validation label: \(footer)")
+        XCTAssertFalse(footer.localizedCaseInsensitiveContains("validat"), footer)
         XCTAssertTrue(footer.hasPrefix("1 failed px: "), "the failed count leads, as mac4DSTEM's footer does: \(footer)")
         XCTAssertTrue(footer.contains("per-pixel, no \u{03C3}; pool a region for a \u{03C3} \u{00B7} at% \u{00B7} typed k: unit"), footer)
     }

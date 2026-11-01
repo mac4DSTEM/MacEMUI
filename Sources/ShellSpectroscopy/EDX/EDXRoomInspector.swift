@@ -7,7 +7,7 @@
 //        beam energy), Fitting (estimator, energy axis, fit range) and Export. Info: the file, its grid, energy axis and detector.
 //        Presentation only: the state is `EDXSession` (TEMSession), the rest is SpectroKit's through it.
 //
-//        k-factors are computed (Bote-Salvat cross sections, Krause yield, EPQ detector efficiency; unvalidated) or typed
+//        k-factors are computed (Bote-Salvat cross sections, Krause yield, EPQ detector efficiency) or typed
 //        (`EDXTypedKSheet`: k, σ and the source per quantified element). The wt% / at% maps take typed k, or the fit's computed k, and the absorption correction when the file gives the geometry and a thickness is typed (EDXQuantMaps).
 //
 
@@ -103,7 +103,7 @@ private struct EDXElementsSection: View {
             InspectorActionRow {
                 Button("Auto ID") { session.runAutoID(explicit: true) }
                     .disabled(autoID == .running)
-                    .help("Propose elements from the region's spectrum (the element proposer, unvalidated rules)")
+                    .help("Propose elements from the region's spectrum (the element proposer)")
                     .accessibilityIdentifier("edx.autoID")
                 if autoID == .running { ProgressView().controlSize(.small) }
             }
@@ -138,7 +138,7 @@ private struct EDXToolsSection: View {
                             if !groups.isEmpty { Section("Groups") { ForEach(groups, id: \.key) { Text($0.name).tag($0.key) } } }
                         }
                         .labelsHidden()
-                        .help("Pool the spectrum over a phase or a diffraction group of the 4D scan (the registration the window states); a phase map is unvalidated.")
+                        .help("Pool the spectrum over a phase or a diffraction group of the 4D scan (the registration the window states).")
                         .accessibilityIdentifier("edx.source")
                     }
                 }
@@ -189,7 +189,7 @@ private struct EDXQuantificationSection: View {
                         .accessibilityIdentifier("edx.typedK.edit")
                 }
             } else {
-                InspectorNote("Bote-Salvat cross sections, Krause yield, EPQ detector efficiency: validation none. The maps take this k from the fit once Quantify has run.")
+                InspectorNote("Bote-Salvat cross sections, Krause yield, EPQ detector efficiency. The maps take this k from the fit once Quantify has run.")
             }
             InspectorRow("Maps method") {
                 Picker("Maps method", selection: Binding(get: { session.mapMethod },
@@ -309,7 +309,7 @@ private struct EDXExportSection: View {
         InspectorSection("Export") {
             // Buttons and rows as mac4DSTEM's Export section, not a pop-up menu: what each writes is on its button.
             InspectorActionRow {
-                exportButton(.results, "Results CSV…", "tablecells", enabled: hasFit, help: "The results table: element, line, net counts, at% and wt%, with the fit's provenance and the unvalidated badge")
+                exportButton(.results, "Results CSV…", "tablecells", enabled: hasFit, help: "The results table: element, line, net counts, at% and wt%, with the fit's provenance")
                 exportButton(.method, "Method JSON…", "curlybraces", enabled: hasFit, help: "The quantification method in its own sorted-keys encoding, with its SHA-256")
             }
             InspectorActionRow {
