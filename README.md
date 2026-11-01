@@ -31,7 +31,7 @@ Requirements: macOS 26, Swift 6.2 tools or newer. It builds with Xcode 27 and wi
 ```swift
 // Package.swift
 dependencies: [
-    .package(url: "https://github.com/mac4DSTEM/MacEMUI", exact: "0.3.1"),
+    .package(url: "https://github.com/mac4DSTEM/MacEMUI", from: "0.4.0"),
 ],
 targets: [
     .target(name: "MyApp", dependencies: [
