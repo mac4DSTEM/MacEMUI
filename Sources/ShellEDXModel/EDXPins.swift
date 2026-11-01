@@ -79,7 +79,7 @@ public nonisolated enum EDXPins {
     public static func csv(rows: [Row], fileName: String, title: String) -> String {
         let elements = rows.first?.elements ?? []
         var out = ["# \(title), file: \(fileName)",
-                   "# net_<El>: net counts of the element's line window in the pin's summed spectrum; wt_ and at_: Cliff-Lorimer / zeta / cross-section composition of those nets with the maps' factors, validation: \(EDXQuantification.validation); empty when the factors are not complete",
+                   "# net_<El>: net counts of the element's line window in the pin's summed spectrum; wt_ and at_: Cliff-Lorimer / zeta / cross-section composition of those nets with the maps' factors; empty when the factors are not complete",
                    (["name", "shape", "geometry", "pixels", "counts"] + elements.map { "net_\($0)" } + elements.map { "wt_\($0)" } + elements.map { "at_\($0)" })
                     .joined(separator: ",")]
         for r in rows {

@@ -3,7 +3,7 @@
 //  Role: the maps as one PNG (the Export section's "Maps as PNG…"): the shown tiles in a grid, each with its title, the regions
 //        where the room draws them (every shown pin and line on the colour mix, in its own colour; on every tile when the figure
 //        has no mix), a scale bar from the file's pixel size and, for a composition tile, the footer that carries the
-//        factor source and the `validation: none` badge. The picture is a SwiftUI view rendered by `ImageRenderer`; the pixels of a
+//        factor source. The picture is a SwiftUI view rendered by `ImageRenderer`; the pixels of a
 //        tile are `EDXMapRaster`'s, the bar's numbers ImagoKit's (`EDXExports.scaleBar`). Presentation only.
 //
 

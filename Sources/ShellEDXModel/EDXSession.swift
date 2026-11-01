@@ -30,7 +30,7 @@ public nonisolated struct EDXMapTile: Identifiable, Equatable {
     public let note: String?
     /// What the values are: net counts, or a composition from the quantification maps.
     public var mode: EDXMapMode = .net
-    /// Under the picture, for a composition tile: the k source, what was not applied, the failed pixels and the badge. nil for net counts.
+    /// Under the picture, for a composition tile: the k source, what was not applied and the failed pixels. nil for net counts.
     public var footer: String?
     /// The largest finite value, found once when the tile is made (the colorbar's upper end), not per render.
     package let maxValue: Double
