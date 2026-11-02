@@ -245,8 +245,10 @@ nonisolated final class EDXSessionTests: XCTestCase {
         // K-alpha, the weak-line bias the fit's own warning names). The bound is 3 %: a wiring fault (a wrong region, a wrong
         // window, an element left out) moves an area by far more. The pin is the regression: the room has no arithmetic of its own,
         // so these numbers move only when the kit's fit does, and then in a commit of their own with the reason.
+        // Re-pinned 2026-11-02 for SpectroKit 0.13: the continuum step at the absorption edges is now broadened by the detector
+        // resolution by default (SpectroKit#65). Was Al 987 084.19, Mg 49 511.78, Si 9 741.18 (SpectroKit 0.12).
         let truth = Self.planted.areas
-        let pinned: [(element: String, fitted: Double)] = [("Al", 987_084.187148377), ("Mg", 49_511.781907676865), ("Si", 9_741.175285607535)]
+        let pinned: [(element: String, fitted: Double)] = [("Al", 987_248.6317845077), ("Mg", 49_506.708818394676), ("Si", 9_730.952542984644)]
         for (element, expected) in pinned {
             let row = try XCTUnwrap(fit.rows.first { $0.element == element }, element)
             let area = try XCTUnwrap(truth[element])
