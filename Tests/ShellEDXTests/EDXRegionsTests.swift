@@ -31,6 +31,26 @@ nonisolated final class EDXRegionsTests: XCTestCase {
 
     // MARK: Several regions
 
+    /// The results header, the export stem and the CSVs name the kept region by its own name, so two regions' exports do not overwrite each other
+    /// (seen 2026-11-05 on the owner's 1339 file: "Results · Region" and "…_Region quantification.csv" for Region 1 and Region 2 alike). (A shape selected but not kept
+    /// stays "Region": testShapesCoveringTheSamePixelsSumTheSameSpectrum.) Red under: `region.name` (always "Region" for a shape) in the header and the export names.
+    @MainActor func testTheHeaderAndTheExportsNameTheKeptRegion() async throws {
+        let session = await openRoom()
+        session.drawRectangle(PixelRect(x0: 0, y0: 0, x1: 1, y1: 1))
+        session.drawRectangle(PixelRect(x0: 1, y0: 0, x1: 2, y1: 1))
+        await session.settled()
+        XCTAssertEqual(session.regionName, "Region 2")
+        XCTAssertTrue(session.exportStem.hasSuffix("Region_2") || session.exportStem.hasSuffix("Region 2"), session.exportStem)
+        let two = session.exportStem
+        session.selectPin(session.pins[0].id)
+        await session.settled()
+        XCTAssertEqual(session.regionName, "Region 1")
+        XCTAssertNotEqual(session.exportStem, two, "the two regions' exports share a name")
+        XCTAssertTrue(try XCTUnwrap(session.spectrumCSV).contains("region: Region 1"))
+        session.renamePin(session.pins[0].id, to: "Precipitate")
+        XCTAssertEqual(session.regionName, "Precipitate")
+    }
+
     /// Every shape drawn is kept as the next numbered region: two drawn shapes are two regions, each with its own pooled spectrum (the kit's sum of its pixels,
     /// exact), a table row with its pixel count and counts, and hiding one drops its layer but keeps its row. A shape drawn twice is one region; a deleted
     /// region's number is not reused. Red under: a second drawing replacing the first; the layer of a hidden region kept; numbers recycled.

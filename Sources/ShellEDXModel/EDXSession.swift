@@ -244,13 +244,17 @@ public final class EDXSession {
     public var beamEnergy: Double? { method.beamEnergyKeV ?? fileBeamEnergy }
     /// A one-pixel file (an .msa, a single Velox spectrum): there are no maps, no region to draw, and the words say "Spectrum", not "Whole map".
     public var isSingleSpectrum: Bool { (source?.nx ?? 0) * (source?.ny ?? 0) == 1 }
-    public var regionName: String { isSingleSpectrum ? "Spectrum" : region.name }
+    /// The selected region's name as the person reads it: the kept region's own ("Region 2", or what it was renamed to), "Region" for a
+    /// shape not kept, "Whole map", or "Spectrum" for a one-pixel file. The results header, the export names and the CSVs' region lines.
+    public var regionName: String { isSingleSpectrum ? "Spectrum" : keptName }
+    /// The kept region's name, else the region's ("Region", "Whole map").
+    private var keptName: String { selectedPin?.name ?? region.name }
     public var canQuantify: Bool { hasImage && picks.contains { $0.role == .quantify } }
     public var quantifyBlocker: String? {
         hasImage && !canQuantify ? "Pick at least one element to quantify." : nil
     }
     /// The default stem of an export file: the image, the region.
-    public var exportStem: String { SpectroscopyExport.fileStem(imageName: fileName, regionName: region.name) }
+    public var exportStem: String { SpectroscopyExport.fileStem(imageName: fileName, regionName: keptName) }
 
     // MARK: Opening
 
@@ -735,7 +739,7 @@ public final class EDXSession {
         }
         autoID = .running
         let region = region, cache = cache, listed = picks.map(\.symbol), computedK = method.kFactorSource == .computed
-        let regionName = region.name
+        let regionName = keptName
         autoIDRun += 1
         let run = autoIDRun
         let task = Task.detached(priority: .userInitiated) { [weak self] in
@@ -1058,16 +1062,16 @@ public final class EDXSession {
 
     // MARK: Export
 
-    public var resultsCSV: String? { fit.map { EDXCompute.resultsCSV($0, regionName: region.name, host: host) } }
+    public var resultsCSV: String? { fit.map { EDXCompute.resultsCSV($0, regionName: keptName, host: host) } }
     public var methodJSON: String? { fit.map { SpectroscopyExport.methodJSON($0.method) } }
     /// The region's spectrum as an `.msa` file (FormatoKit's writer); nil before there is a spectrum.
     public func spectrumMSA() throws -> Data? {
         guard let source, !spectrumCounts.isEmpty else { return nil }
-        return try EDXExports.msa(counts: spectrumCounts, axis: source.energyAxis, title: "\(fileName) \(region.name)", beamEnergyKeV: beamEnergy, host: host)
+        return try EDXExports.msa(counts: spectrumCounts, axis: source.energyAxis, title: "\(fileName) \(keptName)", beamEnergyKeV: beamEnergy, host: host)
     }
     public var spectrumCSV: String? {
         guard let source, !spectrumCounts.isEmpty else { return nil }
-        return EDXCompute.spectrumCSV(counts: spectrumCounts, axis: source.energyAxis, fileName: fileName, regionName: region.name, host: host)
+        return EDXCompute.spectrumCSV(counts: spectrumCounts, axis: source.energyAxis, fileName: fileName, regionName: keptName, host: host)
     }
 }
 
