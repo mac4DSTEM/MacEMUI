@@ -2,6 +2,15 @@
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). MacEMUI follows semantic versioning; before 1.0.0 a minor version may break the API, and its Migration paragraph says how.
 
+## [0.5.1](https://github.com/mac4DSTEM/MacEMUI/compare/0.5.0...0.5.1) (2026-11-05)
+
+
+### Bug Fixes
+
+* the EDS results header and exports name the kept region ([#69](https://github.com/mac4DSTEM/MacEMUI/issues/69)) ([1c7b9d0](https://github.com/mac4DSTEM/MacEMUI/commit/1c7b9d067c4a551f1388de8e7c2e65d15f18926e))
+* the EDS typed-k and factors sheets read either decimal separator ([#72](https://github.com/mac4DSTEM/MacEMUI/issues/72)) ([02971a8](https://github.com/mac4DSTEM/MacEMUI/commit/02971a88fe0a80ecf65b919128a6f8cfe61b5dba))
+* the typed-k and factors sheets keep their fields' and buttons' identifiers ([#74](https://github.com/mac4DSTEM/MacEMUI/issues/74)) ([03952bc](https://github.com/mac4DSTEM/MacEMUI/commit/03952bc8e09ccd72e2a5ca09818e60987a66a544))
+
 ## [0.5.0](https://github.com/mac4DSTEM/MacEMUI/compare/0.4.0...0.5.0) (2026-11-01)
 
 
