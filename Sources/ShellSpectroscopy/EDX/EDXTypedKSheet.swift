@@ -66,6 +66,9 @@ struct EDXTypedKSheet: View {
         }
         .padding(20)
         .frame(width: EDXLayout.typedKSheetWidth)
+        // A container of its own (as `edx.room`): without it the identifier lands on every child and hides theirs
+        // (`.source`, `.done`), MacEMUI#73.
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("edx.typedK")
     }
 
