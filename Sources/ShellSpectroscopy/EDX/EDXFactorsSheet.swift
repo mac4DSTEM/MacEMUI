@@ -37,7 +37,7 @@ struct EDXFactorsSheet: View {
                     ForEach($draft.rows) { $row in
                         GridRow {
                             Text(row.element).font(.body.weight(.semibold))
-                            TextField(method.factorName, value: $row.value, format: .number.precision(.significantDigits(1...6)), prompt: Text("required"))
+                            TextField(method.factorName, value: $row.value, format: EDXSheetNumber.format(digits: 1...6), prompt: Text("required"))
                                 .labelsHidden().multilineTextAlignment(.trailing).frame(width: EDXLayout.factorFieldWidth)
                                 .accessibilityLabel("\(method.factorName) of \(row.element)")
                             Text(unit).font(.caption).foregroundStyle(.secondary)
@@ -45,20 +45,20 @@ struct EDXFactorsSheet: View {
                     }
                     GridRow {
                         Text("Beam current")
-                        TextField("Beam current", value: $draft.beamCurrentNA, format: .number.precision(.significantDigits(1...6)), prompt: Text("required"))
+                        TextField("Beam current", value: $draft.beamCurrentNA, format: EDXSheetNumber.format(digits: 1...6), prompt: Text("required"))
                             .labelsHidden().multilineTextAlignment(.trailing).frame(width: EDXLayout.factorFieldWidth)
                         Text("nA").font(.caption).foregroundStyle(.secondary)
                     }
                     GridRow {
                         Text("Live time")
-                        TextField("Live time", value: $draft.liveTimeSeconds, format: .number.precision(.significantDigits(1...6)), prompt: Text("required"))
+                        TextField("Live time", value: $draft.liveTimeSeconds, format: EDXSheetNumber.format(digits: 1...6), prompt: Text("required"))
                             .labelsHidden().multilineTextAlignment(.trailing).frame(width: EDXLayout.factorFieldWidth)
                         Text("s per pixel").font(.caption).foregroundStyle(.secondary)
                     }
                     if method == .crossSection {
                         GridRow {
                             Text("Probe area")
-                            TextField("Probe area", value: $draft.probeAreaNm2, format: .number.precision(.significantDigits(1...6)), prompt: Text("required"))
+                            TextField("Probe area", value: $draft.probeAreaNm2, format: EDXSheetNumber.format(digits: 1...6), prompt: Text("required"))
                                 .labelsHidden().multilineTextAlignment(.trailing).frame(width: EDXLayout.factorFieldWidth)
                             Text("nm²").font(.caption).foregroundStyle(.secondary)
                         }

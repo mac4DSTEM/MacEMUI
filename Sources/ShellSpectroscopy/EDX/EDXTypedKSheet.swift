@@ -36,10 +36,10 @@ struct EDXTypedKSheet: View {
                     ForEach($draft.rows) { $row in
                         GridRow {
                             Text(row.element).font(.body.weight(.semibold))
-                            TextField("k", value: $row.k, format: .number.precision(.significantDigits(1...6)), prompt: Text("required"))
+                            TextField("k", value: $row.k, format: EDXSheetNumber.format(digits: 1...6), prompt: Text("required"))
                                 .labelsHidden().multilineTextAlignment(.trailing).frame(width: EDXLayout.kFieldWidth)
                                 .accessibilityLabel("k of \(row.element)")
-                            TextField("σ", value: $row.sigmaPercent, format: .number.precision(.significantDigits(1...4)), prompt: Text("default"))
+                            TextField("σ", value: $row.sigmaPercent, format: EDXSheetNumber.format(digits: 1...4), prompt: Text("default"))
                                 .labelsHidden().multilineTextAlignment(.trailing).frame(width: EDXLayout.sigmaFieldWidth)
                                 .accessibilityLabel("σ of \(row.element) in percent")
                         }
