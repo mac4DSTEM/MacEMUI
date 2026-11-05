@@ -17,8 +17,21 @@ nonisolated final class BusyLineAccessibilityTests: XCTestCase {
         return found
     }
 
-    @MainActor private func spin(_ seconds: TimeInterval) {
-        RunLoop.main.run(until: Date().addingTimeInterval(seconds))
+    /// The test's clock: the readouts ask it for the elapsed time at each tick, and it answers what the test set, never
+    /// the wall clock, so a loaded machine that ticks late cannot change what the label should say (MacEMUI#75).
+    @MainActor private final class TestClock {
+        var elapsed: TimeInterval = 0
+    }
+
+    /// Runs the main run loop until `done` holds or `timeout` passes (the readouts tick once a second, so a few seconds
+    /// is generous even on a loaded runner). Returns whether `done` held.
+    @MainActor @discardableResult
+    private func spin(until done: () -> Bool, timeout: TimeInterval = 10) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while !done(), Date() < deadline {
+            RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+        }
+        return done()
     }
 
     @MainActor private func host<V: View>(_ view: V) -> (NSWindow, NSView) {
@@ -34,41 +47,35 @@ nonisolated final class BusyLineAccessibilityTests: XCTestCase {
 
     /// Two seconds into a run the busy line says what it draws: "Disk detection · 2 s", not the first tick's "0 s".
     @MainActor func testTheBusyLineLabelFollowsTheTicks() throws {
-        let start = Date()
-        let metrics: (Date) -> (elapsed: TimeInterval, eta: TimeInterval?)? = { date in
-            (elapsed: date.timeIntervalSince(start), eta: nil)
-        }
+        let clock = TestClock()
+        let metrics: (Date) -> (elapsed: TimeInterval, eta: TimeInterval?)? = { _ in (elapsed: clock.elapsed, eta: nil) }
         let (window, root) = host(ToolbarRunDisplay(.busy(operation: "Disk detection", progress: 0.2, metrics: metrics)))
         defer { window.close() }
-        spin(0.3)
+        spin(until: { !self.elements("toolbar.display.busy", in: root).isEmpty })
         let first = try XCTUnwrap(elements("toolbar.display.busy", in: root).first, "no busy line element")
         XCTAssertEqual(first.accessibilityLabel(), "Disk detection · 0 s")
         XCTAssertEqual(first.accessibilityValue() as? String, "20 percent")
-        spin(2.2)
+        clock.elapsed = 2
+        let later = "Disk detection · 2 s"
+        spin(until: { self.elements("toolbar.display.busy", in: root).first?.accessibilityLabel() == later })
         let found = elements("toolbar.display.busy", in: root)
         XCTAssertEqual(found.count, 1, "one element, kept across ticks")
-        let later = try XCTUnwrap(found.first)
-        let label = try XCTUnwrap(later.accessibilityLabel())
-        let elapsed = Date().timeIntervalSince(start)
-        // The label is the last tick drawn: whole seconds, at most one behind now.
-        let expected = [Int(elapsed.rounded(.down)) - 1, Int(elapsed.rounded(.down))].map {
-            ToolbarDisplayFormat.busy(operation: "Disk detection", elapsed: TimeInterval($0), eta: nil)
-        }
-        XCTAssertTrue(expected.contains(label), "label \"\(label)\" after \(elapsed) s, expected one of \(expected)")
-        XCTAssertNotEqual(label, "Disk detection · 0 s")
+        // The label is the tick drawn after the clock moved, not the first tick's "0 s".
+        XCTAssertEqual(try XCTUnwrap(found.first).accessibilityLabel(), later)
     }
 
     /// The infobar readout the same way: its label is the line of the last tick.
     @MainActor func testTheInfobarReadoutLabelFollowsTheTicks() throws {
-        let start = Date()
-        let line: (Date) -> String = { date in "\(Int(date.timeIntervalSince(start))) s" }
+        let clock = TestClock()
+        let line: (Date) -> String = { _ in "\(Int(clock.elapsed)) s" }
         let (window, root) = host(InfobarRunReadout(operation: "Disk detection", progress: 0.2, line: line, onCancel: nil))
         defer { window.close() }
-        spin(0.3)
+        spin(until: { !self.elements("status.footer.metrics", in: root).isEmpty })
         let first = try XCTUnwrap(elements("status.footer.metrics", in: root).first, "no readout element")
         XCTAssertEqual(first.accessibilityLabel(), "0 s")
-        spin(2.2)
+        clock.elapsed = 2
+        spin(until: { self.elements("status.footer.metrics", in: root).first?.accessibilityLabel() == "2 s" })
         let label = try XCTUnwrap(elements("status.footer.metrics", in: root).first?.accessibilityLabel())
-        XCTAssertNotEqual(label, "0 s", "the readout kept its first tick")
+        XCTAssertEqual(label, "2 s", "the readout kept an earlier tick")
     }
 }
