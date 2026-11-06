@@ -11,7 +11,6 @@ import SwiftUI
 import CoreGraphics
 import SpectroCore
 import SpectroEDX
-import ShellEDXModel
 
 /// Pixels of a map, pure: row-major RGBA, opaque.
 public nonisolated enum EDXMapRaster {

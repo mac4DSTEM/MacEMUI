@@ -22,8 +22,7 @@ public nonisolated enum EDXLayout {
     package static let factorsSheetWidth: CGFloat = 400
     /// The scale bar's thickness in a figure.
     package static let figureBarThickness: CGFloat = 3
-    /// The EELS header's progress bar; the particle table sheet's smallest size.
-    package static let progressBarWidth: CGFloat = 90
+    /// The particle table sheet's smallest size.
     public static let tableSheetMinimum = CGSize(width: 560, height: 360)
     /// The opening bar.
     public static let openingBarWidth: CGFloat = 260
