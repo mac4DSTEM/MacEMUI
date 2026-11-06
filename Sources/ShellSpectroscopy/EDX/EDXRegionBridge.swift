@@ -62,25 +62,6 @@ public enum EDXRegionBridge {
         return SpectralRegionSet(regions: regions, selectedID: selected)
     }
 
-    /// What the Regions list changed: the edits of `new` against `old` become the session's calls (rename, colour, show/hide, delete, select).
-    package static func apply(_ new: SpectralRegionSet, to session: EDXSession, from old: SpectralRegionSet, state: EDXRoomState) {
-        let kept = Set(new.regions.map(\.id))
-        for region in old.regions where !kept.contains(region.id) {
-            if session.pins.contains(where: { $0.id == region.id }) { session.removePin(region.id) } else { session.removeLine(region.id) }
-        }
-        for region in new.regions {
-            guard let before = old.regions.first(where: { $0.id == region.id }) else { continue }
-            let isPin = session.pins.contains { $0.id == region.id }
-            if region.name != before.name { isPin ? session.renamePin(region.id, to: region.name) : session.renameLine(region.id, to: region.name) }
-            if region.color != before.color { isPin ? session.setPinColor(region.id, stored(region.color)) : session.setLineColor(region.id, stored(region.color)) }
-            if region.isVisible != before.isVisible { isPin ? session.setPinVisible(region.id, region.isVisible) : session.setLineVisible(region.id, region.isVisible) }
-        }
-        if new.selectedID != old.selectedID, let id = new.selectedID {
-            if session.pins.contains(where: { $0.id == id }) { state.linesFocused = false; session.selectPin(id) }
-            else { state.linesFocused = true; session.selectLine(id) }
-        }
-    }
-
     /// A click on a region of the colour mix selects it; a click on none returns to the whole map.
     public static func select(_ id: UUID?, in session: EDXSession, state: EDXRoomState) {
         guard let id else { state.linesFocused = false; session.selectWholeMap(); return }

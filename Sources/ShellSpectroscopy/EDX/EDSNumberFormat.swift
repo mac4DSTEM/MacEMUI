@@ -24,9 +24,4 @@ nonisolated enum Num {
     static func sig(_ value: Double, _ digits: Int, locale: Locale = .autoupdatingCurrent) -> String {
         value.formatted(.number.locale(locale).grouping(.never).precision(.significantDigits(1...max(digits, 1))))
     }
-
-    /// `fixed` with an explicit sign ("+0,05", "−1,00"); a zero has none.
-    static func signed(_ value: Double, _ places: Int, locale: Locale = .autoupdatingCurrent) -> String {
-        zeroed(value, places).formatted(.number.locale(locale).grouping(.never).precision(.fractionLength(places)).sign(strategy: .always(includingZero: false)))
-    }
 }

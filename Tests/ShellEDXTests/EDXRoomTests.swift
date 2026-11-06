@@ -6,7 +6,6 @@
 //  app's own test.
 //
 
-import ShellLayout
 import XCTest
 import UniformTypeIdentifiers
 import SpectroCore

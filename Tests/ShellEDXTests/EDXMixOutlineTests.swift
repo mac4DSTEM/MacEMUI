@@ -8,7 +8,6 @@
 import XCTest
 import SwiftUI
 import ImageIO
-import ShellControls
 import SpectroCore
 import SpectroEDX
 @testable import ShellEDXModel

@@ -5,7 +5,6 @@
 //        own colour. Pixels are made here from a map's values (pure, tested); what the values are is the room's.
 //
 
-import ShellInspector
 import ShellMetal
 import SwiftUI
 
