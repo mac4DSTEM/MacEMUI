@@ -2,6 +2,13 @@
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). MacEMUI follows semantic versioning; before 1.0.0 a minor version may break the API, and its Migration paragraph says how.
 
+## [0.5.2](https://github.com/mac4DSTEM/MacEMUI/compare/0.5.1...0.5.2) (2026-11-10)
+
+
+### Bug Fixes
+
+* Auto ID also searches each phase region's spectrum ([#83](https://github.com/mac4DSTEM/MacEMUI/issues/83)) ([60d81fa](https://github.com/mac4DSTEM/MacEMUI/commit/60d81fa0793cdbe914b89acc8135522180466170))
+
 ## [0.5.1](https://github.com/mac4DSTEM/MacEMUI/compare/0.5.0...0.5.1) (2026-11-05)
 
 
