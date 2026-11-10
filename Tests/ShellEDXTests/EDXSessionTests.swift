@@ -434,7 +434,7 @@ nonisolated final class EDXSessionTests: XCTestCase {
         XCTAssertTrue(session.dismissed.isEmpty)
     }
 
-    /// mac4DSTEM#108: a small phase's element (Mg in beta'' in Al) can be under the detection limit in the whole map's sum, so Auto ID
+    /// mac4DSTEM#108: a small phase's element (Mg in beta'' in Al) can fail the proposer's bar in the whole map's sum, so Auto ID
     /// also searches each phase region's own spectrum. What a phase adds names the phase; an element found already keeps its reason.
     /// Red under: the phase regions not searched (no `alsoSearched`, no `adding`).
     func testAutoIDAddsWhatAPhaseRegionShows() {
