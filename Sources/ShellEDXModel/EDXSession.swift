@@ -729,6 +729,7 @@ public final class EDXSession {
         autoID = .running
         let region = region, cache = cache, listed = picks.map(\.symbol), computedK = method.kFactorSource == .computed
         let regionName = keptName
+        let phasePools = EDXCompute.autoIDPools(pools, region: region)
         autoIDRun += 1
         let run = autoIDRun
         let task = Task.detached(priority: .userInitiated) { [weak self] in
@@ -736,8 +737,24 @@ public final class EDXSession {
             var outcome: EDXCompute.AutoIDOutcome?
             var failure: String?
             do {
-                outcome = try EDXCompute.autoID(spectrum: spectrum, axis: source.energyAxis, beam: beam, listed: listed,
-                                                computedK: computedK, regionName: regionName, metadata: source.metadata)
+                var found = try EDXCompute.autoID(spectrum: spectrum, axis: source.energyAxis, beam: beam, listed: listed,
+                                                  computedK: computedK, regionName: regionName, metadata: source.metadata)
+                // Each phase of the scan is searched on its own spectrum too: a small phase's element can be lost in the whole map's sum.
+                // A phase whose spectrum cannot be fitted adds nothing; the whole map's result stands.
+                for pool in phasePools {
+                    if Task.isCancelled { return }
+                    let known = listed + found.suggestions.map(\.symbol).filter { !listed.contains($0) }
+                    let pooled = EDXCompute.spectrum(source: source, region: .pool(pool), cache: cache)
+                    do {
+                        found = found.adding(try EDXCompute.autoID(spectrum: pooled, axis: source.energyAxis, beam: beam, listed: known,
+                                                                   computedK: computedK, regionName: pool.name, metadata: source.metadata))
+                    } catch ProposerError.cancelled {
+                        return
+                    } catch {
+                        continue
+                    }
+                }
+                outcome = found
             } catch ProposerError.cancelled {
                 return
             } catch {
@@ -1070,7 +1087,14 @@ extension EDXSession {
     /// The window's pool catalogue changed (a phase map or diffraction groups published or cleared): the Source row lists the new
     /// pools; a selected pool that changed or vanished falls back to the whole map, so no fit stands on a stale mask (H8).
     public func applyPools(_ new: [EDXPoolRegion]) {
+        let searchedBefore = EDXCompute.autoIDPools(pools, region: region)
         pools = new
+        // New phases: Auto ID looks at each phase's own spectrum (unless a person never let it run: a file without a beam energy).
+        let searchedNow = EDXCompute.autoIDPools(new, region: region)
+        if hasImage, !searchedNow.isEmpty, searchedNow != searchedBefore, beamEnergy != nil {
+            autoIDTask?.cancel(); autoIDRun += 1; autoID = .idle
+            runAutoID()
+        }
         if case .pool(let p) = region, !new.contains(p) {
             select(.wholeMap)
             onEvent?("\(p.name) changed or is gone: the whole map is selected.")

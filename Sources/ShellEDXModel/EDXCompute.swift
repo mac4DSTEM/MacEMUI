@@ -199,6 +199,27 @@ public nonisolated enum EDXCompute {
         public var uncorroborated: [String] = []
         /// The proposer's own notes and what it did not test.
         public var notes: [String]
+        /// The phase regions whose own spectra were searched as well as `region`'s (mac4DSTEM: the 4D scan's phase pools), in order.
+        public var alsoSearched: [String] = []
+
+        /// This outcome with what a phase region's own spectrum showed. An element a small phase holds can sit under the detection limit
+        /// in the whole map's sum and well above it in that phase's spectrum (Mg in beta'' precipitates in Al: mac4DSTEM#108), so each
+        /// phase region is searched too, as a person does who draws a region on a precipitate. Its picks are added, with the region
+        /// named in the reason; an element found already keeps its first reason.
+        public func adding(_ pool: AutoIDOutcome) -> AutoIDOutcome {
+            var out = self
+            out.alsoSearched.append(pool.region)
+            for s in pool.suggestions where !out.suggestions.contains(where: { $0.symbol == s.symbol }) {
+                out.suggestions.append(Suggestion(symbol: s.symbol, role: s.role, reason: "in \(pool.region): \(s.reason)"))
+            }
+            return out
+        }
+    }
+
+    /// The pools Auto ID searches beside the whole map: the phases. Groups and what was not indexed are not phases of the sample.
+    package static func autoIDPools(_ pools: [EDXPoolRegion], region: EDXRegion) -> [EDXPoolRegion] {
+        guard case .wholeMap = region else { return [] }
+        return pools.filter { $0.kind == "phase" }
     }
 
     package static let autoIDNeedsBeamNote = "Auto ID needs the beam energy and the file does not state it: type it under Quantification."

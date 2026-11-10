@@ -434,6 +434,51 @@ nonisolated final class EDXSessionTests: XCTestCase {
         XCTAssertTrue(session.dismissed.isEmpty)
     }
 
+    /// mac4DSTEM#108: a small phase's element (Mg in beta'' in Al) can be under the detection limit in the whole map's sum, so Auto ID
+    /// also searches each phase region's own spectrum. What a phase adds names the phase; an element found already keeps its reason.
+    /// Red under: the phase regions not searched (no `alsoSearched`, no `adding`).
+    func testAutoIDAddsWhatAPhaseRegionShows() {
+        typealias S = EDXCompute.Suggestion
+        let whole = EDXCompute.AutoIDOutcome(region: "Whole map", suggestions: [S(symbol: "Al", role: .quantify, reason: "net 77 000 counts"),
+                                                                                S(symbol: "Si", role: .quantify, reason: "net 1 800 counts")],
+                                             suspects: [], excesses: [], notes: ["a note"])
+        let phase = EDXCompute.AutoIDOutcome(region: "beta''", suggestions: [S(symbol: "Mg", role: .quantify, reason: "net 700 counts, 7.0 \u{00D7} L_D"),
+                                                                             S(symbol: "Si", role: .fitOnly, reason: "again")],
+                                             suspects: ["a suspect"], excesses: [], notes: [])
+        let both = whole.adding(phase)
+        XCTAssertEqual(both.region, "Whole map")
+        XCTAssertEqual(both.alsoSearched, ["beta''"])
+        XCTAssertEqual(both.suggestions, whole.suggestions + [S(symbol: "Mg", role: .quantify, reason: "in beta'': net 700 counts, 7.0 \u{00D7} L_D")])
+        XCTAssertEqual(both.suspects, [], "the whole map's own doubts only")
+        XCTAssertEqual(both.notes, ["a note"])
+
+        let pools = [EDXPoolRegion(kind: "phase", name: "Al", mask: [true, false], key: "a@1"),
+                     EDXPoolRegion(kind: "group", name: "Group 1", mask: [false, true], key: "g@1"),
+                     EDXPoolRegion(kind: "notIndexed", name: "Not indexed", mask: [false, true], key: "n@1")]
+        XCTAssertEqual(EDXCompute.autoIDPools(pools, region: .wholeMap).map(\.name), ["Al"], "the phases, not groups or the unindexed rest")
+        XCTAssertEqual(EDXCompute.autoIDPools(pools, region: .rectangle(PixelRect(x0: 0, y0: 0, x1: 1, y1: 1))), [], "a drawn region is searched alone")
+    }
+
+    /// New phase pools (a phase map published in the 4D window) start Auto ID again, and the run searches each phase's spectrum; the same
+    /// pools applied again start nothing. Red under: Auto ID left as it was when the phases arrived.
+    @MainActor func testNewPhasePoolsRunAutoIDOnEachPhase() async {
+        let session = await openRoom()
+        guard case .done(let first) = session.autoID else { return XCTFail("\(session.autoID)") }
+        XCTAssertEqual(first.alsoSearched, [])
+        let pools = [EDXPoolRegion(kind: "phase", name: "Left", mask: [true, false], key: "l@1"),
+                     EDXPoolRegion(kind: "phase", name: "Right", mask: [false, true], key: "r@1"),
+                     EDXPoolRegion(kind: "notIndexed", name: "Not indexed", mask: [false, false], key: "n@1")]
+        session.applyPools(pools)
+        XCTAssertEqual(session.autoID, .running, "the phases are searched as soon as they arrive")
+        await session.settled()
+        guard case .done(let second) = session.autoID else { return XCTFail("\(session.autoID)") }
+        XCTAssertEqual(second.region, "Whole map")
+        XCTAssertEqual(second.alsoSearched, ["Left", "Right"])
+        XCTAssertTrue(Set(session.picks.map(\.symbol)).isSuperset(of: ["Al", "Mg", "Si"]))
+        session.applyPools(pools)
+        XCTAssertNotEqual(session.autoID, .running, "the same phases again: nothing to search")
+    }
+
     /// A region still under the pointer: the spectrum follows it while the drag runs (Paul's drive, 2026-10-23: "I can drag it but see the
     /// changes only after I let go"); the selected region, the results and the fit wait for the release. Ending the preview without a new
     /// region puts the selected region's spectrum back; a region committed on release wins over a preview still in flight.
