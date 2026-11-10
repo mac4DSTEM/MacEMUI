@@ -178,7 +178,7 @@ private struct FitFooter: View {
                 VStack(alignment: .leading, spacing: 6) {
                     ForEach(notes, id: \.self) { InspectorWarning($0) }
                     if let autoID {
-                        Text("Auto ID · \(autoID.region)").font(.caption.weight(.semibold))
+                        Text("Auto ID · " + ([autoID.region] + autoID.alsoSearched).joined(separator: ", ")).font(.caption.weight(.semibold))
                         ForEach(autoID.suggestions, id: \.symbol) { InspectorNote("\($0.symbol): \($0.reason)") }
                     }
                     if let fit {
