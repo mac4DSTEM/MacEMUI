@@ -202,8 +202,9 @@ public nonisolated enum EDXCompute {
         /// The phase regions whose own spectra were searched as well as `region`'s (mac4DSTEM: the 4D scan's phase pools), in order.
         public var alsoSearched: [String] = []
 
-        /// This outcome with what a phase region's own spectrum showed. An element a small phase holds can sit under the detection limit
-        /// in the whole map's sum and well above it in that phase's spectrum (Mg in beta'' precipitates in Al: mac4DSTEM#108), so each
+        /// This outcome with what a phase region's own spectrum showed. An element a small phase holds can fail the proposer's bar
+        /// in the whole map's sum and pass it in that phase's spectrum (Mg in beta'' precipitates in Al, mac4DSTEM#108: 3.2 times the detection
+        /// limit in the whole map, where adding it improves the fit by 81 against the 100 a new line needs; 6.1 times in the precipitates), so each
         /// phase region is searched too, as a person does who draws a region on a precipitate. Its picks are added, with the region
         /// named in the reason; an element found already keeps its first reason.
         public func adding(_ pool: AutoIDOutcome) -> AutoIDOutcome {
