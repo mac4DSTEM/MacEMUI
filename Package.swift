@@ -24,6 +24,7 @@ let package = Package(
         .library(name: "ShellLayout", targets: ["ShellLayout"]),
         .library(name: "ShellSpectroscopy", targets: ["ShellSpectroscopy"]),
         .library(name: "ShellEDXModel", targets: ["ShellEDXModel"]),
+        .library(name: "ShellAgentDoor", targets: ["ShellAgentDoor"]),
     ],
     dependencies: [
         // ScaleBarMath (PaneFooter/ScaleBar). The apps pin exact tags.
@@ -56,11 +57,15 @@ let package = Package(
                                .product(name: "SpectroCore", package: "SpectroKit"),
                                .product(name: "SpectroEDX", package: "SpectroKit")],
                 swiftSettings: shellSettings),
+        // The agent door both apps share (docs/agent-door.md): a local, read-only API an agent on this Mac reaches through the
+        // macEM MCP bridge. Network.framework only; each app registers its own tools.
+        .target(name: "ShellAgentDoor", swiftSettings: shellSettings),
         .testTarget(name: "ShellMetalTests", dependencies: ["ShellMetal"], swiftSettings: shellSettings),
         .testTarget(name: "ShellControlsTests", dependencies: ["ShellControls"], swiftSettings: shellSettings),
         .testTarget(name: "ShellInspectorTests", dependencies: ["ShellInspector", "ShellLayout"], swiftSettings: shellSettings),
         .testTarget(name: "ShellLayoutTests", dependencies: ["ShellLayout"], swiftSettings: shellSettings),
         .testTarget(name: "ShellSpectroscopyTests", dependencies: ["ShellSpectroscopy", "ShellMetal", "ShellControls"], swiftSettings: shellSettings),
+        .testTarget(name: "ShellAgentDoorTests", dependencies: ["ShellAgentDoor"], swiftSettings: shellSettings),
         .testTarget(name: "ShellEDXTests",
                     dependencies: ["ShellEDXModel", "ShellSpectroscopy", "ShellLayout",
                                    .product(name: "FormatoCore", package: "FormatoKit"),
