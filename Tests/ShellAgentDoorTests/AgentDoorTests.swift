@@ -227,6 +227,10 @@ nonisolated final class AgentDoorTests: XCTestCase {
         XCTAssertEqual(AgentDoorSettingsSection.statusText(.listening(port: 5000), requests: 3), "On (port 5000), 3 requests answered")
         XCTAssertEqual(AgentDoorSettingsSection.statusText(.failed("no"), requests: 0), "Could not open: no")
         XCTAssertTrue(AgentDoorSettingsSection.explanation(appName: "macTEM", canSee: "images").contains("cannot change anything"))
+        let runs = AgentDoorSettingsSection.explanation(appName: "mac4DSTEM", canSee: "maps", canRun: "run disk detection")
+        XCTAssertTrue(runs.contains("it can also run disk detection"))
+        XCTAssertTrue(runs.contains("Stop in the window cancels it"))
+        XCTAssertFalse(runs.contains("cannot change anything"))
     }
 
     @MainActor func testTheTokenIsNewAndLong() {
@@ -362,6 +366,62 @@ nonisolated final class AgentDoorTests: XCTestCase {
         XCTAssertEqual(door.route(garbled).status, 400)
         let unknown = try object(door.route(try mcp(["jsonrpc": "2.0", "id": 5, "method": "resources/list"])))
         XCTAssertEqual((unknown["error"] as? [String: Any])?["code"] as? Int, -32601)
+    }
+
+    /// A tool that acts runs only through MCP, only while the person allows it, and only with inputs that pass its schema; it is
+    /// listed as not read-only (never destructive) so the agent's client asks the person first.
+    /// Mutation: `run` ignores `runsAllowed`, the GET route runs it, or a parameter is not checked - red.
+    @MainActor func testAToolThatActsRunsOnlyThroughMCPWhileThePersonAllowsIt() throws {
+        let door = door([Probe("a.h5")])
+        final class Calls { var arguments: [[String: String]] = [] }
+        let calls = Calls()
+        door.register([
+            AgentTool(name: "run_detection", title: "Run detection", summary: "Detects disks.", input: .window,
+                      parameters: [AgentParameter("threshold", .number(0...1), summary: "Correlation threshold.", required: true),
+                                   AgentParameter("method", .choice(["fast", "full"]), summary: "How."),
+                                   AgentParameter("subpixel", .boolean, summary: "Refine."),
+                                   AgentParameter("count", .integer(1...9), summary: "How many.")],
+                      acts: true) { call in
+                calls.arguments.append(call.arguments)
+                return .json(["started": true])
+            },
+        ])
+        func call(_ arguments: [String: Any]) throws -> [String: Any] {
+            try result(door.route(try mcp(["jsonrpc": "2.0", "id": 9, "method": "tools/call",
+                                           "params": ["name": "run_detection", "arguments": arguments]])))
+        }
+        func text(_ answer: [String: Any]) -> String { ((answer["content"] as? [[String: Any]])?.first?["text"] as? String) ?? "" }
+
+        let listed = try XCTUnwrap(try object(door.route(request("/v1/tools")))["tools"] as? [[String: Any]])
+        let tool = try XCTUnwrap(listed.first { $0["name"] as? String == "run_detection" })
+        let annotations = try XCTUnwrap(tool["annotations"] as? [String: Any])
+        XCTAssertEqual(annotations["readOnlyHint"] as? Bool, false)
+        XCTAssertEqual(annotations["destructiveHint"] as? Bool, false)
+        let schema = try XCTUnwrap(tool["inputSchema"] as? [String: Any])
+        XCTAssertEqual(schema["required"] as? [String], ["threshold"])
+        let threshold = try XCTUnwrap((schema["properties"] as? [String: Any])?["threshold"] as? [String: Any])
+        XCTAssertEqual(threshold["type"] as? String, "number")
+        XCTAssertEqual(threshold["maximum"] as? Double, 1)
+
+        let refused = try call(["threshold": 0.5])
+        XCTAssertEqual(refused["isError"] as? Bool, true)
+        XCTAssertTrue(text(refused).contains("Let agents run analyses"), "the refusal says how to allow it")
+        XCTAssertEqual(try object(door.route(request("/v1")))["access"] as? String, "read-only")
+        door.runsAllowed = true
+        XCTAssertEqual(try object(door.route(request("/v1")))["access"] as? String, "look and run")
+        XCTAssertEqual(door.route(request("/v1/tools/run_detection")).status, 405, "never from a GET")
+        XCTAssertTrue(calls.arguments.isEmpty)
+
+        XCTAssertTrue(text(try call([:])).contains("threshold is required"))
+        XCTAssertTrue(text(try call(["threshold": 2])).contains("between 0.0 and 1.0"))
+        XCTAssertTrue(text(try call(["threshold": "high"])).contains("must be a number"))
+        XCTAssertTrue(text(try call(["threshold": 0.5, "method": "slow"])).contains("one of fast, full"))
+        XCTAssertTrue(text(try call(["threshold": 0.5, "count": 2.5])).contains("whole number"))
+        XCTAssertTrue(calls.arguments.isEmpty, "nothing ran on a refused input")
+
+        let started = try call(["threshold": 0.25, "method": "full", "subpixel": true, "count": 3])
+        XCTAssertEqual(started["isError"] as? Bool, false)
+        XCTAssertEqual(calls.arguments, [["threshold": "0.25", "method": "full", "subpixel": "true", "count": "3"]])
     }
 
     /// A picture comes back as MCP image content, base64 PNG.
