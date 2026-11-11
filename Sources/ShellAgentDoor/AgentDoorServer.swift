@@ -1,7 +1,7 @@
 //
 //  AgentDoorServer.swift
-//  Role: The agent door's listener (`AgentDoor.swift`): a TCP listener on this Mac's loopback address, a port the system picks,
-//        one HTTP request per connection (`AgentHTTP.swift`). Network.framework, no third-party server.
+//  Role: The agent door's listener (`AgentDoor.swift`): a TCP listener on this Mac's loopback address, on the app's port or one the
+//        system picks, one HTTP request per connection (`AgentHTTP.swift`). Network.framework, no third-party server.
 //
 //  Everything runs on the main queue: the listener, each connection, the handler. The handler reads a window's state, which is
 //  the main actor's, and the traffic is one agent asking a few questions, so there is nothing to win by leaving it and one
@@ -43,10 +43,12 @@ final class AgentDoorServer {
         self.handler = handler
     }
 
-    func start() {
+    /// Listens on `port`, or on a port the system picks when it is nil.
+    func start(port: UInt16? = nil) {
         guard listener == nil else { return }
         let parameters = NWParameters.tcp
-        parameters.requiredLocalEndpoint = NWEndpoint.hostPort(host: NWEndpoint.Host.ipv4(IPv4Address.loopback), port: NWEndpoint.Port.any)
+        let endpointPort = port.flatMap { NWEndpoint.Port(rawValue: $0) } ?? NWEndpoint.Port.any
+        parameters.requiredLocalEndpoint = NWEndpoint.hostPort(host: NWEndpoint.Host.ipv4(IPv4Address.loopback), port: endpointPort)
         parameters.acceptLocalOnly = true
         do {
             let made = try NWListener(using: parameters)

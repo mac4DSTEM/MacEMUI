@@ -5,7 +5,7 @@ windows show, and the MCP bridge that hands it to an agent. Read-only in this ve
 
 ## The pieces
 
-- `ShellAgentDoor` (this package): the listener (Network.framework, 127.0.0.1 only), who may ask, the door's file, the list of
+- `ShellAgentDoor` (this package): the listener (Network.framework, 127.0.0.1 only), who may ask, the token and the connection command, the list of
   open windows, the routes, and the Settings section. It knows no app: an app registers its tools (`AgentTool`) and enrols each
   window with a one-line summary.
 - The app: its tools (what a window holds, its pictures from the app's own export code), the preference that keeps the switch,
@@ -17,8 +17,12 @@ windows show, and the MCP bridge that hands it to an agent. Read-only in this ve
 
 - Off by default. The switch is in the app's Settings > Agents and says what an agent can and cannot do.
 - Listens on 127.0.0.1 with `acceptLocalOnly`: no other computer reaches it.
-- A bearer token, 32 random bytes made new each time the door opens, in a file only this user's account reads (mode 600):
-  `Application Support/<App>/agent-door.json`, inside the sandbox container. The door removes the file when it closes.
+- A bearer token, 32 random bytes, made once and kept in the app's preferences until the person presses New Token (which shuts
+  out every copy of the old). The person hands it to the bridge with Settings > Agents > Copy Connection Command, a
+  `claude mcp add ... -e <APP>_AGENT_PORT=... -e <APP>_AGENT_TOKEN=... -- macem-mcp --app <App>` line pasted into Terminal once,
+  as sandboxed Mac apps hand out an API key. Nothing is written for a helper to find: a sandboxed app's container is closed to
+  other programs (macOS answers "Operation not permitted").
+- The app's own port first (mac4DSTEM 47811, macTEM 47812), so the command stays good; another when it is taken, shown in the pane.
 - A request with an `Origin` header (a web page) is refused, and so is one whose `Host` is not `127.0.0.1:<port>` or
   `localhost:<port>` (DNS rebinding). The token is compared in constant time.
 - Every route is a GET; tools change nothing. One request per connection, headers capped at 16 KB, bodies at 1 MB, chunked

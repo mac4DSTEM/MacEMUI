@@ -6,9 +6,13 @@
 //        windows, and the routes.
 //
 //  Off until the person turns it on (`AgentDoorSettingsSection`, bound to a preference the app keeps). While on, the app listens
-//  on 127.0.0.1 only and writes one file, readable by this user's account only: the port and a token made new each time the
-//  door opens. The MCP bridge (`macem-mcp`, a separate tool) reads it; a request without the token is refused. Nothing leaves the
-//  Mac and the app sends nothing by itself.
+//  on 127.0.0.1 only, on the app's own port (`preferredPort`, another when that one is taken), and answers only requests that
+//  carry its token. The token is made once and kept in the app's preferences, so a connection command stays good; the person
+//  makes a new one in Settings, which shuts out whoever had the old. An agent gets port and token from the Settings section's
+//  Copy Connection Command (`connectionCommand`), which registers the MCP bridge (`macem-mcp`, a separate tool) with them as
+//  environment variables. Nothing is written for a helper to find: a sandboxed app's container is closed to other apps, which
+//  is why the person hands the bridge the two values, as other sandboxed Mac apps hand out an API key. Nothing leaves the Mac
+//  and the app sends nothing by itself.
 //
 //  Routes, every one a GET in this version:
 //
@@ -25,7 +29,7 @@ import Observation
 
 @Observable
 public final class AgentDoor {
-    /// The API's version: the `/v1` in every path, and `api` in the door's file.
+    /// The API's version: the `/v1` in every path, and `api` in `/v1`.
     public static let apiVersion = 1
 
     public enum Status: Equatable {
@@ -39,14 +43,17 @@ public final class AgentDoor {
     /// Requests answered since the door last opened (the Settings row shows it, so the person sees an agent is there).
     public private(set) var requestCount = 0
 
-    /// The app's name: in the door's file, in `/v1`, in the Settings text.
+    /// The app's name: in `/v1`, in the Settings text, in the connection command.
     public let appName: String
     public let appVersion: String
-    /// Where the door's file goes; nil writes none (a test that only talks to the port).
-    public let discoveryURL: URL?
+    /// The port the door asks for first; the system picks another when it is taken (`status` says which).
+    public let preferredPort: UInt16
+    /// The token a request must carry: 32 random bytes as hex, made once and kept (`defaults`) until `makeNewToken`.
+    public private(set) var token: String
 
+    @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private var server: AgentDoorServer?
-    @ObservationIgnored private(set) var token = ""
+    @ObservationIgnored private var askedForPreferredPort = false
     @ObservationIgnored private var tools: [AgentTool] = []
 
     private struct Enrolled {
@@ -57,22 +64,38 @@ public final class AgentDoor {
     @ObservationIgnored private var windows: [Enrolled] = []
     @ObservationIgnored private var nextWindowNumber = 1
 
-    /// The door's file goes to `Application Support/<appName>/agent-door.json` (inside the container for a sandboxed app).
-    public convenience init(appName: String, appVersion: String) {
-        self.init(appName: appName, appVersion: appVersion, discoveryURL: Self.defaultDiscoveryURL(appName: appName))
-    }
+    static let tokenKey = "agentDoor.token"
 
-    /// `discoveryURL` nil writes no file (a test that talks to the port only).
-    public init(appName: String, appVersion: String, discoveryURL: URL?) {
+    /// `defaults` keeps the token (the app's own preferences; a test passes its own suite).
+    public init(appName: String, appVersion: String, preferredPort: UInt16, defaults: UserDefaults = .standard) {
         self.appName = appName
         self.appVersion = appVersion
-        self.discoveryURL = discoveryURL
+        self.preferredPort = preferredPort
+        self.defaults = defaults
+        if let kept = defaults.string(forKey: Self.tokenKey), Self.isToken(kept) {
+            token = kept
+        } else {
+            token = Self.makeToken()
+            defaults.set(token, forKey: Self.tokenKey)
+        }
     }
 
-    public static func defaultDiscoveryURL(appName: String) -> URL? {
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
-            .appendingPathComponent(appName, isDirectory: true)
-            .appendingPathComponent("agent-door.json", isDirectory: false)
+    /// A new token: whoever had the old one is shut out, and the connection command must be copied again.
+    public func makeNewToken() {
+        token = Self.makeToken()
+        defaults.set(token, forKey: Self.tokenKey)
+    }
+
+    nonisolated static func isToken(_ text: String) -> Bool {
+        text.count == 64 && text.allSatisfy(\.isHexDigit)
+    }
+
+    /// What registers the bridge with Claude Code, with this door's port and token; nil while the door is not open.
+    /// `bridge` is the bridge's path (`macem-mcp` when it is on the PATH).
+    public func connectionCommand(bridge: String = "macem-mcp") -> String? {
+        guard case .listening(let port) = status else { return nil }
+        let prefix = appName.uppercased() + "_AGENT"
+        return "claude mcp add \(appName.lowercased()) -e \(prefix)_PORT=\(port) -e \(prefix)_TOKEN=\(token) -- \(bridge) --app \(appName)"
     }
 
     // MARK: Tools
@@ -107,24 +130,25 @@ public final class AgentDoor {
 
     private func open() {
         guard server == nil else { return }
-        token = Self.makeToken()
         requestCount = 0
+        askedForPreferredPort = true
+        listen(on: preferredPort)
+    }
+
+    private func listen(on port: UInt16?) {
         let made = AgentDoorServer { [weak self] request in
             self?.respond(to: request) ?? .error(503, "The agent door is closed.")
         }
         made.onStateChange = { [weak self] new in self?.serverChanged(new) }
         server = made
-        made.start()
+        made.start(port: port)
     }
 
     private func close() {
-        // Only a door that opened takes the file away: another running copy of the app may own the one that is there.
         guard let running = server else { status = .off; return }
-        removeDiscoveryFile()
         running.onStateChange = nil
         server = nil
         running.stop()
-        token = ""
         status = .off
     }
 
@@ -136,11 +160,16 @@ public final class AgentDoor {
             status = .starting
         case .listening(let port):
             status = .listening(port: port)
-            writeDiscoveryFile(port: port)
         case .failed(let why):
-            removeDiscoveryFile()
             server?.onStateChange = nil
+            server?.stop()
             server = nil
+            // The app's port is taken (another copy of the app, another program): any free one will do, and the pane says which.
+            if askedForPreferredPort {
+                askedForPreferredPort = false
+                listen(on: nil)
+                return
+            }
             status = .failed(why)
         }
     }
@@ -149,38 +178,6 @@ public final class AgentDoor {
     nonisolated static func makeToken() -> String {
         var generator = SystemRandomNumberGenerator()
         return (0..<32).map { _ in String(format: "%02x", UInt8.random(in: 0...255, using: &generator)) }.joined()
-    }
-
-    // MARK: The door's file
-
-    /// What the bridge reads: the API version, the port, the token, this process. Written whole, then closed to other accounts.
-    private func writeDiscoveryFile(port: UInt16) {
-        guard let url = discoveryURL else { return }
-        let record: [String: Any] = [
-            "api": Self.apiVersion,
-            "port": Int(port),
-            "token": token,
-            "pid": Int(ProcessInfo.processInfo.processIdentifier),
-            "app": appName,
-            "app_version": appVersion,
-        ]
-        do {
-            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-            let data = try JSONSerialization.data(withJSONObject: record, options: [.sortedKeys, .prettyPrinted])
-            try data.write(to: url, options: [.atomic])
-            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
-        } catch {
-            // A door nobody can find is not open: say why instead of listening unseen.
-            server?.onStateChange = nil
-            server?.stop()
-            server = nil
-            status = .failed("The door's file could not be written: \(error.localizedDescription)")
-        }
-    }
-
-    private func removeDiscoveryFile() {
-        guard let url = discoveryURL else { return }
-        try? FileManager.default.removeItem(at: url)
     }
 
     // MARK: Windows

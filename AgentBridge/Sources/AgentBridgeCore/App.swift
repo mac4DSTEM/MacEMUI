@@ -8,10 +8,8 @@
 import Foundation
 
 public struct BridgeApp: Equatable {
-    /// As the app names itself: in Settings, in the door's file, in sentences to the agent.
+    /// As the app names itself: in Settings, in the environment variables, in sentences to the agent.
     public var name: String
-    /// The sandboxed app's container is named by it.
-    public var bundleIdentifier: String
     /// What the app is, for the agent's first look.
     public var about: String
 
@@ -20,10 +18,8 @@ public struct BridgeApp: Equatable {
     /// The environment variables' prefix: `MAC4DSTEM_AGENT_PORT`, `MACTEM_AGENT_TOKEN`, ...
     public var environmentPrefix: String { name.uppercased() + "_AGENT" }
 
-    public static let mac4DSTEM = BridgeApp(name: "mac4DSTEM", bundleIdentifier: "com.mac4dstem.mac4DSTEM",
-                                            about: "mac4DSTEM is a macOS app for 4D-STEM analysis.")
-    public static let macTEM = BridgeApp(name: "macTEM", bundleIdentifier: "com.mac4dstem.macTEM",
-                                         about: "macTEM is a macOS app for TEM and SEM images, diffraction, EBSD and spectroscopy (EDS, EELS).")
+    public static let mac4DSTEM = BridgeApp(name: "mac4DSTEM", about: "mac4DSTEM is a macOS app for 4D-STEM analysis.")
+    public static let macTEM = BridgeApp(name: "macTEM", about: "macTEM is a macOS app for TEM and SEM images, diffraction, EBSD and spectroscopy (EDS, EELS).")
     public static let known = [mac4DSTEM, macTEM]
 
     /// The app `--app` names, in any letter case.

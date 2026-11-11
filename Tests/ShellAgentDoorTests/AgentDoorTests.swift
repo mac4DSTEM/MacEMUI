@@ -6,6 +6,10 @@ import Foundation
 import XCTest
 @testable import ShellAgentDoor
 
+private nonisolated struct DoorDidNotOpen: Error {
+    let status: String
+}
+
 /// Stands in for an app's window state.
 private final class Probe {
     let file: String
@@ -90,7 +94,7 @@ nonisolated final class AgentDoorTests: XCTestCase {
     // MARK: Routes and the tool slot
 
     @MainActor private func door(_ windows: [Probe] = []) -> AgentDoor {
-        let door = AgentDoor(appName: "TestApp", appVersion: "1.0", discoveryURL: nil)
+        let door = AgentDoor(appName: "TestApp", appVersion: "1.0", preferredPort: 0, defaults: Self.freshDefaults())
         door.register([
             AgentTool(name: "get_file", title: "File", summary: "The window's file.", input: .window) { call in
                 guard let probe = call.window?.state as? Probe else { return .refusal(status: 500, message: "not a probe") }
@@ -234,28 +238,78 @@ nonisolated final class AgentDoorTests: XCTestCase {
 
     // MARK: The whole way once
 
-    /// The door opens on the loopback address, writes its file for this account only, answers the token holder, refuses a request
-    /// without the token, and takes its file away when it closes.
+    /// A suite of its own per door, removed after the test.
+    nonisolated private static func freshDefaults() -> UserDefaults {
+        let suite = "agent-door-tests-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        return defaults
+    }
+
+    /// The token is made once and kept, so a copied command stays good across launches; New Token replaces it.
+    /// Red under: a token made each time the door opens (the old design), or New Token that does not persist.
+    @MainActor func testTheTokenIsKeptUntilANewOneIsMade() {
+        let defaults = Self.freshDefaults()
+        let first = AgentDoor(appName: "TestApp", appVersion: "1.0", preferredPort: 0, defaults: defaults)
+        XCTAssertTrue(AgentDoor.isToken(first.token))
+        let again = AgentDoor(appName: "TestApp", appVersion: "1.0", preferredPort: 0, defaults: defaults)
+        XCTAssertEqual(again.token, first.token, "the same token after a relaunch")
+        again.makeNewToken()
+        XCTAssertNotEqual(again.token, first.token)
+        XCTAssertEqual(AgentDoor(appName: "TestApp", appVersion: "1.0", preferredPort: 0, defaults: defaults).token, again.token)
+        defaults.set("not a token", forKey: AgentDoor.tokenKey)
+        XCTAssertTrue(AgentDoor.isToken(AgentDoor(appName: "TestApp", appVersion: "1.0", preferredPort: 0, defaults: defaults).token),
+                      "a damaged stored token is replaced")
+    }
+
+    @MainActor private func waitUntilOpen(_ door: AgentDoor) async throws -> UInt16 {
+        for _ in 0..<250 where door.status == .starting || door.status == .off { try await Task.sleep(for: .milliseconds(20)) }
+        guard case .listening(let port) = door.status else { throw DoorDidNotOpen(status: "\(door.status)") }
+        return port
+    }
+
+    /// The door takes the app's port when it is free; a second door asking for the same port gets another, and says which.
+    /// Red under: the preferred port ignored (the first assertion), or a taken port ending in "Could not open" (the second).
+    @MainActor func testTheAppsPortIsAskedForFirstAndATakenOneIsReplaced() async throws {
+        // A port that is free now: the system's pick, released again.
+        let probe = AgentDoor(appName: "TestApp", appVersion: "1.0", preferredPort: 0, defaults: Self.freshDefaults())
+        probe.setEnabled(true)
+        let free = try await waitUntilOpen(probe)
+        probe.setEnabled(false)
+        try await Task.sleep(for: .milliseconds(300))
+
+        let first = AgentDoor(appName: "TestApp", appVersion: "1.0", preferredPort: free, defaults: Self.freshDefaults())
+        first.setEnabled(true)
+        defer { first.setEnabled(false) }
+        XCTAssertEqual(try await waitUntilOpen(first), free, "a free preferred port is the one taken")
+
+        let second = AgentDoor(appName: "TestApp", appVersion: "1.0", preferredPort: free, defaults: Self.freshDefaults())
+        second.setEnabled(true)
+        defer { second.setEnabled(false) }
+        let other = try await waitUntilOpen(second)
+        XCTAssertNotEqual(other, free)
+    }
+
+    /// The command names the app's bridge server, its variables, the port in use and the token; none while the door is shut.
+    @MainActor func testTheConnectionCommandCarriesPortAndToken() async throws {
+        let door = AgentDoor(appName: "macTEM", appVersion: "1.0", preferredPort: 0, defaults: Self.freshDefaults())
+        XCTAssertNil(door.connectionCommand())
+        door.setEnabled(true)
+        defer { door.setEnabled(false) }
+        let port = try await waitUntilOpen(door)
+        XCTAssertEqual(door.connectionCommand(),
+                       "claude mcp add mactem -e MACTEM_AGENT_PORT=\(port) -e MACTEM_AGENT_TOKEN=\(door.token) -- macem-mcp --app macTEM")
+    }
+
+    /// The door opens on the loopback address, answers the token holder and refuses a request without the token.
     @MainActor func testTheOpenDoorAnswersOverTheLoopbackAddress() async throws {
-        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("agent-door-\(UUID().uuidString)", isDirectory: true)
-        defer { try? FileManager.default.removeItem(at: folder) }
-        let file = folder.appendingPathComponent("agent-door.json")
-        let door = AgentDoor(appName: "TestApp", appVersion: "1.0", discoveryURL: file)
+        let door = AgentDoor(appName: "TestApp", appVersion: "1.0", preferredPort: 0, defaults: Self.freshDefaults())
         let probe = Probe("a.h5")
         door.enroll(probe) { ["file_name": probe.file] }
         door.setEnabled(true)
         defer { door.setEnabled(false) }
-        for _ in 0..<250 where door.status == .starting || door.status == .off { try await Task.sleep(for: .milliseconds(20)) }
-        guard case .listening(let port) = door.status else { return XCTFail("the door did not open: \(door.status)") }
-
-        let record = try XCTUnwrap(try JSONSerialization.jsonObject(with: Data(contentsOf: file)) as? [String: Any])
-        XCTAssertEqual(record["port"] as? Int, Int(port))
-        XCTAssertEqual(record["api"] as? Int, AgentDoor.apiVersion)
-        XCTAssertEqual(record["app"] as? String, "TestApp")
-        let token = try XCTUnwrap(record["token"] as? String)
-        XCTAssertEqual(token.count, 64)
-        let permissions = try XCTUnwrap(try FileManager.default.attributesOfItem(atPath: file.path)[.posixPermissions] as? Int)
-        XCTAssertEqual(permissions & 0o077, 0, "nobody but this account reads the token")
+        let port = try await waitUntilOpen(door)
+        let token = door.token
 
         let session = URLSession(configuration: .ephemeral)
         var asked = URLRequest(url: try XCTUnwrap(URL(string: "http://127.0.0.1:\(port)/v1/tools/list_windows")))
@@ -272,6 +326,6 @@ nonisolated final class AgentDoorTests: XCTestCase {
 
         door.setEnabled(false)
         XCTAssertEqual(door.status, .off)
-        XCTAssertFalse(FileManager.default.fileExists(atPath: file.path), "a closed door leaves no file")
+        XCTAssertEqual(door.token, token, "closing keeps the token")
     }
 }

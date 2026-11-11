@@ -6,14 +6,20 @@ The tools are the app's own: the bridge lists what the door lists, so it needs n
 
 ```sh
 swift build -c release --package-path AgentBridge
-claude mcp add mac4dstem -- "$PWD/AgentBridge/.build/release/macem-mcp" --app mac4DSTEM
-claude mcp add mactem -- "$PWD/AgentBridge/.build/release/macem-mcp" --app macTEM
+cp AgentBridge/.build/release/macem-mcp /usr/local/bin/    # or anywhere on the PATH
 ```
 
-Then, in the app: Settings > Agents > "Let agents on this Mac look at open windows". The door is off until then, listens on
-127.0.0.1 only, and answers only the token in the file it writes for this user's account.
+Then, in the app: Settings > Agents > turn on "Let agents on this Mac look at open windows", press Copy Connection Command, and
+run the copied line in Terminal once. It reads like
+
+```sh
+claude mcp add mactem -e MACTEM_AGENT_PORT=47812 -e MACTEM_AGENT_TOKEN=<64 hex digits> -- macem-mcp --app macTEM
+```
+
+The door is off until it is turned on, listens on 127.0.0.1 only, and answers only its token. The token stays the same until
+New Token in the same pane; a new token needs the command copied again.
 
 Read-only in this version: every tool looks at an open window; none changes the app.
 
-Finding the door: `<APP>_AGENT_PORT` and `<APP>_AGENT_TOKEN` (for example `MACTEM_AGENT_PORT`), else the file named by
-`<APP>_AGENT_DOOR`, else the file the app writes (inside its sandbox container, then plain Application Support).
+Finding the door: `<APP>_AGENT_PORT` and `<APP>_AGENT_TOKEN` (for example `MACTEM_AGENT_PORT`), as the command sets them. The
+apps write no file for the bridge: a sandboxed app's container is closed to other programs.

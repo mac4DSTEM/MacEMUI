@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-only
 //
 //  Door.swift
-//  Role: The bridge's side of an app's agent door: where the door is (the file the app writes when the door opens, or two
-//        environment variables) and one GET to it. The door answers on this Mac's loopback address only and wants its token.
+//  Role: The bridge's side of an app's agent door: where the door is (two environment variables, which the app's Settings > Agents
+//        > Copy Connection Command puts into the `claude mcp add` line) and one GET to it. The door answers on this Mac's loopback
+//        address only and wants its token. The app writes no file: a sandboxed app's container is closed to other programs.
 //
 
 import Foundation
@@ -34,6 +35,12 @@ public struct DoorError: Error, Equatable {
         DoorError("\(app.name)'s agent door is not open. Start \(app.name), open Settings > Agents and turn on "
             + "\"Let agents on this Mac look at open windows\".")
     }
+
+    /// The bridge was started without the door's port and token.
+    public static func notConnected(_ app: BridgeApp) -> DoorError {
+        DoorError("The bridge does not know \(app.name)'s door. In \(app.name), open Settings > Agents, press Copy Connection Command "
+            + "and run the copied line in Terminal; it sets \(app.environmentPrefix)_PORT and \(app.environmentPrefix)_TOKEN.")
+    }
 }
 
 /// Asks the door. A protocol so the server is tested without a port.
@@ -51,53 +58,26 @@ public struct DoorAddress: Equatable {
         self.token = token
     }
 
-    /// The files the app may have written, most likely first: inside the sandboxed app's container, then the plain
-    /// Application Support folder (a build that is not sandboxed).
-    public static func candidateFiles(for app: BridgeApp, home: URL) -> [URL] {
-        [
-            home.appendingPathComponent("Library/Containers/\(app.bundleIdentifier)/Data/Library/Application Support/\(app.name)/agent-door.json"),
-            home.appendingPathComponent("Library/Application Support/\(app.name)/agent-door.json"),
-        ]
-    }
-
-    /// The door's address from `<APP>_AGENT_PORT` and `<APP>_AGENT_TOKEN` when both are set, else from the file named by
-    /// `<APP>_AGENT_DOOR`, else from the first candidate file that reads. Throws `DoorError.closed` when there is none.
-    public static func find(for app: BridgeApp, environment: [String: String], home: URL) throws -> DoorAddress {
+    /// The door's address from `<APP>_AGENT_PORT` and `<APP>_AGENT_TOKEN`. Throws `DoorError.notConnected` without them.
+    public static func find(for app: BridgeApp, environment: [String: String]) throws -> DoorAddress {
         let prefix = app.environmentPrefix
-        if let port = environment["\(prefix)_PORT"].flatMap({ Int($0) }), let token = environment["\(prefix)_TOKEN"], !token.isEmpty {
-            return DoorAddress(port: port, token: token)
-        }
-        let files = environment["\(prefix)_DOOR"].map { [URL(fileURLWithPath: $0)] } ?? candidateFiles(for: app, home: home)
-        for file in files {
-            if let data = try? Data(contentsOf: file), let address = parse(data) { return address }
-        }
-        throw DoorError.closed(app)
-    }
-
-    /// The door's file: `{"port": ..., "token": ...}`. nil for anything else.
-    public static func parse(_ data: Data) -> DoorAddress? {
-        guard let record = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
-              let port = record["port"] as? Int, (1...65535).contains(port),
-              let token = record["token"] as? String, !token.isEmpty else { return nil }
+        guard let port = environment["\(prefix)_PORT"].flatMap({ Int($0) }), (1...65535).contains(port),
+              let token = environment["\(prefix)_TOKEN"], !token.isEmpty else { throw DoorError.notConnected(app) }
         return DoorAddress(port: port, token: token)
     }
 }
-
-/// The real door: finds the address on every call (the token is new each time the door opens) and asks over HTTP.
+/// The real door: the address from the environment, asked over HTTP.
 public struct LocalDoor: Door {
     var app: BridgeApp
     var environment: [String: String]
-    var home: URL
 
-    public init(app: BridgeApp, environment: [String: String] = ProcessInfo.processInfo.environment,
-                home: URL = FileManager.default.homeDirectoryForCurrentUser) {
+    public init(app: BridgeApp, environment: [String: String] = ProcessInfo.processInfo.environment) {
         self.app = app
         self.environment = environment
-        self.home = home
     }
 
     public func get(_ path: String) throws -> DoorAnswer {
-        let address = try DoorAddress.find(for: app, environment: environment, home: home)
+        let address = try DoorAddress.find(for: app, environment: environment)
         guard let url = URL(string: "http://127.0.0.1:\(address.port)\(path)") else { throw DoorError("Not a path: \(path)") }
         var request = URLRequest(url: url, timeoutInterval: 60)
         request.setValue("Bearer \(address.token)", forHTTPHeaderField: "Authorization")

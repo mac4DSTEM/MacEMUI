@@ -166,31 +166,17 @@ final class MCPServerTests: XCTestCase {
 
     // MARK: Finding the door
 
-    func testTheDoorIsFoundFromItsFileOrTheEnvironment() throws {
-        let home = FileManager.default.temporaryDirectory.appendingPathComponent("bridge-\(UUID().uuidString)", isDirectory: true)
-        defer { try? FileManager.default.removeItem(at: home) }
+    /// The door's port and token come from the environment the connection command sets; without them the agent is told how to connect.
+    func testTheDoorIsFoundFromTheEnvironment() throws {
         let app = BridgeApp.macTEM
-        XCTAssertThrowsError(try DoorAddress.find(for: app, environment: [:], home: home)) { XCTAssertEqual($0 as? DoorError, .closed(app)) }
-
-        let files = DoorAddress.candidateFiles(for: app, home: home)
-        XCTAssertTrue(files[0].path.contains("Containers/com.mac4dstem.macTEM/Data/Library/Application Support/macTEM/agent-door.json"))
-        let contained = files[0], plain = files[1]
-        try FileManager.default.createDirectory(at: plain.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try Data(#"{"api":1,"port":5001,"token":"plain"}"#.utf8).write(to: plain)
-        XCTAssertEqual(try DoorAddress.find(for: app, environment: [:], home: home), DoorAddress(port: 5001, token: "plain"))
-        XCTAssertThrowsError(try DoorAddress.find(for: .mac4DSTEM, environment: [:], home: home), "one app's file is not the other's")
-
-        try FileManager.default.createDirectory(at: contained.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try Data(#"{"api":1,"port":5002,"token":"contained"}"#.utf8).write(to: contained)
-        XCTAssertEqual(try DoorAddress.find(for: app, environment: [:], home: home), DoorAddress(port: 5002, token: "contained"),
-                       "the sandboxed app's file first")
-
-        XCTAssertEqual(try DoorAddress.find(for: app, environment: ["MACTEM_AGENT_DOOR": plain.path], home: home).token, "plain")
-        XCTAssertEqual(try DoorAddress.find(for: app, environment: ["MACTEM_AGENT_PORT": "6000", "MACTEM_AGENT_TOKEN": "env"], home: home),
-                       DoorAddress(port: 6000, token: "env"))
-        XCTAssertNil(DoorAddress.parse(Data(#"{"port":0,"token":"x"}"#.utf8)))
-        XCTAssertNil(DoorAddress.parse(Data(#"{"port":5000,"token":""}"#.utf8)))
-        XCTAssertNil(DoorAddress.parse(Data("not json".utf8)))
+        XCTAssertThrowsError(try DoorAddress.find(for: app, environment: [:])) { XCTAssertEqual($0 as? DoorError, .notConnected(app)) }
+        XCTAssertEqual(try DoorAddress.find(for: app, environment: ["MACTEM_AGENT_PORT": "47812", "MACTEM_AGENT_TOKEN": "t"]),
+                       DoorAddress(port: 47812, token: "t"))
+        XCTAssertThrowsError(try DoorAddress.find(for: .mac4DSTEM, environment: ["MACTEM_AGENT_PORT": "47812", "MACTEM_AGENT_TOKEN": "t"]),
+                             "one app's variables are not the other's")
+        XCTAssertThrowsError(try DoorAddress.find(for: app, environment: ["MACTEM_AGENT_PORT": "0", "MACTEM_AGENT_TOKEN": "t"]))
+        XCTAssertThrowsError(try DoorAddress.find(for: app, environment: ["MACTEM_AGENT_PORT": "47812", "MACTEM_AGENT_TOKEN": ""]))
+        XCTAssertTrue(DoorError.notConnected(app).message.contains("Copy Connection Command"))
     }
 
     func testTheAppIsNamedInAnyCase() {
