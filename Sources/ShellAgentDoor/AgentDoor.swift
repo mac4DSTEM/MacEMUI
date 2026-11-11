@@ -2,20 +2,20 @@
 //  AgentDoor.swift
 //  Role: The agent door both apps share: a local API through which an agent on this Mac (Claude, Codex, a script) looks at what
 //        the app's windows show. The app hands it its tools (`AgentTool`); the door owns everything else: the listener on this
-//        Mac's loopback address (`AgentDoorServer`), who may ask (`AgentDoorGate`), the file that says where it is, the list of open
-//        windows, and the routes.
+//        Mac's loopback address (`AgentDoorServer`), who may ask (`AgentDoorGate`), the list of open windows, the routes and
+//        the MCP endpoint.
 //
 //  Off until the person turns it on (`AgentDoorSettingsSection`, bound to a preference the app keeps). While on, the app listens
 //  on 127.0.0.1 only, on the app's own port (`preferredPort`, another when that one is taken), and answers only requests that
 //  carry its token. The token is made once and kept in the app's preferences, so a connection command stays good; the person
-//  makes a new one in Settings, which shuts out whoever had the old. An agent gets port and token from the Settings section's
-//  Copy Connection Command (`connectionCommand`), which registers the MCP bridge (`macem-mcp`, a separate tool) with them as
-//  environment variables. Nothing is written for a helper to find: a sandboxed app's container is closed to other apps, which
-//  is why the person hands the bridge the two values, as other sandboxed Mac apps hand out an API key. Nothing leaves the Mac
-//  and the app sends nothing by itself.
+//  makes a new one in Settings, which shuts out whoever had the old. The app is an MCP server itself (`/mcp`, MCP's Streamable
+//  HTTP transport, `AgentMCP.swift`): the Settings section's Copy Connection Command (`connectionCommand`) registers its address
+//  and token with Claude Code, and nothing is installed beside the app, so the App Store build has the whole door. Nothing
+//  leaves the Mac and the app sends nothing by itself.
 //
-//  Routes, every one a GET in this version:
+//  Routes (the /v1 ones GET, for a script or a test):
 //
+//    POST /mcp               MCP (JSON-RPC 2.0): initialize, tools/list, tools/call; what an agent uses
 //    /v1                     the app, the API version, the tools' names
 //    /v1/tools               the tools in MCP's shape (name, title, description, input schema, annotations)
 //    /v1/tools/<name>        run one: ?window=w1 (or none while one window is open), ?scale=1...3 for a picture
@@ -90,12 +90,17 @@ public final class AgentDoor {
         text.count == 64 && text.allSatisfy(\.isHexDigit)
     }
 
-    /// What registers the bridge with Claude Code, with this door's port and token; nil while the door is not open.
-    /// `bridge` is the bridge's path (`macem-mcp` when it is on the PATH).
-    public func connectionCommand(bridge: String = "macem-mcp") -> String? {
+    /// The address an MCP client connects to; nil while the door is not open.
+    public var mcpURL: String? {
         guard case .listening(let port) = status else { return nil }
-        let prefix = appName.uppercased() + "_AGENT"
-        return "claude mcp add \(appName.lowercased()) -e \(prefix)_PORT=\(port) -e \(prefix)_TOKEN=\(token) -- \(bridge) --app \(appName)"
+        return "http://127.0.0.1:\(port)/mcp"
+    }
+
+    /// What registers this app with Claude Code as an MCP server over HTTP, with the door's address and token; nil while the door
+    /// is not open. Nothing else is installed: the app is the server.
+    public func connectionCommand() -> String? {
+        guard let mcpURL else { return nil }
+        return "claude mcp add --transport http \(appName.lowercased()) \(mcpURL) --header \"Authorization: Bearer \(token)\""
     }
 
     // MARK: Tools
@@ -218,6 +223,7 @@ public final class AgentDoor {
 
     /// Which answer a request gets, the gate passed.
     func route(_ request: AgentHTTPRequest) -> AgentHTTPResponse {
+        if request.path == "/mcp" { return mcpResponse(to: request) }
         guard request.method == "GET" else { return .error(405, "This version of the door is read-only: every route is a GET.") }
         let parts = request.path.split(separator: "/").map(String.init)
         let tools = allTools
@@ -237,7 +243,7 @@ public final class AgentDoor {
         }
     }
 
-    private func run(_ tool: AgentTool, query: [String: String]) -> AgentHTTPResponse {
+    func run(_ tool: AgentTool, query: [String: String]) -> AgentHTTPResponse {
         var window: AgentWindow?
         if tool.input != .noWindow {
             switch resolveWindow(query["window"]) {

@@ -58,7 +58,7 @@ let package = Package(
                                .product(name: "SpectroEDX", package: "SpectroKit")],
                 swiftSettings: shellSettings),
         // The agent door both apps share (docs/agent-door.md): a local, read-only API an agent on this Mac reaches through the
-        // macEM MCP bridge. Network.framework only; each app registers its own tools.
+        // MCP server over HTTP. Network.framework only; each app registers its own tools.
         .target(name: "ShellAgentDoor", swiftSettings: shellSettings),
         .testTarget(name: "ShellMetalTests", dependencies: ["ShellMetal"], swiftSettings: shellSettings),
         .testTarget(name: "ShellControlsTests", dependencies: ["ShellControls"], swiftSettings: shellSettings),

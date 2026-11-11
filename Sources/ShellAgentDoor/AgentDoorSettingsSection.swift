@@ -4,8 +4,8 @@
 //        sentence on what an agent can and cannot do, because the switch opens a listener and the person should know its reach.
 //        The app keeps the preference (its own Settings store and its Reset) and opens the door when it changes.
 //
-//  Copy Connection Command puts the line that registers the MCP bridge with Claude Code, port and token included, on the
-//  clipboard (`AgentDoor.connectionCommand`): the person pastes it into Terminal once. New Token shuts out whoever had the old.
+//  Copy Connection Command puts the line that registers the app with Claude Code as an MCP server, address and token included,
+//  on the clipboard (`AgentDoor.connectionCommand`): the person pastes it into Terminal once. New Token shuts out whoever had the old.
 //  AppKit: `NSPasteboard`, the clipboard, which SwiftUI cannot write on macOS.
 //
 
@@ -68,8 +68,8 @@ public struct AgentDoorSettingsSection: View {
     }
 
     static func explanation(appName: String, canSee: String) -> String {
-        "While this is on, an agent you run on this Mac (Claude, Codex) can read what \(appName)'s windows show through the "
-            + "macEM MCP bridge: \(canSee). It cannot change anything. Copy the connection command and paste it into Terminal once; "
+        "While this is on, an agent you run on this Mac (Claude, Codex) can read what \(appName)'s windows show through MCP: "
+            + "\(canSee). It cannot change anything. Copy the connection command and paste it into Terminal once; "
             + "it holds the door's token, so keep it to yourself, and press New Token to shut out a command you gave away. "
             + "Nothing leaves this Mac, and other computers cannot reach the app."
     }

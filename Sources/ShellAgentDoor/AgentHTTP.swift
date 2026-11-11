@@ -30,7 +30,7 @@ nonisolated enum AgentHTTPParse: Equatable, Sendable {
 nonisolated enum AgentHTTP {
     /// A request line and its headers fit in this, or the request is refused.
     static let maximumHeaderBytes = 16 * 1024
-    /// A request body (step one sends none) fits in this, or the request is refused.
+    /// A request body (one MCP message) fits in this, or the request is refused.
     static let maximumBodyBytes = 1024 * 1024
 
     private static let headerEnd = Data([13, 10, 13, 10])
@@ -120,6 +120,7 @@ nonisolated struct AgentHTTPResponse: Equatable, Sendable {
     static func reason(_ status: Int) -> String {
         switch status {
         case 200: return "OK"
+        case 202: return "Accepted"
         case 400: return "Bad Request"
         case 401: return "Unauthorized"
         case 403: return "Forbidden"
