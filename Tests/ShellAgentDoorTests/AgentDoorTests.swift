@@ -281,7 +281,8 @@ nonisolated final class AgentDoorTests: XCTestCase {
         let first = AgentDoor(appName: "TestApp", appVersion: "1.0", preferredPort: free, defaults: Self.freshDefaults())
         first.setEnabled(true)
         defer { first.setEnabled(false) }
-        XCTAssertEqual(try await waitUntilOpen(first), free, "a free preferred port is the one taken")
+        let taken = try await waitUntilOpen(first)
+        XCTAssertEqual(taken, free, "a free preferred port is the one taken")
 
         let second = AgentDoor(appName: "TestApp", appVersion: "1.0", preferredPort: free, defaults: Self.freshDefaults())
         second.setEnabled(true)
