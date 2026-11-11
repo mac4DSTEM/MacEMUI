@@ -1,0 +1,81 @@
+{
+  "manifest_version": "0.3",
+  "name": "mac4dstem",
+  "display_name": "mac4DSTEM",
+  "version": "1.0.0",
+  "description": "Lets Claude look at what mac4DSTEM's windows show on this Mac: result maps, patterns, detected disks, objects and the log. Read-only.",
+  "long_description": "mac4DSTEM is the MCP server itself, on this Mac only (127.0.0.1). This extension carries Claude's requests to it. In mac4DSTEM, turn on Settings > Agents, press Copy Connection Command and paste the copied line below. The extension talks to no other computer.",
+  "author": {
+    "name": "mac4DSTEM",
+    "url": "https://github.com/mac4DSTEM"
+  },
+  "homepage": "https://github.com/mac4DSTEM/MacEMUI",
+  "server": {
+    "type": "node",
+    "entry_point": "server/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": [
+        "${__dirname}/server/index.js"
+      ],
+      "env": {
+        "MACEM_DOOR_APP": "mac4DSTEM",
+        "MACEM_DOOR_PORT": "47811",
+        "MACEM_DOOR_CONNECTION": "${user_config.connection}"
+      }
+    }
+  },
+  "user_config": {
+    "connection": {
+      "type": "string",
+      "title": "Connection command",
+      "description": "In mac4DSTEM: Settings > Agents > Copy Connection Command, then paste it here.",
+      "sensitive": true,
+      "required": true
+    }
+  },
+  "tools_generated": true,
+  "compatibility": {
+    "platforms": [
+      "darwin"
+    ],
+    "runtimes": {
+      "node": ">=18.0.0"
+    }
+  },
+  "license": "GPL-3.0-only",
+  "tools": [
+    {
+      "name": "list_windows",
+      "description": "The open windows, each with an id and a one-line summary."
+    },
+    {
+      "name": "get_window",
+      "description": "Everything one window shows: dataset, view, calibration."
+    },
+    {
+      "name": "get_result_image",
+      "description": "The displayed result map as the app exports it."
+    },
+    {
+      "name": "get_pattern_image",
+      "description": "The diffraction pattern as its pane shows it."
+    },
+    {
+      "name": "get_detected_disks",
+      "description": "The detected Bragg disks of the pattern on screen."
+    },
+    {
+      "name": "get_lineage",
+      "description": "The recorded analysis steps with their parameters."
+    },
+    {
+      "name": "get_precipitate_objects",
+      "description": "The precipitate object table."
+    },
+    {
+      "name": "get_log",
+      "description": "The window's Output lines."
+    }
+  ]
+}

@@ -11,9 +11,16 @@ and the App Store build has the whole door. Read-only in this version.
   window with a one-line summary.
 - The app: its tools (what a window holds, its pictures from the app's own export code), the preference that keeps the switch,
   and `com.apple.security.network.server` in its entitlements.
-- The agent: any MCP client that speaks Streamable HTTP. For Claude Code, Settings > Agents > Copy Connection Command copies
+- The agent: any MCP client that speaks Streamable HTTP with a header (Claude Code, Cursor, VS Code). For Claude Code,
+  Settings > Agents > Copy Connection Command copies
   `claude mcp add --transport http <app> http://127.0.0.1:<port>/mcp --header "Authorization: Bearer <token>"`, pasted into
   Terminal once.
+- Claude desktop: its connectors are reached from Anthropic's servers, so they cannot see this Mac, and its local servers are
+  programs it starts over stdio. `DesktopExtension/` is a Claude desktop extension per app (`macEM.mcpb`, `mac4DSTEM.mcpb`,
+  the MCPB format): a double click installs it, Claude asks for the connection command (paste what Copy Connection Command
+  copied), and a small Node script (Node's standard library only; Claude desktop brings Node) carries each message to the
+  app's `/mcp` and back. It keeps nothing and talks to no other computer. `DesktopExtension/pack.sh` packs both;
+  CI tests the script against a stand-in door and uploads the two files.
 
 ## Security
 
