@@ -406,9 +406,9 @@ nonisolated final class AgentDoorTests: XCTestCase {
         let refused = try call(["threshold": 0.5])
         XCTAssertEqual(refused["isError"] as? Bool, true)
         XCTAssertTrue(text(refused).contains("Let agents run analyses"), "the refusal says how to allow it")
-        XCTAssertEqual(try object(door.route(request("/v1"))) ["access"] as? String, "read-only")
+        XCTAssertEqual(try object(door.route(request("/v1")))["access"] as? String, "read-only")
         door.runsAllowed = true
-        XCTAssertEqual(try object(door.route(request("/v1"))) ["access"] as? String, "look and run")
+        XCTAssertEqual(try object(door.route(request("/v1")))["access"] as? String, "look and run")
         XCTAssertEqual(door.route(request("/v1/tools/run_detection")).status, 405, "never from a GET")
         XCTAssertTrue(calls.arguments.isEmpty)
 
