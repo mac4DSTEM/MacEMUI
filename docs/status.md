@@ -15,9 +15,10 @@ What is live. 0.5.1 (2026-11-05) is tagged; both apps take MacEMUI by version ra
   pins, maps, exports) that both apps showed as copies; each app passes `EDXRoomHost`, `EDXRoomActions` and its Open panel
   extensions. Results name the kept region, carry the whole value and its sigma, and say no "unvalidated"; the typed-k and
   factors sheets read either decimal separator and keep their accessibility identifiers.
-- The agent door (`ShellAgentDoor`, not yet in a release): a local, read-only API, off until the person turns it on in
-  Settings, through which an agent on this Mac looks at the app's open windows; each app registers its own tools. The app is
-  the MCP server itself, over HTTP at `/mcp` (`docs/agent-door.md`).
+- The agent door (`ShellAgentDoor`, since 0.6.0): a local API, off until the person turns it on in Settings, through which
+  an agent on this Mac looks at the app's open windows; each app registers its own tools. The app is the MCP server itself,
+  over HTTP at `/mcp` (`docs/agent-door.md`). On main for the next release: typed inputs and tools that act
+  (`AgentParameter`, `AgentTool(acts:)`), behind a second switch, "Let agents run analyses" (`runsAllowed`).
 
 Since 0.3.2: 0.4.0 (2026-10-29) brought the shared EDS room; 0.5.0 (2026-11-01) `ImageViewport`, the keyboard and zoom routes,
 the narrowed EDS room API and the deletion of the superseded map tile API; 0.5.1 (2026-11-05) the EDS sheet and header fixes.
