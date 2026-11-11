@@ -2,6 +2,14 @@
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). MacEMUI follows semantic versioning; before 1.0.0 a minor version may break the API, and its Migration paragraph says how.
 
+## [0.6.0](https://github.com/mac4DSTEM/MacEMUI/compare/0.5.2...0.6.0) (2026-11-11)
+
+
+### Features
+
+* shared agent door (ShellAgentDoor) for both apps ([f674402](https://github.com/mac4DSTEM/MacEMUI/commit/f6744025c4cc16e09a4ccca472d5aedf7c360191))
+* the agent door is an MCP server over HTTP and keeps its token ([#93](https://github.com/mac4DSTEM/MacEMUI/issues/93)) ([991fecf](https://github.com/mac4DSTEM/MacEMUI/commit/991fecfe89ee1b29ef7218920c449e601b3d4e58))
+
 ## [0.5.2](https://github.com/mac4DSTEM/MacEMUI/compare/0.5.1...0.5.2) (2026-11-10)
 
 
