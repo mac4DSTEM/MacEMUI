@@ -12,12 +12,11 @@ private final class Probe {
     init(_ file: String) { self.file = file }
 }
 
-@MainActor
-final class AgentDoorTests: XCTestCase {
+nonisolated final class AgentDoorTests: XCTestCase {
 
     // MARK: Reading a request
 
-    func testAWholeRequestIsReadWithItsPathQueryAndHeaders() {
+    @MainActor func testAWholeRequestIsReadWithItsPathQueryAndHeaders() {
         let bytes = Data("GET /v1/tools/get_image?window=w1&scale=2 HTTP/1.1\r\nHost: 127.0.0.1:5000\r\nAuthorization: Bearer abc\r\n\r\n".utf8)
         guard case .request(let request) = AgentHTTP.parse(bytes) else { return XCTFail("not read as a request") }
         XCTAssertEqual(request.method, "GET")
@@ -29,7 +28,7 @@ final class AgentDoorTests: XCTestCase {
     }
 
     /// Bytes arrive in pieces: until the blank line and the stated body are there, the answer is "more", never a guess.
-    func testARequestInPiecesWaitsForItsEndAndItsBody() {
+    @MainActor func testARequestInPiecesWaitsForItsEndAndItsBody() {
         let whole = Data("POST /v1/x HTTP/1.1\r\nHost: h\r\nContent-Length: 5\r\n\r\nhello".utf8)
         for cut in [10, whole.count - 6, whole.count - 1] {
             XCTAssertEqual(AgentHTTP.parse(whole.prefix(cut)), .incomplete, "cut at \(cut)")
@@ -40,7 +39,7 @@ final class AgentDoorTests: XCTestCase {
         XCTAssertEqual(AgentHTTP.parse(padded.dropFirst(2)), .request(request), "a slice that does not start at 0 reads the same")
     }
 
-    func testWhatIsNotARequestIsRefusedByName() {
+    @MainActor func testWhatIsNotARequestIsRefusedByName() {
         func malformed(_ text: String) -> Bool {
             if case .malformed = AgentHTTP.parse(Data(text.utf8)) { return true }
             return false
@@ -54,7 +53,7 @@ final class AgentDoorTests: XCTestCase {
         XCTAssertTrue(malformed("GET /" + String(repeating: "a", count: AgentHTTP.maximumHeaderBytes + 10)), "headers that never end are cut off")
     }
 
-    func testAResponseStatesItsLengthAndClosesTheConnection() {
+    @MainActor func testAResponseStatesItsLengthAndClosesTheConnection() {
         let response = AgentHTTPResponse.json(["b": 1, "a": "x"])
         let wire = String(decoding: response.serialized(), as: UTF8.self)
         XCTAssertTrue(wire.hasPrefix("HTTP/1.1 200 OK\r\n"))
@@ -75,7 +74,7 @@ final class AgentDoorTests: XCTestCase {
     }
 
     /// Mutation: drop any one of the three checks in `AgentDoorGate.refusal` and one line here goes red.
-    func testOnlyTheTokenHolderOnThisMacPasses() {
+    @MainActor func testOnlyTheTokenHolderOnThisMacPasses() {
         func status(_ request: AgentHTTPRequest) -> Int? { AgentDoorGate.refusal(for: request, token: "secret", port: 5000)?.status }
         XCTAssertNil(status(request()))
         XCTAssertNil(status(request(host: "localhost:5000")))
@@ -90,7 +89,7 @@ final class AgentDoorTests: XCTestCase {
 
     // MARK: Routes and the tool slot
 
-    private func door(_ windows: [Probe] = []) -> AgentDoor {
+    @MainActor private func door(_ windows: [Probe] = []) -> AgentDoor {
         let door = AgentDoor(appName: "TestApp", appVersion: "1.0", discoveryURL: nil)
         door.register([
             AgentTool(name: "get_file", title: "File", summary: "The window's file.", input: .window) { call in
@@ -112,7 +111,7 @@ final class AgentDoorTests: XCTestCase {
         try XCTUnwrap(try JSONSerialization.jsonObject(with: response.body) as? [String: Any])
     }
 
-    func testTheDoorIsReadOnlyAndNamesItsTools() throws {
+    @MainActor func testTheDoorIsReadOnlyAndNamesItsTools() throws {
         let door = door()
         XCTAssertEqual(door.route(request(method: "POST")).status, 405)
         XCTAssertEqual(door.route(request("/")).status, 404)
@@ -125,7 +124,7 @@ final class AgentDoorTests: XCTestCase {
     }
 
     /// `/v1/tools` is what the bridge passes to MCP's `tools/list` as it stands: the shape must be MCP's.
-    func testToolsAreDescribedInMCPsShape() throws {
+    @MainActor func testToolsAreDescribedInMCPsShape() throws {
         let tools = try XCTUnwrap(try object(door().route(request("/v1/tools")))["tools"] as? [[String: Any]])
         XCTAssertEqual(tools.count, 4)
         for tool in tools {
@@ -145,7 +144,7 @@ final class AgentDoorTests: XCTestCase {
     }
 
     /// No window named: the only open one. With none or several, the refusal says which there are.
-    func testAToolFindsItsWindow() throws {
+    @MainActor func testAToolFindsItsWindow() throws {
         let a = Probe("a.h5"), b = Probe("b.h5")
         XCTAssertEqual(door().route(request("/v1/tools/get_file")).status, 404, "no window open")
         let one = door([a])
@@ -163,7 +162,7 @@ final class AgentDoorTests: XCTestCase {
         XCTAssertEqual(list.map { $0["file_name"] as? String }, ["a.h5", "b.h5"])
     }
 
-    func testAPictureScaleIsOneTwoOrThree() throws {
+    @MainActor func testAPictureScaleIsOneTwoOrThree() throws {
         let door = door([Probe("a.h5")])
         func scale(_ stated: String?) throws -> Int? {
             try object(door.route(request("/v1/tools/get_scale", query: stated.map { ["scale": $0] } ?? [:])))["scale"] as? Int
@@ -175,7 +174,7 @@ final class AgentDoorTests: XCTestCase {
         XCTAssertEqual(try scale("x"), 1)
     }
 
-    func testAPNGIsWrittenFromAPicture() throws {
+    @MainActor func testAPNGIsWrittenFromAPicture() throws {
         let context = try XCTUnwrap(CGContext(data: nil, width: 4, height: 3, bitsPerComponent: 8, bytesPerRow: 0,
                                               space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
         guard case .png(let data) = AgentJSON.picture(context.makeImage()) else { return XCTFail("no PNG") }
@@ -186,7 +185,7 @@ final class AgentDoorTests: XCTestCase {
         XCTAssertEqual(AgentJSON.number(Float(2.5)) as? Double, 2.5)
     }
 
-    func testToolNamesAreMCPsShape() {
+    @MainActor func testToolNamesAreMCPsShape() {
         XCTAssertTrue(AgentTool.isValidName("get_result_image2"))
         XCTAssertFalse(AgentTool.isValidName(""))
         XCTAssertFalse(AgentTool.isValidName("Get"))
@@ -196,7 +195,7 @@ final class AgentDoorTests: XCTestCase {
 
     // MARK: Windows and Settings
 
-    func testWindowsAreNamedInOrderAndForgottenWhenTheyClose() {
+    @MainActor func testWindowsAreNamedInOrderAndForgottenWhenTheyClose() {
         let door = door()
         let first = Probe("1"), second = Probe("2")
         door.enroll(first) { [:] }; door.enroll(second) { [:] }; door.enroll(first) { [:] }
@@ -207,7 +206,7 @@ final class AgentDoorTests: XCTestCase {
         XCTAssertEqual(door.liveWindows.map { $0.window.id }, ["w2", "w3"], "a name is never given twice")
     }
 
-    func testAWindowThatIsGoneIsNotListed() {
+    @MainActor func testAWindowThatIsGoneIsNotListed() {
         let door = door()
         do {
             let passing = Probe("gone")
@@ -217,7 +216,7 @@ final class AgentDoorTests: XCTestCase {
         XCTAssertEqual(door.liveWindows.count, 0, "the door holds a window weakly")
     }
 
-    func testTheStatusRowSaysWhatTheDoorIsDoing() {
+    @MainActor func testTheStatusRowSaysWhatTheDoorIsDoing() {
         XCTAssertEqual(AgentDoorSettingsSection.statusText(.off, requests: 0), "Off")
         XCTAssertEqual(AgentDoorSettingsSection.statusText(.listening(port: 5000), requests: 0), "On (port 5000), no agent has asked yet")
         XCTAssertEqual(AgentDoorSettingsSection.statusText(.listening(port: 5000), requests: 1), "On (port 5000), 1 request answered")
@@ -226,7 +225,7 @@ final class AgentDoorTests: XCTestCase {
         XCTAssertTrue(AgentDoorSettingsSection.explanation(appName: "macTEM", canSee: "images").contains("cannot change anything"))
     }
 
-    func testTheTokenIsNewAndLong() {
+    @MainActor func testTheTokenIsNewAndLong() {
         let a = AgentDoor.makeToken(), b = AgentDoor.makeToken()
         XCTAssertEqual(a.count, 64)
         XCTAssertNotEqual(a, b)
@@ -237,7 +236,7 @@ final class AgentDoorTests: XCTestCase {
 
     /// The door opens on the loopback address, writes its file for this account only, answers the token holder, refuses a request
     /// without the token, and takes its file away when it closes.
-    func testTheOpenDoorAnswersOverTheLoopbackAddress() async throws {
+    @MainActor func testTheOpenDoorAnswersOverTheLoopbackAddress() async throws {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent("agent-door-\(UUID().uuidString)", isDirectory: true)
         defer { try? FileManager.default.removeItem(at: folder) }
         let file = folder.appendingPathComponent("agent-door.json")
