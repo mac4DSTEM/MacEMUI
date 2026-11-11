@@ -1,33 +1,39 @@
 # The agent door
 
 A local API in mac4DSTEM and macTEM through which an agent on the same Mac (Claude, Codex, a script) looks at what the app's
-windows show, and the MCP bridge that hands it to an agent. Read-only in this version.
+windows show. The app is the MCP server itself (MCP's Streamable HTTP transport at `/mcp`), so nothing is installed beside it
+and the App Store build has the whole door. Read-only in this version.
 
 ## The pieces
 
-- `ShellAgentDoor` (this package): the listener (Network.framework, 127.0.0.1 only), who may ask, the door's file, the list of
+- `ShellAgentDoor` (this package): the listener (Network.framework, 127.0.0.1 only), who may ask, the token and the connection command, the list of
   open windows, the routes, and the Settings section. It knows no app: an app registers its tools (`AgentTool`) and enrols each
   window with a one-line summary.
 - The app: its tools (what a window holds, its pictures from the app's own export code), the preference that keeps the switch,
   and `com.apple.security.network.server` in its entitlements.
-- `macem-mcp` (`AgentBridge/`): one binary for both apps, a copy per app (`--app macTEM`). It lists the door's tools as the door
-  describes them and runs each as one GET, so a new tool needs no bridge change.
+- The agent: any MCP client that speaks Streamable HTTP. For Claude Code, Settings > Agents > Copy Connection Command copies
+  `claude mcp add --transport http <app> http://127.0.0.1:<port>/mcp --header "Authorization: Bearer <token>"`, pasted into
+  Terminal once.
 
 ## Security
 
 - Off by default. The switch is in the app's Settings > Agents and says what an agent can and cannot do.
 - Listens on 127.0.0.1 with `acceptLocalOnly`: no other computer reaches it.
-- A bearer token, 32 random bytes made new each time the door opens, in a file only this user's account reads (mode 600):
-  `Application Support/<App>/agent-door.json`, inside the sandbox container. The door removes the file when it closes.
+- A bearer token, 32 random bytes, made once and kept in the app's preferences until the person presses New Token (which shuts
+  out every copy of the old). The person hands it to the agent with Settings > Agents > Copy Connection Command, as sandboxed
+  Mac apps hand out an API key. Nothing is written for a helper to find: a sandboxed app's container is closed to other
+  programs (macOS answers "Operation not permitted").
+- The app's own port first (mac4DSTEM 47811, macTEM 47812), so the command stays good; another when it is taken, shown in the pane.
 - A request with an `Origin` header (a web page) is refused, and so is one whose `Host` is not `127.0.0.1:<port>` or
   `localhost:<port>` (DNS rebinding). The token is compared in constant time.
-- Every route is a GET; tools change nothing. One request per connection, headers capped at 16 KB, bodies at 1 MB, chunked
+- The `/v1` routes are GETs and `/mcp` takes one JSON-RPC message per POST; tools change nothing. One request per connection, headers capped at 16 KB, bodies at 1 MB, chunked
   bodies refused, at most 16 connections, each closed after 20 s.
 
 ## Routes
 
 | Path | Answer |
 |------|--------|
+| `POST /mcp` | MCP, JSON-RPC 2.0, one message per request, one JSON answer: `initialize`, `ping`, `tools/list`, `tools/call` (a picture as image content, a refusal as a result with `isError`); a notification gets 202; `GET` is 405 (no event stream) |
 | `GET /v1` | the app, its version, the API version, the tools' names |
 | `GET /v1/tools` | the tools in MCP's shape: name, title, description, input schema, read-only annotations |
 | `GET /v1/tools/<name>?window=w1&scale=2` | one tool's answer: JSON, or a PNG; a refusal is `{"error": "..."}` with 404 (nothing yet), 409 (name a window) |
@@ -47,3 +53,9 @@ door.register([
 ```
 
 A picture comes from the code that exports it, never a second renderer, so what an agent judges is what the person sees.
+
+## App Store
+
+The store build needs `com.apple.security.network.server` beside the sandbox (an app's store-entitlement check lists it), and
+its review notes say what the listener is: loopback only, off by default, for AI agents the person runs on the same Mac. It
+collects no data, so the privacy answers do not change.

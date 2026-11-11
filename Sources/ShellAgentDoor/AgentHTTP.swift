@@ -30,7 +30,7 @@ nonisolated enum AgentHTTPParse: Equatable, Sendable {
 nonisolated enum AgentHTTP {
     /// A request line and its headers fit in this, or the request is refused.
     static let maximumHeaderBytes = 16 * 1024
-    /// A request body (step one sends none) fits in this, or the request is refused.
+    /// A request body (one MCP message) fits in this, or the request is refused.
     static let maximumBodyBytes = 1024 * 1024
 
     private static let headerEnd = Data([13, 10, 13, 10])
@@ -120,6 +120,7 @@ nonisolated struct AgentHTTPResponse: Equatable, Sendable {
     static func reason(_ status: Int) -> String {
         switch status {
         case 200: return "OK"
+        case 202: return "Accepted"
         case 400: return "Bad Request"
         case 401: return "Unauthorized"
         case 403: return "Forbidden"
@@ -140,13 +141,13 @@ nonisolated enum AgentDoorGate {
     /// - A request with an `Origin` header comes from a web page in a browser; the door is not for pages, with or without the token.
     /// - `Host` must name this Mac's loopback address and the door's port: a page that reached the port through a DNS name it
     ///   controls (DNS rebinding) carries that name here.
-    /// - The token is the one in the door's file, which only this user's account reads.
+    /// - The token is the app's (Settings > Agents > Copy Connection Command), kept in its own preferences.
     static func refusal(for request: AgentHTTPRequest, token: String, port: UInt16) -> AgentHTTPResponse? {
         if request.headers["origin"] != nil { return .error(403, "Requests from web pages are refused.") }
         let host = request.headers["host"] ?? ""
         guard host == "127.0.0.1:\(port)" || host == "localhost:\(port)" else { return .error(403, "The Host header does not name this door.") }
         guard !token.isEmpty, let sent = bearerToken(request.headers["authorization"]), sameBytes(sent, token) else {
-            return .error(401, "Missing or wrong token. The token is in the door's file, written when the door opens.")
+            return .error(401, "Missing or wrong token. Copy the connection command again in the app's Settings > Agents.")
         }
         return nil
     }

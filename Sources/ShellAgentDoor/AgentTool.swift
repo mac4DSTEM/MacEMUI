@@ -2,7 +2,7 @@
 //  AgentTool.swift
 //  Role: What an app hands the agent door (`AgentDoor`): its tools. A tool has a name, a sentence an agent reads to decide when to
 //        use it, the inputs it takes, and the code that answers it on the main actor. The door lists the tools in MCP's own shape
-//        (`/v1/tools`), so the bridge passes them on as they are and needs no change when an app adds one.
+//        (`/v1/tools`, MCP's `tools/list`), so an app adds a tool without touching the door.
 //
 //  Read-only in this version: a tool looks at a window and answers; it changes nothing.
 //

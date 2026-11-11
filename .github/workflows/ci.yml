@@ -70,17 +70,6 @@ jobs:
       - name: swift test -c release --parallel
         run: swift test -c release --parallel
 
-  agent-bridge:
-    name: agent bridge (macem-mcp build and tests)
-    # AgentBridge/ is a package of its own on Foundation alone: Linux builds and tests it, off the macOS queue.
-    runs-on: ubuntu-latest
-    container: swift:6.2
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v7
-      - name: Build and test the bridge
-        run: swift test --package-path AgentBridge
-
   version:
     name: CHANGELOG version matches the tag
     runs-on: ubuntu-latest

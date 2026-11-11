@@ -6,6 +6,10 @@ import Foundation
 import XCTest
 @testable import ShellAgentDoor
 
+private nonisolated struct DoorDidNotOpen: Error {
+    let status: String
+}
+
 /// Stands in for an app's window state.
 private final class Probe {
     let file: String
@@ -90,7 +94,7 @@ nonisolated final class AgentDoorTests: XCTestCase {
     // MARK: Routes and the tool slot
 
     @MainActor private func door(_ windows: [Probe] = []) -> AgentDoor {
-        let door = AgentDoor(appName: "TestApp", appVersion: "1.0", discoveryURL: nil)
+        let door = AgentDoor(appName: "TestApp", appVersion: "1.0", preferredPort: 0, defaults: Self.freshDefaults())
         door.register([
             AgentTool(name: "get_file", title: "File", summary: "The window's file.", input: .window) { call in
                 guard let probe = call.window?.state as? Probe else { return .refusal(status: 500, message: "not a probe") }
@@ -113,7 +117,7 @@ nonisolated final class AgentDoorTests: XCTestCase {
 
     @MainActor func testTheDoorIsReadOnlyAndNamesItsTools() throws {
         let door = door()
-        XCTAssertEqual(door.route(request(method: "POST")).status, 405)
+        XCTAssertEqual(door.route(request(method: "POST")).status, 405, "the /v1 routes are GETs")
         XCTAssertEqual(door.route(request("/")).status, 404)
         XCTAssertEqual(door.route(request("/v1/nothing")).status, 404)
         XCTAssertEqual(door.route(request("/v1/tools/no_such_tool")).status, 404)
@@ -123,7 +127,7 @@ nonisolated final class AgentDoorTests: XCTestCase {
         XCTAssertEqual(index["tools"] as? [String], ["list_windows", "get_file", "get_scale", "get_nothing"], "the door's own first, then the app's in order")
     }
 
-    /// `/v1/tools` is what the bridge passes to MCP's `tools/list` as it stands: the shape must be MCP's.
+    /// `/v1/tools` is what MCP's `tools/list` answers: the shape must be MCP's.
     @MainActor func testToolsAreDescribedInMCPsShape() throws {
         let tools = try XCTUnwrap(try object(door().route(request("/v1/tools")))["tools"] as? [[String: Any]])
         XCTAssertEqual(tools.count, 4)
@@ -234,28 +238,151 @@ nonisolated final class AgentDoorTests: XCTestCase {
 
     // MARK: The whole way once
 
-    /// The door opens on the loopback address, writes its file for this account only, answers the token holder, refuses a request
-    /// without the token, and takes its file away when it closes.
+    /// A suite of its own per door, removed after the test.
+    nonisolated private static func freshDefaults() -> UserDefaults {
+        let suite = "agent-door-tests-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        return defaults
+    }
+
+    /// The token is made once and kept, so a copied command stays good across launches; New Token replaces it.
+    /// Red under: a token made each time the door opens (the old design), or New Token that does not persist.
+    @MainActor func testTheTokenIsKeptUntilANewOneIsMade() {
+        let defaults = Self.freshDefaults()
+        let first = AgentDoor(appName: "TestApp", appVersion: "1.0", preferredPort: 0, defaults: defaults)
+        XCTAssertTrue(AgentDoor.isToken(first.token))
+        let again = AgentDoor(appName: "TestApp", appVersion: "1.0", preferredPort: 0, defaults: defaults)
+        XCTAssertEqual(again.token, first.token, "the same token after a relaunch")
+        again.makeNewToken()
+        XCTAssertNotEqual(again.token, first.token)
+        XCTAssertEqual(AgentDoor(appName: "TestApp", appVersion: "1.0", preferredPort: 0, defaults: defaults).token, again.token)
+        defaults.set("not a token", forKey: AgentDoor.tokenKey)
+        XCTAssertTrue(AgentDoor.isToken(AgentDoor(appName: "TestApp", appVersion: "1.0", preferredPort: 0, defaults: defaults).token),
+                      "a damaged stored token is replaced")
+    }
+
+    @MainActor private func waitUntilOpen(_ door: AgentDoor) async throws -> UInt16 {
+        for _ in 0..<250 where door.status == .starting || door.status == .off { try await Task.sleep(for: .milliseconds(20)) }
+        guard case .listening(let port) = door.status else { throw DoorDidNotOpen(status: "\(door.status)") }
+        return port
+    }
+
+    /// The door takes the app's port when it is free; a second door asking for the same port gets another, and says which.
+    /// Red under: the preferred port ignored (the first assertion), or a taken port ending in "Could not open" (the second).
+    @MainActor func testTheAppsPortIsAskedForFirstAndATakenOneIsReplaced() async throws {
+        // A port that is free now: the system's pick, released again.
+        let probe = AgentDoor(appName: "TestApp", appVersion: "1.0", preferredPort: 0, defaults: Self.freshDefaults())
+        probe.setEnabled(true)
+        let free = try await waitUntilOpen(probe)
+        probe.setEnabled(false)
+        try await Task.sleep(for: .milliseconds(300))
+
+        let first = AgentDoor(appName: "TestApp", appVersion: "1.0", preferredPort: free, defaults: Self.freshDefaults())
+        first.setEnabled(true)
+        defer { first.setEnabled(false) }
+        let taken = try await waitUntilOpen(first)
+        XCTAssertEqual(taken, free, "a free preferred port is the one taken")
+
+        let second = AgentDoor(appName: "TestApp", appVersion: "1.0", preferredPort: free, defaults: Self.freshDefaults())
+        second.setEnabled(true)
+        defer { second.setEnabled(false) }
+        let other = try await waitUntilOpen(second)
+        XCTAssertNotEqual(other, free)
+    }
+
+    /// The command registers the app itself as an HTTP MCP server: its address on the port in use and the token; none while the
+    /// door is shut.
+    @MainActor func testTheConnectionCommandCarriesPortAndToken() async throws {
+        let door = AgentDoor(appName: "macTEM", appVersion: "1.0", preferredPort: 0, defaults: Self.freshDefaults())
+        XCTAssertNil(door.connectionCommand())
+        door.setEnabled(true)
+        defer { door.setEnabled(false) }
+        let port = try await waitUntilOpen(door)
+        XCTAssertEqual(door.connectionCommand(),
+                       "claude mcp add --transport http mactem http://127.0.0.1:\(port)/mcp --header \"Authorization: Bearer \(door.token)\"")
+    }
+
+    // MARK: MCP
+
+    private func mcp(_ message: [String: Any]) throws -> AgentHTTPRequest {
+        var asked = request("/mcp", method: "POST")
+        asked.body = try JSONSerialization.data(withJSONObject: message)
+        return asked
+    }
+
+    private func result(_ response: AgentHTTPResponse) throws -> [String: Any] {
+        XCTAssertEqual(response.status, 200)
+        return try XCTUnwrap(try object(response)["result"] as? [String: Any], String(decoding: response.body, as: UTF8.self))
+    }
+
+    /// The handshake and the list: the client's revision when the door speaks it, the tools as `/v1/tools` lists them.
+    @MainActor func testMCPStartsAndListsTheTools() throws {
+        let door = door()
+        let started = try result(door.route(try mcp(["jsonrpc": "2.0", "id": 1, "method": "initialize",
+                                                     "params": ["protocolVersion": "2025-03-26", "capabilities": [String: Any]()]])))
+        XCTAssertEqual(started["protocolVersion"] as? String, "2025-03-26")
+        XCTAssertEqual((started["serverInfo"] as? [String: Any])?["name"] as? String, "testapp")
+        XCTAssertNotNil((started["capabilities"] as? [String: Any])?["tools"])
+        let newest = try result(door.route(try mcp(["jsonrpc": "2.0", "id": 2, "method": "initialize", "params": ["protocolVersion": "1999-01-01"]])))
+        XCTAssertEqual(newest["protocolVersion"] as? String, AgentDoor.mcpProtocolVersions[0])
+        let listed = try result(door.route(try mcp(["jsonrpc": "2.0", "id": "a", "method": "tools/list"])))
+        XCTAssertEqual((listed["tools"] as? [[String: Any]])?.compactMap { $0["name"] as? String },
+                       ["list_windows", "get_file", "get_scale", "get_nothing"])
+        let pong = try object(door.route(try mcp(["jsonrpc": "2.0", "id": 7, "method": "ping"])))
+        XCTAssertEqual(pong["id"] as? Int, 7, "the answer carries the request's id")
+    }
+
+    /// A call runs the tool with its window and scale; a refusal is a result the agent reads (`isError`), never a protocol error.
+    @MainActor func testMCPCallsRunTheToolsAndRefusalsAreReadable() throws {
+        let door = door([Probe("a.h5"), Probe("b.h5")])
+        func call(_ name: String, _ arguments: [String: Any] = [:]) throws -> [String: Any] {
+            try result(door.route(try mcp(["jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": ["name": name, "arguments": arguments]])))
+        }
+        func text(_ answer: [String: Any]) -> String { ((answer["content"] as? [[String: Any]])?.first?["text"] as? String) ?? "" }
+        let file = try call("get_file", ["window": "w2"])
+        XCTAssertEqual(file["isError"] as? Bool, false)
+        XCTAssertTrue(text(file).contains("b.h5"))
+        XCTAssertTrue(text(try call("get_scale", ["window": "w1", "scale": 2])).contains("\"scale\":2"))
+        let several = try call("get_file")
+        XCTAssertEqual(several["isError"] as? Bool, true)
+        XCTAssertTrue(text(several).contains("w1"), "the refusal names the windows to choose from")
+        XCTAssertEqual(text(try call("get_nothing")), "Nothing to show yet.")
+        let unknown = try object(door.route(try mcp(["jsonrpc": "2.0", "id": 4, "method": "tools/call", "params": ["name": "rm_rf"]])))
+        XCTAssertEqual((unknown["error"] as? [String: Any])?["code"] as? Int, -32602)
+    }
+
+    @MainActor func testMCPAnswersWhatItIsNotSent() throws {
+        let door = door()
+        XCTAssertEqual(door.route(try mcp(["jsonrpc": "2.0", "method": "notifications/initialized"])).status, 202, "a notification")
+        XCTAssertTrue(door.route(try mcp(["jsonrpc": "2.0", "method": "notifications/initialized"])).body.isEmpty)
+        XCTAssertEqual(door.route(request("/mcp")).status, 405, "no event stream")
+        var garbled = request("/mcp", method: "POST")
+        garbled.body = Data("{nope".utf8)
+        XCTAssertEqual(door.route(garbled).status, 400)
+        let unknown = try object(door.route(try mcp(["jsonrpc": "2.0", "id": 5, "method": "resources/list"])))
+        XCTAssertEqual((unknown["error"] as? [String: Any])?["code"] as? Int, -32601)
+    }
+
+    /// A picture comes back as MCP image content, base64 PNG.
+    @MainActor func testMCPPicturesAreImages() throws {
+        let answer = AgentDoor.toolResult(.png(Data([0x89, 0x50, 0x4E, 0x47])))
+        let content = try XCTUnwrap((answer["content"] as? [[String: Any]])?.first)
+        XCTAssertEqual(content["type"] as? String, "image")
+        XCTAssertEqual(content["mimeType"] as? String, "image/png")
+        XCTAssertEqual(content["data"] as? String, Data([0x89, 0x50, 0x4E, 0x47]).base64EncodedString())
+        XCTAssertEqual(AgentDoor.query(["window": "w3", "scale": 2.0]), ["window": "w3", "scale": "2"])
+    }
+
+    /// The door opens on the loopback address, answers the token holder and refuses a request without the token.
     @MainActor func testTheOpenDoorAnswersOverTheLoopbackAddress() async throws {
-        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("agent-door-\(UUID().uuidString)", isDirectory: true)
-        defer { try? FileManager.default.removeItem(at: folder) }
-        let file = folder.appendingPathComponent("agent-door.json")
-        let door = AgentDoor(appName: "TestApp", appVersion: "1.0", discoveryURL: file)
+        let door = AgentDoor(appName: "TestApp", appVersion: "1.0", preferredPort: 0, defaults: Self.freshDefaults())
         let probe = Probe("a.h5")
         door.enroll(probe) { ["file_name": probe.file] }
         door.setEnabled(true)
         defer { door.setEnabled(false) }
-        for _ in 0..<250 where door.status == .starting || door.status == .off { try await Task.sleep(for: .milliseconds(20)) }
-        guard case .listening(let port) = door.status else { return XCTFail("the door did not open: \(door.status)") }
-
-        let record = try XCTUnwrap(try JSONSerialization.jsonObject(with: Data(contentsOf: file)) as? [String: Any])
-        XCTAssertEqual(record["port"] as? Int, Int(port))
-        XCTAssertEqual(record["api"] as? Int, AgentDoor.apiVersion)
-        XCTAssertEqual(record["app"] as? String, "TestApp")
-        let token = try XCTUnwrap(record["token"] as? String)
-        XCTAssertEqual(token.count, 64)
-        let permissions = try XCTUnwrap(try FileManager.default.attributesOfItem(atPath: file.path)[.posixPermissions] as? Int)
-        XCTAssertEqual(permissions & 0o077, 0, "nobody but this account reads the token")
+        let port = try await waitUntilOpen(door)
+        let token = door.token
 
         let session = URLSession(configuration: .ephemeral)
         var asked = URLRequest(url: try XCTUnwrap(URL(string: "http://127.0.0.1:\(port)/v1/tools/list_windows")))
@@ -270,8 +397,18 @@ nonisolated final class AgentDoorTests: XCTestCase {
         XCTAssertEqual((refused as? HTTPURLResponse)?.statusCode, 401)
         XCTAssertEqual(door.requestCount, 1, "a refused request is not counted as answered")
 
+        var mcpCall = URLRequest(url: try XCTUnwrap(URL(string: "http://127.0.0.1:\(port)/mcp")))
+        mcpCall.httpMethod = "POST"
+        mcpCall.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        mcpCall.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        mcpCall.setValue("application/json, text/event-stream", forHTTPHeaderField: "Accept")
+        mcpCall.httpBody = Data(#"{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"list_windows","arguments":{}}}"#.utf8)
+        let (mcpData, mcpResponse) = try await session.data(for: mcpCall)
+        XCTAssertEqual((mcpResponse as? HTTPURLResponse)?.statusCode, 200)
+        XCTAssertTrue(String(decoding: mcpData, as: UTF8.self).contains("a.h5"), "MCP over the loopback address, as Claude Code asks")
+
         door.setEnabled(false)
         XCTAssertEqual(door.status, .off)
-        XCTAssertFalse(FileManager.default.fileExists(atPath: file.path), "a closed door leaves no file")
+        XCTAssertEqual(door.token, token, "closing keeps the token")
     }
 }

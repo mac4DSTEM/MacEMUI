@@ -2,16 +2,20 @@
 //  AgentDoor.swift
 //  Role: The agent door both apps share: a local API through which an agent on this Mac (Claude, Codex, a script) looks at what
 //        the app's windows show. The app hands it its tools (`AgentTool`); the door owns everything else: the listener on this
-//        Mac's loopback address (`AgentDoorServer`), who may ask (`AgentDoorGate`), the file that says where it is, the list of open
-//        windows, and the routes.
+//        Mac's loopback address (`AgentDoorServer`), who may ask (`AgentDoorGate`), the list of open windows, the routes and
+//        the MCP endpoint.
 //
 //  Off until the person turns it on (`AgentDoorSettingsSection`, bound to a preference the app keeps). While on, the app listens
-//  on 127.0.0.1 only and writes one file, readable by this user's account only: the port and a token made new each time the
-//  door opens. The MCP bridge (`macem-mcp`, a separate tool) reads it; a request without the token is refused. Nothing leaves the
-//  Mac and the app sends nothing by itself.
+//  on 127.0.0.1 only, on the app's own port (`preferredPort`, another when that one is taken), and answers only requests that
+//  carry its token. The token is made once and kept in the app's preferences, so a connection command stays good; the person
+//  makes a new one in Settings, which shuts out whoever had the old. The app is an MCP server itself (`/mcp`, MCP's Streamable
+//  HTTP transport, `AgentMCP.swift`): the Settings section's Copy Connection Command (`connectionCommand`) registers its address
+//  and token with Claude Code, and nothing is installed beside the app, so the App Store build has the whole door. Nothing
+//  leaves the Mac and the app sends nothing by itself.
 //
-//  Routes, every one a GET in this version:
+//  Routes (the /v1 ones GET, for a script or a test):
 //
+//    POST /mcp               MCP (JSON-RPC 2.0): initialize, tools/list, tools/call; what an agent uses
 //    /v1                     the app, the API version, the tools' names
 //    /v1/tools               the tools in MCP's shape (name, title, description, input schema, annotations)
 //    /v1/tools/<name>        run one: ?window=w1 (or none while one window is open), ?scale=1...3 for a picture
@@ -25,7 +29,7 @@ import Observation
 
 @Observable
 public final class AgentDoor {
-    /// The API's version: the `/v1` in every path, and `api` in the door's file.
+    /// The API's version: the `/v1` in every path, and `api` in `/v1`.
     public static let apiVersion = 1
 
     public enum Status: Equatable {
@@ -39,14 +43,17 @@ public final class AgentDoor {
     /// Requests answered since the door last opened (the Settings row shows it, so the person sees an agent is there).
     public private(set) var requestCount = 0
 
-    /// The app's name: in the door's file, in `/v1`, in the Settings text.
+    /// The app's name: in `/v1`, in the Settings text, in the connection command.
     public let appName: String
     public let appVersion: String
-    /// Where the door's file goes; nil writes none (a test that only talks to the port).
-    public let discoveryURL: URL?
+    /// The port the door asks for first; the system picks another when it is taken (`status` says which).
+    public let preferredPort: UInt16
+    /// The token a request must carry: 32 random bytes as hex, made once and kept (`defaults`) until `makeNewToken`.
+    public private(set) var token: String
 
+    @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private var server: AgentDoorServer?
-    @ObservationIgnored private(set) var token = ""
+    @ObservationIgnored private var askedForPreferredPort = false
     @ObservationIgnored private var tools: [AgentTool] = []
 
     private struct Enrolled {
@@ -57,22 +64,43 @@ public final class AgentDoor {
     @ObservationIgnored private var windows: [Enrolled] = []
     @ObservationIgnored private var nextWindowNumber = 1
 
-    /// The door's file goes to `Application Support/<appName>/agent-door.json` (inside the container for a sandboxed app).
-    public convenience init(appName: String, appVersion: String) {
-        self.init(appName: appName, appVersion: appVersion, discoveryURL: Self.defaultDiscoveryURL(appName: appName))
-    }
+    static let tokenKey = "agentDoor.token"
 
-    /// `discoveryURL` nil writes no file (a test that talks to the port only).
-    public init(appName: String, appVersion: String, discoveryURL: URL?) {
+    /// `defaults` keeps the token (the app's own preferences; a test passes its own suite).
+    public init(appName: String, appVersion: String, preferredPort: UInt16, defaults: UserDefaults = .standard) {
         self.appName = appName
         self.appVersion = appVersion
-        self.discoveryURL = discoveryURL
+        self.preferredPort = preferredPort
+        self.defaults = defaults
+        if let kept = defaults.string(forKey: Self.tokenKey), Self.isToken(kept) {
+            token = kept
+        } else {
+            token = Self.makeToken()
+            defaults.set(token, forKey: Self.tokenKey)
+        }
     }
 
-    public static func defaultDiscoveryURL(appName: String) -> URL? {
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
-            .appendingPathComponent(appName, isDirectory: true)
-            .appendingPathComponent("agent-door.json", isDirectory: false)
+    /// A new token: whoever had the old one is shut out, and the connection command must be copied again.
+    public func makeNewToken() {
+        token = Self.makeToken()
+        defaults.set(token, forKey: Self.tokenKey)
+    }
+
+    nonisolated static func isToken(_ text: String) -> Bool {
+        text.count == 64 && text.allSatisfy(\.isHexDigit)
+    }
+
+    /// The address an MCP client connects to; nil while the door is not open.
+    public var mcpURL: String? {
+        guard case .listening(let port) = status else { return nil }
+        return "http://127.0.0.1:\(port)/mcp"
+    }
+
+    /// What registers this app with Claude Code as an MCP server over HTTP, with the door's address and token; nil while the door
+    /// is not open. Nothing else is installed: the app is the server.
+    public func connectionCommand() -> String? {
+        guard let mcpURL else { return nil }
+        return "claude mcp add --transport http \(appName.lowercased()) \(mcpURL) --header \"Authorization: Bearer \(token)\""
     }
 
     // MARK: Tools
@@ -107,24 +135,25 @@ public final class AgentDoor {
 
     private func open() {
         guard server == nil else { return }
-        token = Self.makeToken()
         requestCount = 0
+        askedForPreferredPort = true
+        listen(on: preferredPort)
+    }
+
+    private func listen(on port: UInt16?) {
         let made = AgentDoorServer { [weak self] request in
             self?.respond(to: request) ?? .error(503, "The agent door is closed.")
         }
         made.onStateChange = { [weak self] new in self?.serverChanged(new) }
         server = made
-        made.start()
+        made.start(port: port)
     }
 
     private func close() {
-        // Only a door that opened takes the file away: another running copy of the app may own the one that is there.
         guard let running = server else { status = .off; return }
-        removeDiscoveryFile()
         running.onStateChange = nil
         server = nil
         running.stop()
-        token = ""
         status = .off
     }
 
@@ -136,11 +165,16 @@ public final class AgentDoor {
             status = .starting
         case .listening(let port):
             status = .listening(port: port)
-            writeDiscoveryFile(port: port)
         case .failed(let why):
-            removeDiscoveryFile()
             server?.onStateChange = nil
+            server?.stop()
             server = nil
+            // The app's port is taken (another copy of the app, another program): any free one will do, and the pane says which.
+            if askedForPreferredPort {
+                askedForPreferredPort = false
+                listen(on: nil)
+                return
+            }
             status = .failed(why)
         }
     }
@@ -149,38 +183,6 @@ public final class AgentDoor {
     nonisolated static func makeToken() -> String {
         var generator = SystemRandomNumberGenerator()
         return (0..<32).map { _ in String(format: "%02x", UInt8.random(in: 0...255, using: &generator)) }.joined()
-    }
-
-    // MARK: The door's file
-
-    /// What the bridge reads: the API version, the port, the token, this process. Written whole, then closed to other accounts.
-    private func writeDiscoveryFile(port: UInt16) {
-        guard let url = discoveryURL else { return }
-        let record: [String: Any] = [
-            "api": Self.apiVersion,
-            "port": Int(port),
-            "token": token,
-            "pid": Int(ProcessInfo.processInfo.processIdentifier),
-            "app": appName,
-            "app_version": appVersion,
-        ]
-        do {
-            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-            let data = try JSONSerialization.data(withJSONObject: record, options: [.sortedKeys, .prettyPrinted])
-            try data.write(to: url, options: [.atomic])
-            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
-        } catch {
-            // A door nobody can find is not open: say why instead of listening unseen.
-            server?.onStateChange = nil
-            server?.stop()
-            server = nil
-            status = .failed("The door's file could not be written: \(error.localizedDescription)")
-        }
-    }
-
-    private func removeDiscoveryFile() {
-        guard let url = discoveryURL else { return }
-        try? FileManager.default.removeItem(at: url)
     }
 
     // MARK: Windows
@@ -221,6 +223,7 @@ public final class AgentDoor {
 
     /// Which answer a request gets, the gate passed.
     func route(_ request: AgentHTTPRequest) -> AgentHTTPResponse {
+        if request.path == "/mcp" { return mcpResponse(to: request) }
         guard request.method == "GET" else { return .error(405, "This version of the door is read-only: every route is a GET.") }
         let parts = request.path.split(separator: "/").map(String.init)
         let tools = allTools
@@ -240,7 +243,7 @@ public final class AgentDoor {
         }
     }
 
-    private func run(_ tool: AgentTool, query: [String: String]) -> AgentHTTPResponse {
+    func run(_ tool: AgentTool, query: [String: String]) -> AgentHTTPResponse {
         var window: AgentWindow?
         if tool.input != .noWindow {
             switch resolveWindow(query["window"]) {
