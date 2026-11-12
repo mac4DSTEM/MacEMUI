@@ -733,6 +733,7 @@ public final class EDXSession {
         if explicit { dismissed = [] }
         guard let beam = beamEnergy, beam > 0 else {
             autoID = .failed(EDXCompute.autoIDNeedsBeamNote)
+            if explicit { onEvent?(Self.autoIDStatusLine(added: [], region: keptName, failure: EDXCompute.autoIDNeedsBeamNote)) }
             return nil
         }
         autoID = .running
@@ -741,6 +742,7 @@ public final class EDXSession {
         let phasePools = EDXCompute.autoIDPools(pools, region: region)
         autoIDRun += 1
         let run = autoIDRun
+        announcedAutoIDRun = explicit ? run : nil
         let task = Task.detached(priority: .userInitiated) { [weak self] in
             let spectrum = EDXCompute.spectrum(source: source, region: region, cache: cache)
             var outcome: EDXCompute.AutoIDOutcome?
@@ -777,12 +779,29 @@ public final class EDXSession {
         return task
     }
 
+    /// The run the Auto ID button started: only that one writes a status line. The automatic runs (open, a region change)
+    /// stay silent, so "Opened" and the region's own line are not written over.
+    @ObservationIgnored private var announcedAutoIDRun: Int?
+
+    /// The line the button's run leaves: what it added and where it looked, or why it could not run. The button gave no
+    /// sign in the status line that it had finished.
+    public nonisolated static func autoIDStatusLine(added: [String], region: String, failure: String?) -> String {
+        if let failure { return failure.hasPrefix("Auto ID") ? failure : "Auto ID: " + failure }
+        return "Auto ID \u{2713}  " + (added.isEmpty ? "no new element" : "added " + added.joined(separator: ", ")) + " \u{00B7} " + region
+    }
+
     private func landAutoID(_ outcome: EDXCompute.AutoIDOutcome?, failure: String?, run: Int) {
         guard run == autoIDRun, case .running = autoID else { return }
-        guard let outcome else { autoID = .failed(failure ?? "Auto ID failed."); return }
+        let announce = run == announcedAutoIDRun
+        guard let outcome else {
+            autoID = .failed(failure ?? "Auto ID failed.")
+            if announce { onEvent?(Self.autoIDStatusLine(added: [], region: keptName, failure: failure ?? "Auto ID failed.")) }
+            return
+        }
         var decided = outcome
         decided.suggestions = outcome.suggestions.filter { s in !dismissed.contains(s.symbol) && !picks.contains(where: { $0.symbol == s.symbol }) }
         autoID = .done(decided)
+        if announce { onEvent?(Self.autoIDStatusLine(added: decided.suggestions.map(\.symbol), region: outcome.region, failure: nil)) }
         var applied = false
         for s in outcome.suggestions where !dismissed.contains(s.symbol) && !picks.contains(where: { $0.symbol == s.symbol }) {
             picks.append(EDXPick(symbol: s.symbol, role: s.role, manual: false))
