@@ -2,7 +2,7 @@
 //  Colormaps.metal
 //  Role: GPU-side image display. A fullscreen-triangle vertex shader (no vertex
 //        buffer — positions come from vertex_id) plus a fragment shader that
-//        reads a single-channel, already-normalized result texture and looks up
+//        reads a single-channel, already-normalized result buffer and looks up
 //        its color in a 1D colormap LUT texture. Zoom, pan, rotation and mirroring
 //        come from one affine map (pane-normalised position -> image uv).
 //
@@ -40,13 +40,14 @@ vertex VOut displayVertex(uint vid [[vertex_id]],
 }
 
 // display = (lo, hi, gamma, unused) in normalized [0,1] intensity.
+// img = the row-major Float32 image, size = (width, height). A buffer, not a texture: a 2D texture is limited to 16384
+// pixels a side, and larger images must draw (macTEM#562). Read NEAREST, as a clamp-to-edge nearest sampler would.
 fragment float4 colormapFragment(VOut in [[stage_in]],
                                  constant float4 &display [[buffer(0)]],
-                                 texture2d<float> img [[texture(0)]],
+                                 device const float *img [[buffer(1)]],
+                                 constant uint2 &size [[buffer(2)]],
                                  texture1d<float> lut [[texture(1)]])
 {
-    // r32Float data sampled NEAREST (not all GPUs filter r32Float).
-    constexpr sampler dataSampler(coord::normalized, address::clamp_to_edge, filter::nearest);
     // rgba8 LUT is filterable → smooth color ramp.
     constexpr sampler lutSampler(address::clamp_to_edge, filter::linear);
 
@@ -56,7 +57,9 @@ fragment float4 colormapFragment(VOut in [[stage_in]],
         return float4(0.0);
     }
 
-    float raw = img.sample(dataSampler, in.uv).r;
+    uint x = min(uint(in.uv.x * float(size.x)), size.x - 1);
+    uint y = min(uint(in.uv.y * float(size.y)), size.y - 1);
+    float raw = img[y * size.x + x];
     // Invalid/masked pixels arrive as a negative sentinel (see
     // FloatImage.invalidDisplayValue). They get a dedicated neutral gray,
     // never a colormap entry — "no data" must not look like a value.

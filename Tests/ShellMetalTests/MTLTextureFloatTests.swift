@@ -2,10 +2,10 @@
 //  MTLTextureFloatTests.swift
 //  Hygiene audit row 10-lite (2026-09-16): `MTLTexture+Float.swift` had zero
 //  test references (code-metrics.md table D2). These round-trip small known
-//  arrays through `makeFloatTexture` / `makeRGBATexture` / `makeLUTTexture`
-//  and read them back with `getBytes`, asserting exact byte equality — both
-//  `.r32Float` and `.rgba8Unorm` store the given bytes without quantization,
-//  so a correct round trip is exact, not merely close.
+//  arrays through `makeImageBuffer` / `makeRGBATexture` / `makeLUTTexture`
+//  and read them back, asserting exact equality — the Float32 buffer and
+//  `.rgba8Unorm` store the given bytes without quantization, so a correct
+//  round trip is exact, not merely close.
 //
 
 import XCTest
@@ -23,25 +23,17 @@ nonisolated final class MTLTextureFloatTests: XCTestCase {
         try XCTUnwrap(MTLCreateSystemDefaultDevice())
     }
 
-    /// A non-square size so a width/height swap in the descriptor or the
-    /// upload's `bytesPerRow` would misalign the read-back, not merely
-    /// transpose values that happen to look the same.
-    func testFloatTextureRoundTripsExactValues() throws {
+    /// The image buffer holds the pixels exactly, in row-major order, and refuses a count that is not width × height.
+    func testImageBufferHoldsExactValues() throws {
         let dev = try device()
-        let width = 3, height = 2
         let pixels: [Float] = [0.0, 0.25, 0.5, 0.75, 1.0, -0.125]
-        let tex = try XCTUnwrap(dev.makeFloatTexture(pixels: pixels, width: width, height: height))
+        let buffer = try XCTUnwrap(dev.makeImageBuffer(pixels: pixels, width: 3, height: 2))
+        XCTAssertEqual(contents(buffer, count: 6), pixels)
+        XCTAssertNil(dev.makeImageBuffer(pixels: pixels, width: 4, height: 2))
+    }
 
-        XCTAssertEqual(tex.width, width)
-        XCTAssertEqual(tex.height, height)
-
-        var readBack = [Float](repeating: .nan, count: width * height)
-        readBack.withUnsafeMutableBytes { raw in
-            tex.getBytes(raw.baseAddress!, bytesPerRow: width * MemoryLayout<Float>.stride,
-                         from: MTLRegionMake2D(0, 0, width, height), mipmapLevel: 0)
-        }
-
-        XCTAssertEqual(readBack, pixels, "r32Float must round-trip float32 bit-exactly")
+    private func contents(_ buffer: MTLBuffer, count: Int) -> [Float] {
+        Array(UnsafeBufferPointer(start: buffer.contents().bindMemory(to: Float.self, capacity: count), count: count))
     }
 
     /// RGBA bytes with every channel distinct per pixel, so a dropped or
@@ -96,32 +88,24 @@ nonisolated final class MTLTextureFloatTests: XCTestCase {
         XCTAssertEqual(readBack, rgba, "the 1D LUT must round-trip every entry, none dropped or shifted")
     }
 
-    /// The raw path builds the texture `makeFloatTexture` builds from the normalised copy, bit for bit, across strip boundaries
-    /// (a strip of 2 rows over 5), with a non-finite value masked, and the flat and empty ranges as the normalisation defines them.
-    func testNormalizedTextureFromRawEqualsTheNormalisedCopysTexture() throws {
+    /// The raw path builds the buffer `makeImageBuffer` builds from the normalised copy, bit for bit, with non-finite values
+    /// masked, and the flat and empty ranges as the normalisation defines them.
+    func testNormalizedImageBufferFromRawEqualsTheNormalisedCopysBuffer() throws {
         let dev = try device()
         let width = 3, height = 5
         let raw: [Float] = [3, 7, 11, 2, .nan, 19, 23, -4, 0.5, 8, .infinity, 13, 1, 6, 17]
         let finite = raw.filter(\.isFinite)
         let low = try XCTUnwrap(finite.min()), high = try XCTUnwrap(finite.max())
-        func reference(_ low: Float, _ span: Float, hasRange: Bool) -> [Float] {
-            raw.map { hasRange && $0.isFinite ? (span > 0 ? ($0 - low) / span : 0) : -1 }
+        func reference(_ low: Float, _ span: Float) -> [Float] {
+            raw.map { $0.isFinite ? (span > 0 ? ($0 - low) / span : 0) : -1 }
         }
-        func readBack(_ tex: MTLTexture) -> [Float] {
-            var out = [Float](repeating: .nan, count: width * height)
-            out.withUnsafeMutableBytes { bytes in
-                tex.getBytes(bytes.baseAddress!, bytesPerRow: width * MemoryLayout<Float>.stride,
-                             from: MTLRegionMake2D(0, 0, width, height), mipmapLevel: 0)
-            }
-            return out
-        }
-        let made = try XCTUnwrap(dev.makeNormalizedTexture(raw: raw, width: width, height: height, range: low...high, stripRows: 2))
-        let expected = try XCTUnwrap(dev.makeFloatTexture(pixels: reference(low, high - low, hasRange: true), width: width, height: height))
-        XCTAssertEqual(readBack(made).map(\.bitPattern), readBack(expected).map(\.bitPattern))
-        let flat = try XCTUnwrap(dev.makeNormalizedTexture(raw: raw, width: width, height: height, range: 5...5, stripRows: 2))
-        XCTAssertEqual(readBack(flat), reference(5, 0, hasRange: true))
-        let none = try XCTUnwrap(dev.makeNormalizedTexture(raw: raw, width: width, height: height, range: nil))
-        XCTAssertEqual(readBack(none), [Float](repeating: -1, count: width * height))
-        XCTAssertNil(dev.makeNormalizedTexture(raw: raw, width: width, height: height + 1, range: low...high))
+        let made = try XCTUnwrap(dev.makeNormalizedImageBuffer(raw: raw, width: width, height: height, range: low...high))
+        let expected = try XCTUnwrap(dev.makeImageBuffer(pixels: reference(low, high - low), width: width, height: height))
+        XCTAssertEqual(contents(made, count: raw.count).map(\.bitPattern), contents(expected, count: raw.count).map(\.bitPattern))
+        let flat = try XCTUnwrap(dev.makeNormalizedImageBuffer(raw: raw, width: width, height: height, range: 5...5))
+        XCTAssertEqual(contents(flat, count: raw.count), reference(5, 0))
+        let none = try XCTUnwrap(dev.makeNormalizedImageBuffer(raw: raw, width: width, height: height, range: nil))
+        XCTAssertEqual(contents(none, count: raw.count), [Float](repeating: -1, count: raw.count))
+        XCTAssertNil(dev.makeNormalizedImageBuffer(raw: raw, width: width, height: height + 1, range: low...high))
     }
 }

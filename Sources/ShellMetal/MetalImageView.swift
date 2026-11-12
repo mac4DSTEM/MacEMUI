@@ -73,8 +73,8 @@ public struct MetalImageView {
 
     public var pixels: [Float]          // normalised [0, 1], row-major (or raw, `pixelScale`)
     /// What `pixels` hold: normalised display values (the default), or the raw values with their finite range, which the view
-    /// normalises itself into the texture a strip at a time (`MTLDevice.makeNormalizedTexture`), so the caller keeps no
-    /// full-size normalised copy beside its raw pixels. The texture is the same either way.
+    /// normalises itself straight into the GPU buffer (`MTLDevice.makeNormalizedImageBuffer`), so the caller keeps no
+    /// full-size normalised copy beside its raw pixels. The buffer is the same either way.
     public var pixelScale: PixelScale = .normalized
 
     public enum PixelScale: Equatable, Sendable {
@@ -233,7 +233,8 @@ public struct MetalImageView {
         var gamma: Float = 1
         var displayTransform: MetalDisplayTransform?
 
-        private var dataTexture: MTLTexture?
+        private var dataBuffer: MTLBuffer?
+        private var dataSize = SIMD2<UInt32>(0, 0)
         private var rgbaTexture: MTLTexture?
         private var lutTexture: MTLTexture?
         private(set) var lutDirty = true
@@ -246,28 +247,23 @@ public struct MetalImageView {
             guard v != version || s != scale else { return }
             version = v
             scale = s
-            guard width > 0, height > 0 else {
-                dataTexture = nil
-                rgbaTexture = nil
-                return
-            }
+            // The old resource goes first, so a new large image is not built while the previous one is still held.
+            dataBuffer = nil
+            rgbaTexture = nil
+            guard width > 0, height > 0 else { return }
             if let rgba, rgba.count == width * height * 4 {
                 rgbaTexture = MetalEngine.shared.device.makeRGBATexture(
                     rgba: rgba, width: width, height: height)
-                dataTexture = nil
             } else if pixels.count == width * height {
                 switch s {
                 case .normalized:
-                    dataTexture = MetalEngine.shared.device.makeFloatTexture(
+                    dataBuffer = MetalEngine.shared.device.makeImageBuffer(
                         pixels: pixels, width: width, height: height)
                 case .raw(let range):
-                    dataTexture = MetalEngine.shared.device.makeNormalizedTexture(
+                    dataBuffer = MetalEngine.shared.device.makeNormalizedImageBuffer(
                         raw: pixels, width: width, height: height, range: range)
                 }
-                rgbaTexture = nil
-            } else {
-                dataTexture = nil
-                rgbaTexture = nil
+                dataSize = SIMD2<UInt32>(UInt32(width), UInt32(height))
             }
         }
 
@@ -301,7 +297,7 @@ public struct MetalImageView {
             let engine = MetalEngine.shared
             if rgbaTexture != nil {
                 encoder.setRenderPipelineState(engine.displayRGBAPSO)
-            } else if dataTexture != nil, lutTexture != nil {
+            } else if dataBuffer != nil, lutTexture != nil {
                 encoder.setRenderPipelineState(engine.displayPSO)
             } else {
                 encoder.endEncoding()
@@ -323,7 +319,9 @@ public struct MetalImageView {
                 var display = SIMD4<Float>(displayRange.x, displayRange.y, gamma, 0)
                 encoder.setFragmentBytes(
                     &display, length: MemoryLayout<SIMD4<Float>>.stride, index: 0)
-                encoder.setFragmentTexture(dataTexture, index: 0)
+                encoder.setFragmentBuffer(dataBuffer, offset: 0, index: 1)
+                var size = dataSize
+                encoder.setFragmentBytes(&size, length: MemoryLayout<SIMD2<UInt32>>.stride, index: 2)
                 encoder.setFragmentTexture(lutTexture, index: 1)
             }
             encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
