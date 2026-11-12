@@ -356,6 +356,60 @@ nonisolated final class AgentDoorTests: XCTestCase {
         XCTAssertEqual((unknown["error"] as? [String: Any])?["code"] as? Int, -32602)
     }
 
+    /// The 2026-07-28 revision: no handshake, the revision and the client's capabilities on each request, the headers agreeing
+    /// with the body, `resultType` on every result. Mutation: drop a header check, the version check, or `resultType` - red.
+    @MainActor func testMCPSpeaksTheStatelessRevision() throws {
+        let door = door([Probe("a.h5")])
+        func modern(_ method: String, _ params: [String: Any] = [:], version: String = "2026-07-28",
+                    capabilities: Bool = true, headers: [String: String]? = nil) throws -> AgentHTTPResponse {
+            var meta: [String: Any] = [AgentDoor.metaVersionKey: version]
+            if capabilities { meta[AgentDoor.metaCapabilitiesKey] = [String: Any]() }
+            var body = params
+            body["_meta"] = meta
+            var asked = try mcp(["jsonrpc": "2.0", "id": 9, "method": method, "params": body])
+            var sent = ["mcp-protocol-version": version, "mcp-method": method]
+            if method == "tools/call" { sent["mcp-name"] = params["name"] as? String ?? "" }
+            for (key, value) in headers ?? sent { asked.headers[key] = value }
+            return door.route(asked)
+        }
+        func code(_ response: AgentHTTPResponse) throws -> Int? {
+            XCTAssertEqual(response.status, 400, String(decoding: response.body, as: UTF8.self))
+            return (try object(response)["error"] as? [String: Any])?["code"] as? Int
+        }
+
+        let discovered = try result(try modern("server/discover"))
+        XCTAssertEqual(discovered["resultType"] as? String, "complete")
+        XCTAssertEqual((discovered["supportedVersions"] as? [String])?.first, "2026-07-28")
+        XCTAssertTrue((discovered["supportedVersions"] as? [String] ?? []).contains("2025-06-18"), "the older clients keep working")
+        XCTAssertNotNil((discovered["capabilities"] as? [String: Any])?["tools"])
+        XCTAssertNotNil(discovered["instructions"])
+
+        let listed = try result(try modern("tools/list"))
+        XCTAssertEqual(listed["resultType"] as? String, "complete")
+        XCTAssertEqual((listed["tools"] as? [[String: Any]])?.count, 4)
+        XCTAssertEqual(listed["cacheScope"] as? String, "private")
+
+        let called = try result(try modern("tools/call", ["name": "get_file", "arguments": [String: Any]()]))
+        XCTAssertEqual(called["resultType"] as? String, "complete")
+        XCTAssertEqual((called["structuredContent"] as? [String: Any])?["file"] as? String, "a.h5", "typed beside the text")
+
+        XCTAssertEqual(try code(try modern("tools/list", version: "2099-01-01")), -32022)
+        let unsupported = try object(try modern("tools/list", version: "2099-01-01"))
+        XCTAssertNotNil(((unsupported["error"] as? [String: Any])?["data"] as? [String: Any])?["supported"])
+        XCTAssertEqual(try code(try modern("tools/list", capabilities: false)), -32602)
+        XCTAssertEqual(try code(try modern("tools/list", headers: ["mcp-method": "tools/list"])), -32020, "no revision header")
+        XCTAssertEqual(try code(try modern("tools/list", headers: ["mcp-protocol-version": "2026-07-28", "mcp-method": "tools/call"])),
+                       -32020, "the method header disagrees")
+        XCTAssertEqual(try code(try modern("tools/call", ["name": "get_file"],
+                                           headers: ["mcp-protocol-version": "2026-07-28", "mcp-method": "tools/call",
+                                                     "mcp-name": "get_scale"])), -32020, "the tool header disagrees")
+        XCTAssertEqual(try modern("resources/list").status, 404)
+
+        let legacy = try result(door.route(try mcp(["jsonrpc": "2.0", "id": 1, "method": "initialize",
+                                                    "params": ["protocolVersion": "2025-11-25"]])))
+        XCTAssertEqual(legacy["protocolVersion"] as? String, "2025-11-25", "the handshake revisions still start with initialize")
+    }
+
     @MainActor func testMCPAnswersWhatItIsNotSent() throws {
         let door = door()
         XCTAssertEqual(door.route(try mcp(["jsonrpc": "2.0", "method": "notifications/initialized"])).status, 202, "a notification")
