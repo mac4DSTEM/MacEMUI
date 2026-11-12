@@ -25,6 +25,7 @@ let package = Package(
         .library(name: "ShellSpectroscopy", targets: ["ShellSpectroscopy"]),
         .library(name: "ShellEDXModel", targets: ["ShellEDXModel"]),
         .library(name: "ShellAgentDoor", targets: ["ShellAgentDoor"]),
+        .library(name: "ShellEDXAgent", targets: ["ShellEDXAgent"]),
     ],
     dependencies: [
         // ScaleBarMath (PaneFooter/ScaleBar). The apps pin exact tags.
@@ -60,6 +61,10 @@ let package = Package(
         // The agent door both apps share (docs/agent-door.md): a local, read-only API an agent on this Mac reaches through the
         // MCP server over HTTP. Network.framework only; each app registers its own tools.
         .target(name: "ShellAgentDoor", swiftSettings: shellSettings),
+        // The EDS room's agent tools, written once for both apps (each says how a window reaches its EDS session).
+        .target(name: "ShellEDXAgent",
+                dependencies: ["ShellAgentDoor", "ShellEDXModel", .product(name: "SpectroEDX", package: "SpectroKit")],
+                swiftSettings: shellSettings),
         .testTarget(name: "ShellMetalTests", dependencies: ["ShellMetal"], swiftSettings: shellSettings),
         .testTarget(name: "ShellControlsTests", dependencies: ["ShellControls"], swiftSettings: shellSettings),
         .testTarget(name: "ShellInspectorTests", dependencies: ["ShellInspector", "ShellLayout"], swiftSettings: shellSettings),
@@ -67,7 +72,7 @@ let package = Package(
         .testTarget(name: "ShellSpectroscopyTests", dependencies: ["ShellSpectroscopy", "ShellMetal", "ShellControls"], swiftSettings: shellSettings),
         .testTarget(name: "ShellAgentDoorTests", dependencies: ["ShellAgentDoor"], swiftSettings: shellSettings),
         .testTarget(name: "ShellEDXTests",
-                    dependencies: ["ShellEDXModel", "ShellSpectroscopy", "ShellLayout",
+                    dependencies: ["ShellEDXModel", "ShellSpectroscopy", "ShellLayout", "ShellEDXAgent", "ShellAgentDoor",
                                    .product(name: "FormatoCore", package: "FormatoKit"),
                                    .product(name: "FormatoMSA", package: "FormatoKit"),
                                    .product(name: "SpectroCore", package: "SpectroKit"),
