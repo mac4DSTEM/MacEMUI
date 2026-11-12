@@ -34,6 +34,9 @@ public nonisolated enum EDXSpectrumWindow {
         return clamp((w.lowerBound + d)...(w.upperBound + d), domain: domain, minimumSpan: minimumSpan)
     }
 
+    /// Channels below this energy are the detector's strobe peak and do not set the count axis' scale.
+    public static let strobeCeilingKeV = 0.1
+
     /// Tick positions inside `w`: a step of 1, 2 or 5 times a power of ten giving about six ticks.
     public static func ticks(in w: ClosedRange<Double>) -> [Double] {
         let span = w.upperBound - w.lowerBound
@@ -162,8 +165,10 @@ struct EDXSpectrumView: View {
             return lo < hi ? lo..<hi : 0..<0
         }
         let dataRange = channels(of: plot.energyStart, step: plot.energyStep, count: plot.data.count)
+        // The detector's strobe (zero-energy) peak is electronics, not X-rays, and is often the tallest thing in the file: it
+        // does not set the scale, or every real line is a few pixels high. It is still drawn, clipped at the top.
         var top = 1.0
-        for i in dataRange { top = max(top, plot.data[i]) }
+        for i in dataRange where plot.energyStart + Double(i) * plot.energyStep >= EDXSpectrumWindow.strobeCeilingKeV { top = max(top, plot.data[i]) }
         if let peak = SpectrumLayerPlot.peak(of: layers, in: w, scale: .linear) { top = max(top, peak) }
         top = top * 1.08 / yZoom
         func y(_ v: Double) -> CGFloat { area.maxY - CGFloat(min(max(v / top, 0), 1)) * area.height }
@@ -175,11 +180,14 @@ struct EDXSpectrumView: View {
             context.draw(Text(Num.sig((t * 1000).rounded() / 1000, 6)).font(.caption2).foregroundStyle(.secondary),
                          at: CGPoint(x: x(t), y: area.maxY + 10))
         }
-        for f in [0.0, 0.25, 0.5, 0.75, 1.0] {
-            let v = top / 1.08 * f
+        // Round counts (1, 2 or 5 times a power of ten), as on the energy axis; they were quarters of the tallest channel
+        // ("3 582", "1 194"), and seven-digit labels ran out of the margin on the left.
+        let countTicks = EDXSpectrumWindow.ticks(in: 0...(top / 1.08))
+        let countStep = countTicks.count > 1 ? countTicks[1] - countTicks[0] : top
+        for v in countTicks {
             var p = Path(); p.move(to: CGPoint(x: area.minX, y: y(v))); p.addLine(to: CGPoint(x: area.maxX, y: y(v)))
             context.stroke(p, with: .color(.secondary.opacity(0.15)), lineWidth: 0.5)
-            context.draw(Text(EDXRoomFormat.counts(v)).font(.caption2).foregroundStyle(.secondary), at: CGPoint(x: area.minX - 4, y: y(v)), anchor: .trailing)
+            context.draw(Text(EDXRoomFormat.axisCounts(v, step: countStep)).font(.caption2).foregroundStyle(.secondary), at: CGPoint(x: area.minX - 4, y: y(v)), anchor: .trailing)
         }
         // The axes are named outside the plot: the energy under the ticks, the unit of the counts over their labels.
         context.draw(Text("energy (keV)").font(.caption2).foregroundStyle(.secondary), at: CGPoint(x: area.midX, y: area.maxY + 25))

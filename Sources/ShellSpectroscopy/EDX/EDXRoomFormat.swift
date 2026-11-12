@@ -63,6 +63,20 @@ public nonisolated enum EDXRoomFormat {
         return (v < 0 ? "−" : "") + String(out.reversed())
     }
 
+    /// A count on the spectrum's axis, short enough for its margin: "250", "12 500", and from a tick step of a thousand on
+    /// "150 k", from a million on "2.5 M" (the step decides, so one axis never mixes the forms).
+    package static func axisCounts(_ v: Double, step: Double, locale: Locale = .autoupdatingCurrent) -> String {
+        guard v.isFinite, v != 0 else { return v == 0 ? "0" : "–" }
+        func scaled(_ divisor: Double, _ unit: String) -> String {
+            let x = v / divisor
+            let places = x == x.rounded() ? 0 : (x * 10 == (x * 10).rounded() ? 1 : 2)
+            return Num.fixed(x, places, locale: locale) + "\u{2009}" + unit
+        }
+        if step >= 1_000_000 * 0.999 || (step >= 100_000 && v >= 1_000_000) { return scaled(1_000_000, "M") }
+        if step >= 10_000 * 0.999 { return scaled(1_000, "k") }
+        return counts(v)
+    }
+
     /// "12.35 ± 0.56": a value and its 1σ, the σ to two significant digits and the value to the same decimal place.
     package static func plusMinus(_ value: Double, _ sigma: Double, locale: Locale = .autoupdatingCurrent) -> String {
         guard value.isFinite else { return "–" }
