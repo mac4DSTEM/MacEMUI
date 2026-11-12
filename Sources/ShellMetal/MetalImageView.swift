@@ -77,7 +77,7 @@ public struct MetalImageView {
     /// full-size normalised copy beside its raw pixels. The buffer is the same either way.
     public var pixelScale: PixelScale = .normalized
 
-    public enum PixelScale: Equatable, Sendable {
+    public nonisolated enum PixelScale: Equatable, Sendable {
         case normalized
         /// Raw values and their finite range (nil: no finite value, every pixel drawn masked).
         case raw(range: ClosedRange<Float>?)
@@ -87,7 +87,7 @@ public struct MetalImageView {
     /// values): an 8-bit image is one byte a pixel in the app and on the GPU, as ImageJ, GMS and Velox keep it (macTEM#566).
     public var nativePixels: NativePixels?
 
-    public enum NativePixels: Sendable {
+    public nonisolated enum NativePixels: Sendable {
         case uint8([UInt8])
         case uint16([UInt16])
 
