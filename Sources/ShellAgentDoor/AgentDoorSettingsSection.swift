@@ -1,7 +1,7 @@
 //
 //  AgentDoorSettingsSection.swift
-//  Role: The agent door's place in an app's Settings: one switch, what the door is doing, how to connect an agent, and one
-//        sentence on what an agent can and cannot do, because the switch opens a listener and the person should know its reach.
+//  Role: The agent door's place in an app's Settings: one switch (and a second, for an app whose tools act), what the door is
+//        doing, how to connect an agent, and what an agent can and cannot do, because the switch opens a listener and the person should know its reach.
 //        The app keeps the preference (its own Settings store and its Reset) and opens the door when it changes.
 //
 //  Copy Connection Command puts the line that registers the app with Claude Code as an MCP server, address and token included,
@@ -16,19 +16,29 @@ public struct AgentDoorSettingsSection: View {
     private let door: AgentDoor
     @Binding private var isOn: Bool
     private let canSee: String
+    private let runs: Binding<Bool>?
+    private let canRun: String?
     @State private var copied = false
 
-    /// `canSee` finishes "an agent you run on this Mac can read what <app>'s windows show: ...", in the app's words.
-    public init(door: AgentDoor, isOn: Binding<Bool>, canSee: String) {
+    /// `canSee` finishes "an agent you run on this Mac can read what <app>'s windows show: ...", in the app's words. An app with
+    /// tools that act passes `runs` (its preference for `AgentDoor.runsAllowed`) and `canRun`, which finishes "it can also ...".
+    public init(door: AgentDoor, isOn: Binding<Bool>, canSee: String, runs: Binding<Bool>? = nil, canRun: String? = nil) {
         self.door = door
         _isOn = isOn
         self.canSee = canSee
+        self.runs = runs
+        self.canRun = canRun
     }
 
     public var body: some View {
         Section("Agent access") {
             Toggle("Let agents on this Mac look at open windows", isOn: $isOn)
                 .accessibilityIdentifier("settings.agents.enabled")
+            if let runs {
+                Toggle("Let agents run analyses", isOn: runs)
+                    .disabled(!isOn)
+                    .accessibilityIdentifier("settings.agents.runs")
+            }
             LabeledContent("Status", value: Self.statusText(door.status, requests: door.requestCount))
                 .accessibilityIdentifier("settings.agents.status")
             LabeledContent("Connect Claude Code") {
@@ -48,7 +58,7 @@ public struct AgentDoorSettingsSection: View {
                     .accessibilityIdentifier("settings.agents.newToken")
                 }
             }
-            Text(Self.explanation(appName: door.appName, canSee: canSee))
+            Text(Self.explanation(appName: door.appName, canSee: canSee, canRun: runs == nil ? nil : canRun))
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -67,9 +77,13 @@ public struct AgentDoorSettingsSection: View {
         }
     }
 
-    static func explanation(appName: String, canSee: String) -> String {
-        "While this is on, an agent you run on this Mac (Claude, Codex) can read what \(appName)'s windows show through MCP: "
-            + "\(canSee). It cannot change anything. Copy the connection command and paste it into Terminal once; "
+    static func explanation(appName: String, canSee: String, canRun: String? = nil) -> String {
+        let reach = canRun.map {
+            "With \"Let agents run analyses\" on, it can also \($0), as the window's own controls do: your agent asks you before each "
+                + "step, one runs at a time, Stop in the window cancels it, and no file is deleted or overwritten. "
+        } ?? "It cannot change anything. "
+        return "While this is on, an agent you run on this Mac (Claude, Codex) can read what \(appName)'s windows show through MCP: "
+            + "\(canSee). " + reach + "Copy the connection command and paste it into Terminal once; "
             + "it holds the door's token, so keep it to yourself, and press New Token to shut out a command you gave away. "
             + "Nothing leaves this Mac, and other computers cannot reach the app."
     }

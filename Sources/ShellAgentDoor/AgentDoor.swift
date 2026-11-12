@@ -50,6 +50,9 @@ public final class AgentDoor {
     public let preferredPort: UInt16
     /// The token a request must carry: 32 random bytes as hex, made once and kept (`defaults`) until `makeNewToken`.
     public private(set) var token: String
+    /// Whether a tool that acts may run: the second switch in Settings > Agents, off until the person turns it on (the app keeps
+    /// the preference and sets this). Off, such a tool is listed but refused with a sentence that says how to allow it.
+    public var runsAllowed = false
 
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private var server: AgentDoorServer?
@@ -224,12 +227,13 @@ public final class AgentDoor {
     /// Which answer a request gets, the gate passed.
     func route(_ request: AgentHTTPRequest) -> AgentHTTPResponse {
         if request.path == "/mcp" { return mcpResponse(to: request) }
-        guard request.method == "GET" else { return .error(405, "This version of the door is read-only: every route is a GET.") }
+        guard request.method == "GET" else { return .error(405, "Every /v1 route is a GET; tools that act run through MCP (POST /mcp).") }
         let parts = request.path.split(separator: "/").map(String.init)
         let tools = allTools
         switch parts {
         case ["v1"]:
-            return .json(["app": appName, "app_version": appVersion, "api": Self.apiVersion, "access": "read-only",
+            return .json(["app": appName, "app_version": appVersion, "api": Self.apiVersion,
+                          "access": tools.contains(where: \.acts) && runsAllowed ? "look and run" : "read-only",
                           "tools": tools.map(\.name)])
         case ["v1", "tools"]:
             return .json(["tools": tools.map(\.descriptor)])
@@ -237,6 +241,7 @@ public final class AgentDoor {
             guard let tool = tools.first(where: { $0.name == path[2] }) else {
                 return .error(404, "No tool \(path[2]). GET /v1/tools lists them.")
             }
+            guard !tool.acts else { return .error(405, "\(tool.name) changes a window, so it runs through MCP (POST /mcp), not a GET.") }
             return run(tool, query: request.query)
         default:
             return .error(404, "Unknown path. GET /v1 says what this door answers.")
@@ -244,6 +249,11 @@ public final class AgentDoor {
     }
 
     func run(_ tool: AgentTool, query: [String: String]) -> AgentHTTPResponse {
+        if tool.acts, !runsAllowed {
+            return .error(403, "\(appName) lets agents look but not run analyses. The person can allow it with "
+                + "\"Let agents run analyses\" in \(appName)'s Settings > Agents.")
+        }
+        if let problem = tool.parameters.lazy.compactMap({ $0.problem(with: query[$0.name]) }).first { return .error(400, problem) }
         var window: AgentWindow?
         if tool.input != .noWindow {
             switch resolveWindow(query["window"]) {

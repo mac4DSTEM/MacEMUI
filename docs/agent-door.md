@@ -2,7 +2,7 @@
 
 A local API in mac4DSTEM and macTEM through which an agent on the same Mac (Claude, Codex, a script) looks at what the app's
 windows show. The app is the MCP server itself (MCP's Streamable HTTP transport at `/mcp`), so nothing is installed beside it
-and the App Store build has the whole door. Read-only in this version.
+and the App Store build has the whole door. Tools look; a tool that acts runs only behind a second switch.
 
 ## The pieces
 
@@ -33,7 +33,12 @@ and the App Store build has the whole door. Read-only in this version.
 - The app's own port first (mac4DSTEM 47811, macTEM 47812), so the command stays good; another when it is taken, shown in the pane.
 - A request with an `Origin` header (a web page) is refused, and so is one whose `Host` is not `127.0.0.1:<port>` or
   `localhost:<port>` (DNS rebinding). The token is compared in constant time.
-- The `/v1` routes are GETs and `/mcp` takes one JSON-RPC message per POST; tools change nothing. One request per connection, headers capped at 16 KB, bodies at 1 MB, chunked
+- Tools that act (an app passes `acts: true`) change a window as its own controls do. They run only while the second switch
+  ("Let agents run analyses", `AgentDoor.runsAllowed`, off by default) is on, only through `/mcp`, never from a GET, and only
+  with inputs that pass their `AgentParameter` schema. MCP lists them with `readOnlyHint: false` and `destructiveHint: false`,
+  so the agent's client asks the person before each call. The app keeps one run at a time (it refuses while busy), lets Stop
+  cancel it, and never deletes or overwrites a file.
+- The `/v1` routes are GETs and `/mcp` takes one JSON-RPC message per POST. One request per connection, headers capped at 16 KB, bodies at 1 MB, chunked
   bodies refused, at most 16 connections, each closed after 20 s.
 
 ## Routes
@@ -42,7 +47,7 @@ and the App Store build has the whole door. Read-only in this version.
 |------|--------|
 | `POST /mcp` | MCP, JSON-RPC 2.0, one message per request, one JSON answer: `initialize`, `ping`, `tools/list`, `tools/call` (a picture as image content, a refusal as a result with `isError`); a notification gets 202; `GET` is 405 (no event stream) |
 | `GET /v1` | the app, its version, the API version, the tools' names |
-| `GET /v1/tools` | the tools in MCP's shape: name, title, description, input schema, read-only annotations |
+| `GET /v1/tools` | the tools in MCP's shape: name, title, description, input schema (with each tool's parameters), annotations (read-only, or acting and not destructive) |
 | `GET /v1/tools/<name>?window=w1&scale=2` | one tool's answer: JSON, or a PNG; a refusal is `{"error": "..."}` with 404 (nothing yet), 409 (name a window) |
 
 `list_windows` is the door's own tool. Windows are named `w1`, `w2`, ... in the order they opened; a name is never reused. A tool
@@ -66,3 +71,15 @@ A picture comes from the code that exports it, never a second renderer, so what 
 The store build needs `com.apple.security.network.server` beside the sandbox (an app's store-entitlement check lists it), and
 its review notes say what the listener is: loopback only, off by default, for AI agents the person runs on the same Mac. It
 collects no data, so the privacy answers do not change.
+
+## A tool that acts (in an app)
+
+```swift
+AgentTool(name: "run_disk_detection", title: "Run disk detection", summary: "Detects the Bragg disks ...", input: .window,
+          parameters: [AgentParameter("threshold", .number(0...1), summary: "Correlation threshold.", required: true)],
+          acts: true) { call in
+    // call.arguments["threshold"] is checked text ("0.25"); start the run as the button does, refuse while busy.
+}
+```
+
+The app sets `door.runsAllowed` from its own preference and passes `runs:` and `canRun:` to `AgentDoorSettingsSection`.

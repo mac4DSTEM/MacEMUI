@@ -7,7 +7,7 @@
 //        `/v1/tools/<name>`). A notification or a response from the client is accepted with 202 and no body.
 //
 //  The gate in front of it is the door's (`AgentDoorGate`): loopback only, the token as a Bearer header, no Origin, the door's own
-//  Host, which is what MCP's transport asks of a local server. Read-only, like every tool.
+//  Host, which is what MCP's transport asks of a local server. A tool that acts runs only here, never from a GET.
 //
 
 import Foundation
@@ -59,17 +59,30 @@ extension AgentDoor {
     }
 
     var mcpInstructions: String {
-        "\(appName), an electron microscopy app on this Mac. These tools look at what its open windows show; they change nothing. "
+        "\(appName), an electron microscopy app on this Mac. Read-only tools look at what its open windows show. "
+            + "Tools that are not read-only change a window as its own controls do, only while the person allows it in Settings > Agents; "
+            + "after one, wait until get_window no longer says busy before the next. "
             + "Start with list_windows; each other tool takes a window id from it (or none while one window is open). "
             + "Judge results by the pictures, not by numbers alone."
     }
 
-    /// A tool call's arguments as the door's query: `window` as given, `scale` as a whole number.
+    /// A tool call's arguments as the door's query, each as text: a string as given, `true`/`false`, a whole number without a
+    /// decimal point, any other number as Swift writes a Double. Anything else (a list, an object, null) is left out.
     nonisolated static func query(_ arguments: [String: Any]) -> [String: String] {
         var query: [String: String] = [:]
-        if let window = arguments["window"] as? String { query["window"] = window }
-        if let scale = arguments["scale"] as? Int { query["scale"] = String(scale) }
-        else if let scale = arguments["scale"] as? Double, scale == scale.rounded() { query["scale"] = String(Int(scale)) }
+        for (key, value) in arguments {
+            if let text = value as? String {
+                query[key] = text
+            } else if let number = value as? NSNumber {
+                if CFGetTypeID(number) == CFBooleanGetTypeID() {
+                    query[key] = number.boolValue ? "true" : "false"
+                } else if number.doubleValue.isFinite, number.doubleValue == number.doubleValue.rounded(), abs(number.doubleValue) < 1e15 {
+                    query[key] = String(Int64(number.doubleValue))
+                } else {
+                    query[key] = String(number.doubleValue)
+                }
+            }
+        }
         return query
     }
 

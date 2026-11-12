@@ -2,6 +2,13 @@
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). MacEMUI follows semantic versioning; before 1.0.0 a minor version may break the API, and its Migration paragraph says how.
 
+## [0.7.0](https://github.com/mac4DSTEM/MacEMUI/compare/0.6.0...0.7.0) (2026-11-11)
+
+
+### Features
+
+* agent door tools that act, with typed inputs, behind a second switch ([#98](https://github.com/mac4DSTEM/MacEMUI/issues/98)) ([6abbc13](https://github.com/mac4DSTEM/MacEMUI/commit/6abbc138010f83146dc32bc3f9cebf7b6896f4f2))
+
 ## [0.6.0](https://github.com/mac4DSTEM/MacEMUI/compare/0.5.2...0.6.0) (2026-11-11)
 
 
