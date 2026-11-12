@@ -82,6 +82,22 @@ public struct MetalImageView {
         /// Raw values and their finite range (nil: no finite value, every pixel drawn masked).
         case raw(range: ClosedRange<Float>?)
     }
+
+    /// Raw pixels kept at their own bit depth, drawn instead of `pixels` with `pixelScale: .raw(range:)` (the range of these
+    /// values): an 8-bit image is one byte a pixel in the app and on the GPU, as ImageJ, GMS and Velox keep it (macTEM#566).
+    public var nativePixels: NativePixels?
+
+    public enum NativePixels: Sendable {
+        case uint8([UInt8])
+        case uint16([UInt16])
+
+        var count: Int {
+            switch self {
+            case .uint8(let values): values.count
+            case .uint16(let values): values.count
+            }
+        }
+    }
     public var width: Int
     public var height: Int
     public var contentVersion: Int
@@ -113,9 +129,11 @@ public struct MetalImageView {
         displayLo: Float = 0,
         displayHi: Float = 1,
         gamma: Float = 1,
-        pixelScale: PixelScale = .normalized
+        pixelScale: PixelScale = .normalized,
+        nativePixels: NativePixels? = nil
     ) {
         self.pixelScale = pixelScale
+        self.nativePixels = nativePixels
         self.pixels = pixels
         self.width = width
         self.height = height
@@ -174,7 +192,7 @@ public struct MetalImageView {
         coordinator.colormap = colormap
         coordinator.updateContentIfNeeded(
             pixels: pixels, rgba: rgba,
-            width: width, height: height, version: contentVersion, scale: pixelScale
+            width: width, height: height, version: contentVersion, scale: pixelScale, native: nativePixels
         )
         coordinator.displayRange = SIMD2<Float>(displayLo, displayHi)
         coordinator.gamma = max(gamma, 0.05)
@@ -249,7 +267,8 @@ public struct MetalImageView {
         private var scale: PixelScale = .normalized
 
         func updateContentIfNeeded(
-            pixels: [Float], rgba: [UInt8]?, width: Int, height: Int, version v: Int, scale s: PixelScale = .normalized
+            pixels: [Float], rgba: [UInt8]?, width: Int, height: Int, version v: Int, scale s: PixelScale = .normalized,
+            native: NativePixels? = nil
         ) {
             guard v != version || s != scale else { return }
             version = v
@@ -262,6 +281,18 @@ public struct MetalImageView {
             let device = MetalEngine.shared.device
             if let rgba, rgba.count == width * height * 4 {
                 rgbaTexture = device.makeRGBATexture(rgba: rgba, width: width, height: height)
+            } else if let native, native.count == width * height, case .raw(let range) = s {
+                if native.count < Self.backgroundBuildPixels {
+                    dataImage = device.makeDisplayImage(native: native, width: width, height: height, range: range)
+                } else {
+                    let asked = generation
+                    Task { [weak self] in
+                        let image = await Self.displayImageOffMain(native: native, width: width, height: height, range: range)
+                        guard let self, self.generation == asked else { return }
+                        self.dataImage = image
+                        self.view?.needsDisplay = true
+                    }
+                }
             } else if pixels.count == width * height {
                 switch s {
                 case .normalized:
@@ -286,6 +317,12 @@ public struct MetalImageView {
         nonisolated private static func displayImageOffMain(raw: [Float], width: Int, height: Int,
                                                             range: ClosedRange<Float>?) async -> DisplayImage? {
             MetalEngine.shared.device.makeDisplayImage(raw: raw, width: width, height: height, range: range)
+        }
+
+        @concurrent
+        nonisolated private static func displayImageOffMain(native: NativePixels, width: Int, height: Int,
+                                                            range: ClosedRange<Float>?) async -> DisplayImage? {
+            MetalEngine.shared.device.makeDisplayImage(native: native, width: width, height: height, range: range)
         }
 
         func rebuildLUTIfNeeded() {

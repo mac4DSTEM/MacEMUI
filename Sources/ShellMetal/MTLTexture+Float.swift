@@ -64,6 +64,26 @@ nonisolated extension MTLDevice {
         }
     }
 
+    /// The GPU image of pixels kept at their own bit depth: the bytes as they are, normalised by the shader over `range` (the
+    /// range of these values; nil, which whole numbers never have, draws them all at 0).
+    func makeDisplayImage(native: MetalImageView.NativePixels, width: Int, height: Int,
+                          range: ClosedRange<Float>?) -> DisplayImage? {
+        guard width > 0, height > 0, native.count == width * height else { return nil }
+        let buffer: MTLBuffer?
+        let encoding: DisplayImage.Encoding
+        switch native {
+        case .uint8(let values):
+            encoding = .uint8
+            buffer = values.withUnsafeBytes { makeBuffer(bytes: $0.baseAddress!, length: $0.count, options: .storageModeShared) }
+        case .uint16(let values):
+            encoding = .uint16
+            buffer = values.withUnsafeBytes { makeBuffer(bytes: $0.baseAddress!, length: $0.count, options: .storageModeShared) }
+        }
+        let low = range?.lowerBound ?? 0
+        return buffer.map { DisplayImage(buffer: $0, width: width, height: height, encoding: encoding, low: low,
+                                         span: (range?.upperBound ?? low) - low) }
+    }
+
     /// `raw` as `T`, or nil at the first value `T` does not hold exactly (a fraction, out of range, non-finite).
     private func packed<T: FixedWidthInteger & UnsignedInteger>(_ raw: [Float], as _: T.Type) -> MTLBuffer? {
         guard let buffer = makeBuffer(length: max(raw.count * MemoryLayout<T>.stride, 1), options: .storageModeShared) else { return nil }

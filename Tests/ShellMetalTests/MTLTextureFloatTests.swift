@@ -131,4 +131,20 @@ nonisolated final class MTLTextureFloatTests: XCTestCase {
         let masked = try XCTUnwrap(dev.makeDisplayImage(raw: [.nan, .nan], width: 2, height: 1, range: nil))
         XCTAssertEqual(contents(masked.buffer, count: 2), [-1, -1])
     }
+
+    /// Native pixels reach the GPU as their own bytes, and give the same image the Float32 values of the same numbers give.
+    func testNativePixelsAreTheSameDisplayImageAsTheirFloatValues() throws {
+        let dev = try device()
+        let bytes: [UInt8] = [0, 17, 255, 3]
+        let native = try XCTUnwrap(dev.makeDisplayImage(native: .uint8(bytes), width: 2, height: 2, range: 0...255))
+        let viaFloat = try XCTUnwrap(dev.makeDisplayImage(raw: bytes.map(Float.init), width: 2, height: 2, range: 0...255))
+        XCTAssertEqual(native.encoding, viaFloat.encoding)
+        XCTAssertEqual(native.parameters, viaFloat.parameters)
+        XCTAssertEqual(Array(UnsafeBufferPointer(start: native.buffer.contents().bindMemory(to: UInt8.self, capacity: 4), count: 4)), bytes)
+        let words: [UInt16] = [100, 65_535, 300, 100]
+        let native16 = try XCTUnwrap(dev.makeDisplayImage(native: .uint16(words), width: 2, height: 2, range: 100...65_535))
+        XCTAssertEqual(native16.encoding, .uint16)
+        XCTAssertEqual(native16.parameters, SIMD4<Float>(100, 65_435, 2, 0))
+        XCTAssertNil(dev.makeDisplayImage(native: .uint8(bytes), width: 3, height: 2, range: 0...255))
+    }
 }
