@@ -138,8 +138,11 @@ public struct MapTileView<Controls: View, Overlay: View>: View {
             HStack(spacing: 6) {
                 Text("\(Text(title).fontWeight(.semibold))\(Text(detail.map { " · \($0)" } ?? "").foregroundStyle(.white.opacity(0.75)))")
                     .font(.caption).foregroundStyle(.white)
-                    .shadow(color: .black.opacity(0.8), radius: 2, y: 1)
                     .lineLimit(1)
+                    // On a dark plate, as the "filtered" tag: a shadow alone left the name unreadable on a white map (a diverging map near 0,
+                    // macTEM#563).
+                    .padding(.horizontal, 5).padding(.vertical, 1)
+                    .background(Color.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 3))
                 if filteredTag {
                     Text("filtered").font(.caption2).foregroundStyle(.white.opacity(0.75))
                         .padding(.horizontal, 5).padding(.vertical, 1)
