@@ -2,6 +2,13 @@
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). MacEMUI follows semantic versioning; before 1.0.0 a minor version may break the API, and its Migration paragraph says how.
 
+## [0.8.0](https://github.com/mac4DSTEM/MacEMUI/compare/0.7.0...0.8.0) (2026-11-12)
+
+
+### Features
+
+* the EDS room's Open button can hand the file to the app's one Open ([#102](https://github.com/mac4DSTEM/MacEMUI/issues/102)) ([5491549](https://github.com/mac4DSTEM/MacEMUI/commit/54915495e97fa607d39fd674df81cfa2e6099db2)), closes [#90](https://github.com/mac4DSTEM/MacEMUI/issues/90)
+
 ## [0.7.0](https://github.com/mac4DSTEM/MacEMUI/compare/0.6.0...0.7.0) (2026-11-11)
 
 
