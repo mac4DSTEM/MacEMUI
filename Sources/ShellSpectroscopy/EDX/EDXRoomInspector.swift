@@ -220,8 +220,13 @@ private struct EDXQuantificationSection: View {
                 InspectorNote("The file does not state the beam energy: type it.")
             }
             InspectorRow("Absorption") {
-                Toggle("Absorption", isOn: binding(\.absorptionCorrection)).labelsHidden().toggleStyle(.switch)
-                    .help("Four-detector weighted transmission. It needs the thickness; without one the fit says it was not applied.")
+                // Off and disabled where the file gives no detector geometry: "on" beside "not applied" said two things at once.
+                // The method's own setting is left as it is, so another file opened in the session takes it up again.
+                let unavailable = session.absorptionUnavailableReason
+                Toggle("Absorption", isOn: unavailable == nil ? binding(\.absorptionCorrection) : .constant(false))
+                    .labelsHidden().toggleStyle(.switch)
+                    .disabled(unavailable != nil)
+                    .help(unavailable ?? "Four-detector weighted transmission. It needs the thickness; without one the fit says it was not applied.")
             }
             InspectorRow("Thickness") {
                 OptionalNumericField(title: "Thickness", value: method.thickness?.nanometres ?? 0,
@@ -238,7 +243,10 @@ private struct EDXQuantificationSection: View {
             }
             if let fit {
                 InspectorValueRow("Fit quality", EDXRoomFormat.fitQuality(fit))
-                if case .refused(let why) = fit.absorption { InspectorNote("Absorption not applied: \(why)") }
+                // With the switch disabled for this file its help says why; the fit's own sentence would say it a second time.
+                if case .refused(let why) = fit.absorption, session.absorptionUnavailableReason == nil {
+                    InspectorNote("Absorption not applied: \(why)")
+                }
             }
         }
         // Fitting: the fit's own knobs as plain rows of their own section (mac4DSTEM's Fitting), not a disclosure inside Quantification.

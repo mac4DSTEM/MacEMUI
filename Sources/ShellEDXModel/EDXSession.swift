@@ -240,6 +240,15 @@ public final class EDXSession {
     }
     public var fileName: String { source?.metadata.fileName ?? "" }
     package var fileBeamEnergy: Double? { source?.metadata.beamEnergyKeV }
+    /// Why the absorption correction cannot be applied to this file whatever is typed, or nil. A GMS file does not give the
+    /// stage tilt and the detector segments the four-detector geometry needs (the kit refuses it; mac4DSTEM/mac4DSTEM#168),
+    /// so the switch is shown off and disabled with this reason instead of on beside "not applied".
+    package var absorptionUnavailableReason: String? { Self.absorptionUnavailableReason(origin: source?.metadata.origin) }
+    package nonisolated static func absorptionUnavailableReason(origin: SpectrumImageOrigin?) -> String? {
+        origin == .gmsDM4
+            ? "Not available for this file: a GMS file does not state the stage tilt and the detector geometry the correction needs."
+            : nil
+    }
     /// The beam energy a run uses: the typed one, else the file's.
     public var beamEnergy: Double? { method.beamEnergyKeV ?? fileBeamEnergy }
     /// A one-pixel file (an .msa, a single Velox spectrum): there are no maps, no region to draw, and the words say "Spectrum", not "Whole map".
