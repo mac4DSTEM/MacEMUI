@@ -132,6 +132,28 @@ nonisolated final class MTLTextureFloatTests: XCTestCase {
         XCTAssertEqual(contents(masked.buffer, count: 2), [-1, -1])
     }
 
+    /// The pack runs a megapixel at a time: a fraction in the last pixel past the first chunk still refuses the bytes, the values
+    /// across the chunk boundary land in place, and 64 megapixels pack in well under the 40 s the per-pixel loop held the main
+    /// thread for on the 375-megapixel SEM TIFF (12 Nov).
+    func testThePackCrossesChunksExactlyAndQuickly() throws {
+        let dev = try device()
+        let n = (1 << 20) + 3
+        var raw = (0..<n).map { Float($0 % 256) }
+        let bytes = try XCTUnwrap(dev.makeDisplayImage(raw: raw, width: n, height: 1, range: 0...255))
+        XCTAssertEqual(bytes.encoding, .uint8)
+        let packed = UnsafeBufferPointer(start: bytes.buffer.contents().bindMemory(to: UInt8.self, capacity: n), count: n)
+        XCTAssertEqual(Array(packed[(1 << 20) - 2 ..< n]), raw[(1 << 20) - 2 ..< n].map { UInt8($0) })
+        raw[n - 1] = 2.5
+        XCTAssertEqual(try XCTUnwrap(dev.makeDisplayImage(raw: raw, width: n, height: 1, range: 0...255)).encoding, .normalizedFloat)
+        raw[n - 1] = .infinity
+        XCTAssertEqual(try XCTUnwrap(dev.makeDisplayImage(raw: raw, width: n, height: 1, range: 0...255)).encoding, .normalizedFloat)
+
+        let big = [Float](repeating: 200, count: 64 << 20)
+        let start = Date()
+        XCTAssertEqual(try XCTUnwrap(dev.makeDisplayImage(raw: big, width: 8192, height: 8192, range: 0...255)).encoding, .uint8)
+        XCTAssertLessThan(Date().timeIntervalSince(start), 3, "64 megapixels took \(Date().timeIntervalSince(start)) s")
+    }
+
     /// Native pixels reach the GPU as their own bytes, and give the same image the Float32 values of the same numbers give.
     func testNativePixelsAreTheSameDisplayImageAsTheirFloatValues() throws {
         let dev = try device()

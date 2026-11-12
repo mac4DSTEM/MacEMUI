@@ -181,6 +181,7 @@ public struct MetalImageView {
         view.isPaused = true                            // redraw only on demand
         view.enableSetNeedsDisplay = true
         view.delegate = coordinator
+        coordinator.view = view
         // The shader samples the data texture nearest, so zoomed data pixels
         // stay crisp; this keeps the layer itself from interpolating either.
         view.layer?.magnificationFilter = .nearest
@@ -252,6 +253,13 @@ public struct MetalImageView {
         var displayTransform: MetalDisplayTransform?
 
         private var dataImage: DisplayImage?
+        /// Counts content updates, so an image built off the main actor lands only if it is still the one asked for.
+        private var generation = 0
+        weak var view: MTKView?
+
+        /// From this many pixels a raw image is packed off the main actor (the 375-megapixel SEM TIFF), and the pane draws it when it
+        /// lands; smaller ones are built at once, so live panes never flicker.
+        static let backgroundBuildPixels = 1 << 22
         private var rgbaTexture: MTLTexture?
         private var lutTexture: MTLTexture?
         private(set) var lutDirty = true
@@ -265,6 +273,7 @@ public struct MetalImageView {
             guard v != version || s != scale else { return }
             version = v
             scale = s
+            generation += 1
             // The old resource goes first, so a new large image is not built while the previous one is still held.
             dataImage = nil
             rgbaTexture = nil
@@ -273,19 +282,48 @@ public struct MetalImageView {
             if let rgba, rgba.count == width * height * 4 {
                 rgbaTexture = device.makeRGBATexture(rgba: rgba, width: width, height: height)
             } else if let native, native.count == width * height, case .raw(let range) = s {
-                dataImage = device.makeDisplayImage(native: native, width: width, height: height, range: range)
+                if native.count < Self.backgroundBuildPixels {
+                    dataImage = device.makeDisplayImage(native: native, width: width, height: height, range: range)
+                } else {
+                    land(generation) { await Self.displayImageOffMain(native: native, width: width, height: height, range: range) }
+                }
             } else if pixels.count == width * height {
                 switch s {
                 case .normalized:
                     dataImage = device.makeImageBuffer(pixels: pixels, width: width, height: height).map {
                         DisplayImage(buffer: $0, width: width, height: height, encoding: .normalizedFloat, low: 0, span: 1)
                     }
-                case .raw(let range):
-                    // Built here, at once (a 375-megapixel image packs in well under a second, once per image): an off-main build drew
-                    // nothing on the Mac (12 Nov, the 375 MB SEM TIFF stayed the background colour), so it waits until it is shown right.
+                case .raw(let range) where pixels.count < Self.backgroundBuildPixels:
                     dataImage = device.makeDisplayImage(raw: pixels, width: width, height: height, range: range)
+                case .raw(let range):
+                    // Off the main actor: a blocked window while a 375-megapixel image packs fails the bar (12 Nov, the SEM TIFF's tab
+                    // would not switch for about 40 s while the old per-pixel pack ran on the main thread).
+                    land(generation) { await Self.displayImageOffMain(raw: pixels, width: width, height: height, range: range) }
                 }
             }
+        }
+
+        /// Builds the image off the main actor and, back on it, keeps it and asks the view to draw, unless a newer update came first.
+        private func land(_ asked: Int, _ build: @escaping @Sendable () async -> DisplayImage?) {
+            Task { @MainActor [weak self] in
+                let image = await build()
+                guard let self, self.generation == asked else { return }
+                self.dataImage = image
+                self.lastApplied = nil   // the next update redraws too, whatever it carries
+                self.view?.needsDisplay = true
+            }
+        }
+
+        @concurrent
+        nonisolated private static func displayImageOffMain(raw: [Float], width: Int, height: Int,
+                                                            range: ClosedRange<Float>?) async -> DisplayImage? {
+            MetalEngine.shared.device.makeDisplayImage(raw: raw, width: width, height: height, range: range)
+        }
+
+        @concurrent
+        nonisolated private static func displayImageOffMain(native: NativePixels, width: Int, height: Int,
+                                                            range: ClosedRange<Float>?) async -> DisplayImage? {
+            MetalEngine.shared.device.makeDisplayImage(native: native, width: width, height: height, range: range)
         }
 
         func rebuildLUTIfNeeded() {

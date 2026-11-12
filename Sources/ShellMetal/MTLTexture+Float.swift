@@ -5,6 +5,7 @@
 //        1D rgba8 colormap LUT texture.
 //
 
+import Accelerate
 import Metal
 
 nonisolated extension MTLDevice {
@@ -84,18 +85,41 @@ nonisolated extension MTLDevice {
                                          span: (range?.upperBound ?? low) - low) }
     }
 
-    /// `raw` as `T`, or nil at the first value `T` does not hold exactly (a fraction, out of range, non-finite).
+    /// `raw` as `T` (UInt8 or UInt16), or nil when any value is not one `T` holds exactly (a fraction, out of range, non-finite).
+    ///
+    /// Vectorised (vDSP), a megapixel at a time: each chunk is truncated into the buffer, converted back, and its total absolute
+    /// difference from the raw values must be 0 (a NaN or an infinity makes it non-zero). A generic per-pixel loop (`T(v)` per value)
+    /// held the main thread for about 40 s on the 375-megapixel SEM TIFF (12 Nov).
     private func packed<T: FixedWidthInteger & UnsignedInteger>(_ raw: [Float], as _: T.Type) -> MTLBuffer? {
         guard let buffer = makeBuffer(length: max(raw.count * MemoryLayout<T>.stride, 1), options: .storageModeShared) else { return nil }
-        let out = buffer.contents().bindMemory(to: T.self, capacity: raw.count)
-        let top = Float(T.max)
+        let chunk = 1 << 20
+        var back = [Float](repeating: 0, count: min(chunk, max(raw.count, 1)))
         let exact = raw.withUnsafeBufferPointer { source -> Bool in
-            for i in 0..<source.count {
-                let v = source[i]
-                guard v >= 0, v <= top, v.rounded(.towardZero) == v else { return false }   // NaN fails `v >= 0`
-                out[i] = T(v)
+            back.withUnsafeMutableBufferPointer { back -> Bool in
+                var start = 0
+                while start < source.count {
+                    let n = min(chunk, source.count - start)
+                    let length = vDSP_Length(n)
+                    let src = source.baseAddress! + start
+                    if T.self == UInt8.self {
+                        let out = buffer.contents().assumingMemoryBound(to: UInt8.self) + start
+                        vDSP_vfixu8(src, 1, out, 1, length)
+                        vDSP_vfltu8(out, 1, back.baseAddress!, 1, length)
+                    } else if T.self == UInt16.self {
+                        let out = buffer.contents().assumingMemoryBound(to: UInt16.self) + start
+                        vDSP_vfixu16(src, 1, out, 1, length)
+                        vDSP_vfltu16(out, 1, back.baseAddress!, 1, length)
+                    } else {
+                        return false
+                    }
+                    vDSP_vsub(src, 1, back.baseAddress!, 1, back.baseAddress!, 1, length)
+                    var total: Float = 0
+                    vDSP_svemg(back.baseAddress!, 1, &total, length)
+                    guard total == 0 else { return false }
+                    start += n
+                }
+                return true
             }
-            return true
         }
         return exact ? buffer : nil
     }
