@@ -31,11 +31,14 @@ public nonisolated enum EDXExportKind: String, Identifiable, CaseIterable {
         }
     }
 
+    /// The EMSA/MSA spectrum file, by its extension (no system type declares it); `EDXExportFile` lists it among the types it writes.
+    public static let msa = UTType(filenameExtension: "msa") ?? .plainText
+
     public var contentType: UTType {
         switch self {
         case .method: .json
         case .mapsPNG: .png
-        case .spectrumMSA: UTType(filenameExtension: "msa") ?? .plainText
+        case .spectrumMSA: Self.msa
         default: .commaSeparatedText
         }
     }

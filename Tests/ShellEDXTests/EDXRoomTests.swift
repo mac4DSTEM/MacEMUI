@@ -365,4 +365,13 @@ nonisolated final class EDXRoomTests: XCTestCase {
     func testEveryMapModeNamesItsUnit() {
         XCTAssertEqual(EDXMapMode.allCases.map(\.unit), ["net counts", "wt%", "at%", "kg/m²"])
     }
+
+    /// The save panel offers the type each export writes: the MSA export's type missing from the document's types made the panel propose the CSV name
+    /// and the "Comma-Separated Values" format (#106).
+    @MainActor func testEveryExportTypeIsOneTheExportFileWrites() {
+        for kind in EDXExportKind.allCases {
+            XCTAssertTrue(EDXExportFile.writableContentTypes.contains(kind.contentType), "\(kind.title)")
+        }
+        XCTAssertEqual(EDXExportKind.spectrumMSA.contentType.preferredFilenameExtension, "msa")
+    }
 }
