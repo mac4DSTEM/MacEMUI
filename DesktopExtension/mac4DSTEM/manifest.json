@@ -3,7 +3,7 @@
   "name": "mac4dstem",
   "display_name": "mac4DSTEM",
   "version": "1.0.0",
-  "description": "Lets Claude look at what mac4DSTEM's windows show on this Mac: result maps, patterns, detected disks, objects and the log. Read-only.",
+  "description": "Lets Claude look at what mac4DSTEM's windows show on this Mac: result maps, patterns, detected disks, objects and the log. It runs analyses only when you allow that in mac4DSTEM's Settings > Agents.",
   "long_description": "mac4DSTEM is the MCP server itself, on this Mac only (127.0.0.1). This extension carries Claude's requests to it. In mac4DSTEM, turn on Settings > Agents, press Copy Connection Command and paste the copied line below. The extension talks to no other computer.",
   "author": {
     "name": "mac4DSTEM",

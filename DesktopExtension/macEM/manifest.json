@@ -3,7 +3,7 @@
   "name": "macem",
   "display_name": "macEM",
   "version": "1.0.0",
-  "description": "Lets Claude look at what macEM's windows show on this Mac: images, results and the output log. Read-only.",
+  "description": "Lets Claude look at what macEM's windows show on this Mac: images, results and the output log. It runs analyses only when you allow that in macEM's Settings > Agents.",
   "long_description": "macEM is the MCP server itself, on this Mac only (127.0.0.1). This extension carries Claude's requests to it. In macEM, turn on Settings > Agents, press Copy Connection Command and paste the copied line below. The extension talks to no other computer.",
   "author": { "name": "macEM", "url": "https://github.com/mac4DSTEM" },
   "homepage": "https://github.com/mac4DSTEM/MacEMUI",
