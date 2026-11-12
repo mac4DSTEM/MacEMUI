@@ -73,7 +73,7 @@ public struct MetalImageView {
 
     public var pixels: [Float]          // normalised [0, 1], row-major (or raw, `pixelScale`)
     /// What `pixels` hold: normalised display values (the default), or the raw values with their finite range, which the view
-    /// normalises itself straight into the GPU buffer (`MTLDevice.makeNormalizedImageBuffer`), so the caller keeps no
+    /// normalises itself on the GPU side (`MTLDevice.makeDisplayImage`: whole numbers stay one or two bytes a pixel), so the caller keeps no
     /// full-size normalised copy beside its raw pixels. The buffer is the same either way.
     public var pixelScale: PixelScale = .normalized
 
@@ -163,6 +163,7 @@ public struct MetalImageView {
         view.isPaused = true                            // redraw only on demand
         view.enableSetNeedsDisplay = true
         view.delegate = coordinator
+        coordinator.view = view
         // The shader samples the data texture nearest, so zoomed data pixels
         // stay crisp; this keeps the layer itself from interpolating either.
         view.layer?.magnificationFilter = .nearest
@@ -233,8 +234,14 @@ public struct MetalImageView {
         var gamma: Float = 1
         var displayTransform: MetalDisplayTransform?
 
-        private var dataBuffer: MTLBuffer?
-        private var dataSize = SIMD2<UInt32>(0, 0)
+        private var dataImage: DisplayImage?
+        /// Counts content updates, so a large image built off the main actor lands only if it is still the one asked for.
+        private var generation = 0
+        weak var view: MTKView?
+
+        /// From this many pixels a raw image is packed off the main actor (a 375-megapixel SEM image takes a moment); the pane
+        /// shows nothing until it lands. Smaller ones are built at once, so live panes never flicker.
+        static let backgroundBuildPixels = 1 << 22
         private var rgbaTexture: MTLTexture?
         private var lutTexture: MTLTexture?
         private(set) var lutDirty = true
@@ -247,24 +254,38 @@ public struct MetalImageView {
             guard v != version || s != scale else { return }
             version = v
             scale = s
+            generation += 1
             // The old resource goes first, so a new large image is not built while the previous one is still held.
-            dataBuffer = nil
+            dataImage = nil
             rgbaTexture = nil
             guard width > 0, height > 0 else { return }
+            let device = MetalEngine.shared.device
             if let rgba, rgba.count == width * height * 4 {
-                rgbaTexture = MetalEngine.shared.device.makeRGBATexture(
-                    rgba: rgba, width: width, height: height)
+                rgbaTexture = device.makeRGBATexture(rgba: rgba, width: width, height: height)
             } else if pixels.count == width * height {
                 switch s {
                 case .normalized:
-                    dataBuffer = MetalEngine.shared.device.makeImageBuffer(
-                        pixels: pixels, width: width, height: height)
+                    dataImage = device.makeImageBuffer(pixels: pixels, width: width, height: height).map {
+                        DisplayImage(buffer: $0, width: width, height: height, encoding: .normalizedFloat, low: 0, span: 1)
+                    }
+                case .raw(let range) where pixels.count < Self.backgroundBuildPixels:
+                    dataImage = device.makeDisplayImage(raw: pixels, width: width, height: height, range: range)
                 case .raw(let range):
-                    dataBuffer = MetalEngine.shared.device.makeNormalizedImageBuffer(
-                        raw: pixels, width: width, height: height, range: range)
+                    let asked = generation
+                    Task { [weak self] in
+                        let image = await Self.displayImageOffMain(raw: pixels, width: width, height: height, range: range)
+                        guard let self, self.generation == asked else { return }
+                        self.dataImage = image
+                        self.view?.needsDisplay = true
+                    }
                 }
-                dataSize = SIMD2<UInt32>(UInt32(width), UInt32(height))
             }
+        }
+
+        @concurrent
+        nonisolated private static func displayImageOffMain(raw: [Float], width: Int, height: Int,
+                                                            range: ClosedRange<Float>?) async -> DisplayImage? {
+            MetalEngine.shared.device.makeDisplayImage(raw: raw, width: width, height: height, range: range)
         }
 
         func rebuildLUTIfNeeded() {
@@ -297,7 +318,7 @@ public struct MetalImageView {
             let engine = MetalEngine.shared
             if rgbaTexture != nil {
                 encoder.setRenderPipelineState(engine.displayRGBAPSO)
-            } else if dataBuffer != nil, lutTexture != nil {
+            } else if dataImage != nil, lutTexture != nil {
                 encoder.setRenderPipelineState(engine.displayPSO)
             } else {
                 encoder.endEncoding()
@@ -319,9 +340,13 @@ public struct MetalImageView {
                 var display = SIMD4<Float>(displayRange.x, displayRange.y, gamma, 0)
                 encoder.setFragmentBytes(
                     &display, length: MemoryLayout<SIMD4<Float>>.stride, index: 0)
-                encoder.setFragmentBuffer(dataBuffer, offset: 0, index: 1)
-                var size = dataSize
-                encoder.setFragmentBytes(&size, length: MemoryLayout<SIMD2<UInt32>>.stride, index: 2)
+                if let dataImage {
+                    encoder.setFragmentBuffer(dataImage.buffer, offset: 0, index: 1)
+                    var size = SIMD2<UInt32>(UInt32(dataImage.width), UInt32(dataImage.height))
+                    encoder.setFragmentBytes(&size, length: MemoryLayout<SIMD2<UInt32>>.stride, index: 2)
+                    var parameters = dataImage.parameters
+                    encoder.setFragmentBytes(&parameters, length: MemoryLayout<SIMD4<Float>>.stride, index: 3)
+                }
                 encoder.setFragmentTexture(lutTexture, index: 1)
             }
             encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)

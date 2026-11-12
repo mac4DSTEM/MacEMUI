@@ -79,11 +79,41 @@ nonisolated final class MetalEngineDisplayTests: XCTestCase {
         XCTAssertEqual(bgra, [0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255, 255])
     }
 
-    /// The scalar pipeline's image: the buffer at index 1 and its size at index 2, as MetalImageView binds them.
+    /// Whole-number pixels stored one byte each are normalised by the shader over their range: 0, 255 and 51 of 0…255
+    /// draw exactly as the Float32 display values 0, 1 and 0.2 do: black, white and the same gray.
+    @MainActor func testOneBytePixelsDrawAsTheirNormalisedValues() throws {
+        let engine = MetalEngine.shared
+        let image = try XCTUnwrap(engine.device.makeDisplayImage(raw: [0, 255, 51], width: 3, height: 1, range: 0...255))
+        XCTAssertEqual(image.encoding, .uint8)
+        let lut = try XCTUnwrap(engine.device.makeLUTTexture(rgba: Colormaps.lutRGBA(.gray, count: 256)))
+        let bgra = try Self.render(engine.displayPSO, width: 3, height: 1) { encoder in
+            var display = SIMD4<Float>(0, 1, 1, 0)
+            encoder.setFragmentBytes(&display, length: MemoryLayout<SIMD4<Float>>.stride, index: 0)
+            Self.bind(image, encoder)
+            encoder.setFragmentTexture(lut, index: 1)
+        }
+        let float = try XCTUnwrap(engine.device.makeImageBuffer(pixels: [0, 1, 0.2], width: 3, height: 1))
+        let reference = try Self.render(engine.displayPSO, width: 3, height: 1) { encoder in
+            var display = SIMD4<Float>(0, 1, 1, 0)
+            encoder.setFragmentBytes(&display, length: MemoryLayout<SIMD4<Float>>.stride, index: 0)
+            Self.bind(float, width: 3, height: 1, encoder)
+            encoder.setFragmentTexture(lut, index: 1)
+        }
+        XCTAssertEqual(bgra, reference)
+    }
+
+    /// The scalar pipeline's image: the buffer at index 1, its size at index 2 and its parameters at index 3, as
+    /// MetalImageView binds them; a bare buffer is Float32 display values.
     private static func bind(_ data: MTLBuffer, width: Int, height: Int, _ encoder: MTLRenderCommandEncoder) {
-        encoder.setFragmentBuffer(data, offset: 0, index: 1)
-        var size = SIMD2<UInt32>(UInt32(width), UInt32(height))
+        bind(DisplayImage(buffer: data, width: width, height: height, encoding: .normalizedFloat, low: 0, span: 1), encoder)
+    }
+
+    private static func bind(_ image: DisplayImage, _ encoder: MTLRenderCommandEncoder) {
+        encoder.setFragmentBuffer(image.buffer, offset: 0, index: 1)
+        var size = SIMD2<UInt32>(UInt32(image.width), UInt32(image.height))
         encoder.setFragmentBytes(&size, length: MemoryLayout<SIMD2<UInt32>>.stride, index: 2)
+        var parameters = image.parameters
+        encoder.setFragmentBytes(&parameters, length: MemoryLayout<SIMD4<Float>>.stride, index: 3)
     }
 
     func testTheRGBAPipelineDrawsItsTextureUnchanged() throws {

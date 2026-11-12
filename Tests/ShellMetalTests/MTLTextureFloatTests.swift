@@ -108,4 +108,27 @@ nonisolated final class MTLTextureFloatTests: XCTestCase {
         XCTAssertEqual(contents(none, count: raw.count), [Float](repeating: -1, count: raw.count))
         XCTAssertNil(dev.makeNormalizedImageBuffer(raw: raw, width: width, height: height + 1, range: low...high))
     }
+
+    /// Raw pixels keep the narrowest width that holds them exactly: whole numbers in 0…255 one byte each, in 0…65535 two,
+    /// anything else Float32 display values. The bytes are the values themselves.
+    func testTheDisplayImageKeepsWholeNumbersAtTheirOwnWidth() throws {
+        let dev = try device()
+        let bytes = try XCTUnwrap(dev.makeDisplayImage(raw: [0, 17, 255, 3], width: 2, height: 2, range: 0...255))
+        XCTAssertEqual(bytes.encoding, .uint8)
+        XCTAssertEqual(bytes.buffer.length, 4)
+        XCTAssertEqual(Array(UnsafeBufferPointer(start: bytes.buffer.contents().bindMemory(to: UInt8.self, capacity: 4), count: 4)), [0, 17, 255, 3])
+        XCTAssertEqual(bytes.parameters, SIMD4<Float>(0, 255, 1, 0))
+        let words = try XCTUnwrap(dev.makeDisplayImage(raw: [100, 65_535, 300, 100], width: 2, height: 2, range: 100...65_535))
+        XCTAssertEqual(words.encoding, .uint16)
+        XCTAssertEqual(Array(UnsafeBufferPointer(start: words.buffer.contents().bindMemory(to: UInt16.self, capacity: 4), count: 4)), [100, 65_535, 300, 100])
+        XCTAssertEqual(words.parameters, SIMD4<Float>(100, 65_435, 2, 0))
+        for (raw, range) in [([0, 0.5, 1, 2], 0...2), ([-1, 0, 1, 2], -1...2), ([0, .nan, 1, 2], 0...2), ([0, 1, 2, 70_000], 0...70_000)] as [([Float], ClosedRange<Float>)] {
+            let image = try XCTUnwrap(dev.makeDisplayImage(raw: raw, width: 2, height: 2, range: range))
+            XCTAssertEqual(image.encoding, .normalizedFloat, "\(raw)")
+            let expected = try XCTUnwrap(dev.makeNormalizedImageBuffer(raw: raw, width: 2, height: 2, range: range))
+            XCTAssertEqual(contents(image.buffer, count: 4).map(\.bitPattern), contents(expected, count: 4).map(\.bitPattern))
+        }
+        let masked = try XCTUnwrap(dev.makeDisplayImage(raw: [.nan, .nan], width: 2, height: 1, range: nil))
+        XCTAssertEqual(contents(masked.buffer, count: 2), [-1, -1])
+    }
 }

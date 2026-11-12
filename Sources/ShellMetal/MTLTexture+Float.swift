@@ -45,6 +45,41 @@ nonisolated extension MTLDevice {
         return buffer
     }
 
+    /// The GPU image for raw pixels at the narrowest width that holds them exactly: whole numbers in 0…255 as one byte each,
+    /// in 0…65535 as two, which the shader normalises over `range` as it draws (`DisplayImage.Encoding`); anything else (a
+    /// fraction, a negative or non-finite value) as Float32 normalised here (`makeNormalizedImageBuffer`). An 8-bit SEM
+    /// image then costs one byte a pixel on the GPU, as ImageJ, GMS and Velox keep it, not four (macTEM#562). The picture
+    /// is the same: the shader's `(v - low) / span` is the CPU's to within the GPU's float division, far below one LUT step.
+    func makeDisplayImage(raw: [Float], width: Int, height: Int, range: ClosedRange<Float>?) -> DisplayImage? {
+        guard width > 0, height > 0, raw.count == width * height else { return nil }
+        if let range, range.lowerBound >= 0, range.upperBound <= 65_535 {
+            let narrow = range.upperBound <= 255
+            if let buffer = narrow ? packed(raw, as: UInt8.self) : packed(raw, as: UInt16.self) {
+                return DisplayImage(buffer: buffer, width: width, height: height, encoding: narrow ? .uint8 : .uint16,
+                                    low: range.lowerBound, span: range.upperBound - range.lowerBound)
+            }
+        }
+        return makeNormalizedImageBuffer(raw: raw, width: width, height: height, range: range).map {
+            DisplayImage(buffer: $0, width: width, height: height, encoding: .normalizedFloat, low: 0, span: 1)
+        }
+    }
+
+    /// `raw` as `T`, or nil at the first value `T` does not hold exactly (a fraction, out of range, non-finite).
+    private func packed<T: FixedWidthInteger & UnsignedInteger>(_ raw: [Float], as _: T.Type) -> MTLBuffer? {
+        guard let buffer = makeBuffer(length: max(raw.count * MemoryLayout<T>.stride, 1), options: .storageModeShared) else { return nil }
+        let out = buffer.contents().bindMemory(to: T.self, capacity: raw.count)
+        let top = Float(T.max)
+        let exact = raw.withUnsafeBufferPointer { source -> Bool in
+            for i in 0..<source.count {
+                let v = source[i]
+                guard v >= 0, v <= top, v.rounded(.towardZero) == v else { return false }   // NaN fails `v >= 0`
+                out[i] = T(v)
+            }
+            return true
+        }
+        return exact ? buffer : nil
+    }
+
     /// Build an `.rgba8Unorm` 2D texture from packed RGBA bytes
     /// (row-major, length == width*height*4). Sampled by rgbaFragment.
     func makeRGBATexture(rgba: [UInt8], width: Int, height: Int) -> MTLTexture? {
@@ -80,4 +115,24 @@ nonisolated extension MTLDevice {
         }
         return tex
     }
+}
+
+/// The scalar image `colormapFragment` reads: the buffer, its size and how its values are stored.
+nonisolated struct DisplayImage: @unchecked Sendable {   // DEVIATION: an MTLBuffer is safe to hand between threads once written
+    enum Encoding: UInt32 {
+        /// Float32 display values, [0, 1] or negative for masked.
+        case normalizedFloat = 0
+        /// Whole-number raw values, normalised by the shader over `low` and `span`.
+        case uint8 = 1
+        case uint16 = 2
+    }
+    let buffer: MTLBuffer
+    let width: Int
+    let height: Int
+    let encoding: Encoding
+    let low: Float
+    let span: Float
+
+    /// The shader's image parameters: (low, span, encoding, 0).
+    var parameters: SIMD4<Float> { SIMD4<Float>(low, span, Float(encoding.rawValue), 0) }
 }
