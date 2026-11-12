@@ -1,29 +1,127 @@
 //
 //  MTLTexture+Float.swift
-//  Role: Small helpers to turn Swift arrays into Metal textures used by the
-//        display pipeline: a single-channel r32Float image texture, and a 1D
-//        rgba8 colormap LUT texture.
+//  Role: Small helpers to turn Swift arrays into the Metal resources the
+//        display pipeline draws: a Float32 image buffer, an rgba8 texture, and a
+//        1D rgba8 colormap LUT texture.
 //
 
+import Accelerate
 import Metal
 
 nonisolated extension MTLDevice {
 
-    /// Build an `.r32Float` 2D texture from normalized [0,1] float pixels
-    /// (row-major, length == width*height). Sampled by colormapFragment.
-    func makeFloatTexture(pixels: [Float], width: Int, height: Int) -> MTLTexture? {
-        let desc = MTLTextureDescriptor.texture2DDescriptor(
-            pixelFormat: .r32Float, width: width, height: height, mipmapped: false)
-        desc.usage = [.shaderRead]
-        desc.storageMode = .shared
-        guard let tex = makeTexture(descriptor: desc) else { return nil }
-        pixels.withUnsafeBytes { raw in
-            tex.replace(region: MTLRegionMake2D(0, 0, width, height),
-                        mipmapLevel: 0,
-                        withBytes: raw.baseAddress!,
-                        bytesPerRow: width * MemoryLayout<Float>.stride)
+    /// The scalar image the display draws, as a shared Float32 buffer (row-major, `width` × `height`) read by
+    /// `colormapFragment` with nearest-pixel indexing. A buffer, not an `.r32Float` texture: a texture is limited to 16384
+    /// pixels a side on Apple GPUs, and a 19433 × 19320 SEM TIFF must draw (macTEM#562); a buffer is limited only by
+    /// `maxBufferLength`. The pixels are drawn exactly as given (normalised [0, 1], negative = masked).
+    func makeImageBuffer(pixels: [Float], width: Int, height: Int) -> MTLBuffer? {
+        guard width > 0, height > 0, pixels.count == width * height else { return nil }
+        return pixels.withUnsafeBytes { bytes in
+            makeBuffer(bytes: bytes.baseAddress!, length: bytes.count, options: .storageModeShared)
         }
-        return tex
+    }
+
+    /// The buffer `makeImageBuffer(pixels:)` would make from the linearly normalised copy of `raw`, without that copy: each
+    /// value is normalised straight into the buffer, so the caller keeps only its raw pixels (a 19433 × 19320 image held three
+    /// full-size Float32 copies, 4.4 GB, measured 2026-11-12, macTEM#562).
+    ///
+    /// The normalisation is ImagoKit's `DisplayNormalization.normalized` (linear, not symmetric), value for value: a finite value
+    /// `v` becomes `(v - low) / (high - low)` in Float32, a non-finite one `invalidValue` (the masked sentinel); when
+    /// `high - low` is not positive every finite value becomes 0. `range` is the finite raw range the caller already holds
+    /// (macTEM's `CanvasPixels.rawRange`); nil, as for an image with no finite value, draws every pixel masked.
+    func makeNormalizedImageBuffer(raw: [Float], width: Int, height: Int, range: ClosedRange<Float>?,
+                                   invalidValue: Float = -1) -> MTLBuffer? {
+        guard width > 0, height > 0, raw.count == width * height,
+              let buffer = makeBuffer(length: raw.count * MemoryLayout<Float>.stride, options: .storageModeShared)
+        else { return nil }
+        let out = buffer.contents().bindMemory(to: Float.self, capacity: raw.count)
+        let low = range?.lowerBound ?? 0
+        let span = (range?.upperBound ?? 0) - low
+        raw.withUnsafeBufferPointer { source in
+            for i in 0..<source.count {
+                let v = source[i]
+                out[i] = range == nil || !v.isFinite ? invalidValue : (span > 0 ? (v - low) / span : 0)
+            }
+        }
+        return buffer
+    }
+
+    /// The GPU image for raw pixels at the narrowest width that holds them exactly: whole numbers in 0…255 as one byte each,
+    /// in 0…65535 as two, which the shader normalises over `range` as it draws (`DisplayImage.Encoding`); anything else (a
+    /// fraction, a negative or non-finite value) as Float32 normalised here (`makeNormalizedImageBuffer`). An 8-bit SEM
+    /// image then costs one byte a pixel on the GPU, as ImageJ, GMS and Velox keep it, not four (macTEM#562). The picture
+    /// is the same: the shader's `(v - low) / span` is the CPU's to within the GPU's float division, far below one LUT step.
+    func makeDisplayImage(raw: [Float], width: Int, height: Int, range: ClosedRange<Float>?) -> DisplayImage? {
+        guard width > 0, height > 0, raw.count == width * height else { return nil }
+        if let range, range.lowerBound >= 0, range.upperBound <= 65_535 {
+            let narrow = range.upperBound <= 255
+            if let buffer = narrow ? packed(raw, as: UInt8.self) : packed(raw, as: UInt16.self) {
+                return DisplayImage(buffer: buffer, width: width, height: height, encoding: narrow ? .uint8 : .uint16,
+                                    low: range.lowerBound, span: range.upperBound - range.lowerBound)
+            }
+        }
+        return makeNormalizedImageBuffer(raw: raw, width: width, height: height, range: range).map {
+            DisplayImage(buffer: $0, width: width, height: height, encoding: .normalizedFloat, low: 0, span: 1)
+        }
+    }
+
+    /// The GPU image of pixels kept at their own bit depth: the bytes as they are, normalised by the shader over `range` (the
+    /// range of these values; nil, which whole numbers never have, draws them all at 0).
+    func makeDisplayImage(native: MetalImageView.NativePixels, width: Int, height: Int,
+                          range: ClosedRange<Float>?) -> DisplayImage? {
+        guard width > 0, height > 0, native.count == width * height else { return nil }
+        let buffer: MTLBuffer?
+        let encoding: DisplayImage.Encoding
+        switch native {
+        case .uint8(let values):
+            encoding = .uint8
+            buffer = values.withUnsafeBytes { makeBuffer(bytes: $0.baseAddress!, length: $0.count, options: .storageModeShared) }
+        case .uint16(let values):
+            encoding = .uint16
+            buffer = values.withUnsafeBytes { makeBuffer(bytes: $0.baseAddress!, length: $0.count, options: .storageModeShared) }
+        }
+        let low = range?.lowerBound ?? 0
+        return buffer.map { DisplayImage(buffer: $0, width: width, height: height, encoding: encoding, low: low,
+                                         span: (range?.upperBound ?? low) - low) }
+    }
+
+    /// `raw` as `T` (UInt8 or UInt16), or nil when any value is not one `T` holds exactly (a fraction, out of range, non-finite).
+    ///
+    /// Vectorised (vDSP), a megapixel at a time: each chunk is truncated into the buffer, converted back, and its total absolute
+    /// difference from the raw values must be 0 (a NaN or an infinity makes it non-zero). A generic per-pixel loop (`T(v)` per value)
+    /// held the main thread for about 40 s on the 375-megapixel SEM TIFF (12 Nov).
+    private func packed<T: FixedWidthInteger & UnsignedInteger>(_ raw: [Float], as _: T.Type) -> MTLBuffer? {
+        guard let buffer = makeBuffer(length: max(raw.count * MemoryLayout<T>.stride, 1), options: .storageModeShared) else { return nil }
+        let chunk = 1 << 20
+        var back = [Float](repeating: 0, count: min(chunk, max(raw.count, 1)))
+        let exact = raw.withUnsafeBufferPointer { source -> Bool in
+            back.withUnsafeMutableBufferPointer { back -> Bool in
+                var start = 0
+                while start < source.count {
+                    let n = min(chunk, source.count - start)
+                    let length = vDSP_Length(n)
+                    let src = source.baseAddress! + start
+                    if T.self == UInt8.self {
+                        let out = buffer.contents().assumingMemoryBound(to: UInt8.self) + start
+                        vDSP_vfixu8(src, 1, out, 1, length)
+                        vDSP_vfltu8(out, 1, back.baseAddress!, 1, length)
+                    } else if T.self == UInt16.self {
+                        let out = buffer.contents().assumingMemoryBound(to: UInt16.self) + start
+                        vDSP_vfixu16(src, 1, out, 1, length)
+                        vDSP_vfltu16(out, 1, back.baseAddress!, 1, length)
+                    } else {
+                        return false
+                    }
+                    vDSP_vsub(src, 1, back.baseAddress!, 1, back.baseAddress!, 1, length)
+                    var total: Float = 0
+                    vDSP_svemg(back.baseAddress!, 1, &total, length)
+                    guard total == 0 else { return false }
+                    start += n
+                }
+                return true
+            }
+        }
+        return exact ? buffer : nil
     }
 
     /// Build an `.rgba8Unorm` 2D texture from packed RGBA bytes
@@ -61,4 +159,24 @@ nonisolated extension MTLDevice {
         }
         return tex
     }
+}
+
+/// The scalar image `colormapFragment` reads: the buffer, its size and how its values are stored.
+nonisolated struct DisplayImage: @unchecked Sendable {   // DEVIATION: an MTLBuffer is safe to hand between threads once written
+    enum Encoding: UInt32 {
+        /// Float32 display values, [0, 1] or negative for masked.
+        case normalizedFloat = 0
+        /// Whole-number raw values, normalised by the shader over `low` and `span`.
+        case uint8 = 1
+        case uint16 = 2
+    }
+    let buffer: MTLBuffer
+    let width: Int
+    let height: Int
+    let encoding: Encoding
+    let low: Float
+    let span: Float
+
+    /// The shader's image parameters: (low, span, encoding, 0).
+    var parameters: SIMD4<Float> { SIMD4<Float>(low, span, Float(encoding.rawValue), 0) }
 }

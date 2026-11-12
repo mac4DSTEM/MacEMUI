@@ -143,7 +143,11 @@ private struct EDXLowerPane: View {
 
 /// A file the save panel writes: the bytes `EDXRoomState.export` made (text, or the maps PNG).
 public struct EDXExportFile: FileDocument {
-    public static var readableContentTypes: [UTType] { [.commaSeparatedText, .json, .png, .plainText] }
+    /// Every type an export passes to the save panel, the MSA one among them: a type missing here made the panel fall back to CSV, with the CSV's
+    /// name and format for "Spectrum as MSA…" (#106). macTEM's EELS room writes its MSA through this file too.
+    public static var readableContentTypes: [UTType] {
+        [.commaSeparatedText, .json, .png, .plainText, EDXExportKind.msa]
+    }
     public var data: Data
 
     public init(data: Data) { self.data = data }

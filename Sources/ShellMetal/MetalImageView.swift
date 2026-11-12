@@ -10,6 +10,8 @@ import MetalKit
 /// - `pixels` is already normalised (`FloatImage.normalized` /
 ///   `DiffractionPattern.normalized`). Masked pixels are the negative
 ///   `FloatImage.invalidDisplayValue` sentinel and render as neutral gray.
+///   With `pixelScale: .raw(range:)` they are the raw values instead, normalised by the view on upload (a large image then
+///   needs no full-size normalised copy, macTEM#562).
 /// - `contentVersion` MUST change whenever `pixels` or `rgba` changes: the
 ///   coordinator re-uploads the texture only on a version change, which is
 ///   what keeps zooming and panning free. Passing a literal `0` here is the
@@ -69,7 +71,33 @@ public struct MetalImageView {
         }
     }
 
-    public var pixels: [Float]          // normalised [0, 1], row-major
+    public var pixels: [Float]          // normalised [0, 1], row-major (or raw, `pixelScale`)
+    /// What `pixels` hold: normalised display values (the default), or the raw values with their finite range, which the view
+    /// normalises itself on the GPU side (`MTLDevice.makeDisplayImage`: whole numbers stay one or two bytes a pixel), so the caller keeps no
+    /// full-size normalised copy beside its raw pixels. The buffer is the same either way.
+    public var pixelScale: PixelScale = .normalized
+
+    public nonisolated enum PixelScale: Equatable, Sendable {
+        case normalized
+        /// Raw values and their finite range (nil: no finite value, every pixel drawn masked).
+        case raw(range: ClosedRange<Float>?)
+    }
+
+    /// Raw pixels kept at their own bit depth, drawn instead of `pixels` with `pixelScale: .raw(range:)` (the range of these
+    /// values): an 8-bit image is one byte a pixel in the app and on the GPU, as ImageJ, GMS and Velox keep it (macTEM#566).
+    public var nativePixels: NativePixels?
+
+    public nonisolated enum NativePixels: Sendable {
+        case uint8([UInt8])
+        case uint16([UInt16])
+
+        var count: Int {
+            switch self {
+            case .uint8(let values): values.count
+            case .uint16(let values): values.count
+            }
+        }
+    }
     public var width: Int
     public var height: Int
     public var contentVersion: Int
@@ -100,8 +128,12 @@ public struct MetalImageView {
         rgba: [UInt8]? = nil,
         displayLo: Float = 0,
         displayHi: Float = 1,
-        gamma: Float = 1
+        gamma: Float = 1,
+        pixelScale: PixelScale = .normalized,
+        nativePixels: NativePixels? = nil
     ) {
+        self.pixelScale = pixelScale
+        self.nativePixels = nativePixels
         self.pixels = pixels
         self.width = width
         self.height = height
@@ -149,6 +181,7 @@ public struct MetalImageView {
         view.isPaused = true                            // redraw only on demand
         view.enableSetNeedsDisplay = true
         view.delegate = coordinator
+        coordinator.view = view
         // The shader samples the data texture nearest, so zoomed data pixels
         // stay crisp; this keeps the layer itself from interpolating either.
         view.layer?.magnificationFilter = .nearest
@@ -159,7 +192,7 @@ public struct MetalImageView {
         coordinator.colormap = colormap
         coordinator.updateContentIfNeeded(
             pixels: pixels, rgba: rgba,
-            width: width, height: height, version: contentVersion
+            width: width, height: height, version: contentVersion, scale: pixelScale, native: nativePixels
         )
         coordinator.displayRange = SIMD2<Float>(displayLo, displayHi)
         coordinator.gamma = max(gamma, 0.05)
@@ -219,34 +252,78 @@ public struct MetalImageView {
         var gamma: Float = 1
         var displayTransform: MetalDisplayTransform?
 
-        private var dataTexture: MTLTexture?
+        private var dataImage: DisplayImage?
+        /// Counts content updates, so an image built off the main actor lands only if it is still the one asked for.
+        private var generation = 0
+        weak var view: MTKView?
+
+        /// From this many pixels a raw image is packed off the main actor (the 375-megapixel SEM TIFF), and the pane draws it when it
+        /// lands; smaller ones are built at once, so live panes never flicker.
+        static let backgroundBuildPixels = 1 << 22
         private var rgbaTexture: MTLTexture?
         private var lutTexture: MTLTexture?
         private(set) var lutDirty = true
         private var version = Int.min
+        private var scale: PixelScale = .normalized
 
         func updateContentIfNeeded(
-            pixels: [Float], rgba: [UInt8]?, width: Int, height: Int, version v: Int
+            pixels: [Float], rgba: [UInt8]?, width: Int, height: Int, version v: Int, scale s: PixelScale = .normalized,
+            native: NativePixels? = nil
         ) {
-            guard v != version else { return }
+            guard v != version || s != scale else { return }
             version = v
-            guard width > 0, height > 0 else {
-                dataTexture = nil
-                rgbaTexture = nil
-                return
-            }
+            scale = s
+            generation += 1
+            // The old resource goes first, so a new large image is not built while the previous one is still held.
+            dataImage = nil
+            rgbaTexture = nil
+            guard width > 0, height > 0 else { return }
+            let device = MetalEngine.shared.device
             if let rgba, rgba.count == width * height * 4 {
-                rgbaTexture = MetalEngine.shared.device.makeRGBATexture(
-                    rgba: rgba, width: width, height: height)
-                dataTexture = nil
+                rgbaTexture = device.makeRGBATexture(rgba: rgba, width: width, height: height)
+            } else if let native, native.count == width * height, case .raw(let range) = s {
+                if native.count < Self.backgroundBuildPixels {
+                    dataImage = device.makeDisplayImage(native: native, width: width, height: height, range: range)
+                } else {
+                    land(generation) { await Self.displayImageOffMain(native: native, width: width, height: height, range: range) }
+                }
             } else if pixels.count == width * height {
-                dataTexture = MetalEngine.shared.device.makeFloatTexture(
-                    pixels: pixels, width: width, height: height)
-                rgbaTexture = nil
-            } else {
-                dataTexture = nil
-                rgbaTexture = nil
+                switch s {
+                case .normalized:
+                    dataImage = device.makeImageBuffer(pixels: pixels, width: width, height: height).map {
+                        DisplayImage(buffer: $0, width: width, height: height, encoding: .normalizedFloat, low: 0, span: 1)
+                    }
+                case .raw(let range) where pixels.count < Self.backgroundBuildPixels:
+                    dataImage = device.makeDisplayImage(raw: pixels, width: width, height: height, range: range)
+                case .raw(let range):
+                    // Off the main actor: a blocked window while a 375-megapixel image packs fails the bar (12 Nov, the SEM TIFF's tab
+                    // would not switch for about 40 s while the old per-pixel pack ran on the main thread).
+                    land(generation) { await Self.displayImageOffMain(raw: pixels, width: width, height: height, range: range) }
+                }
             }
+        }
+
+        /// Builds the image off the main actor and, back on it, keeps it and asks the view to draw, unless a newer update came first.
+        private func land(_ asked: Int, _ build: @escaping @Sendable () async -> DisplayImage?) {
+            Task { @MainActor [weak self] in
+                let image = await build()
+                guard let self, self.generation == asked else { return }
+                self.dataImage = image
+                self.lastApplied = nil   // the next update redraws too, whatever it carries
+                self.view?.needsDisplay = true
+            }
+        }
+
+        @concurrent
+        nonisolated private static func displayImageOffMain(raw: [Float], width: Int, height: Int,
+                                                            range: ClosedRange<Float>?) async -> DisplayImage? {
+            MetalEngine.shared.device.makeDisplayImage(raw: raw, width: width, height: height, range: range)
+        }
+
+        @concurrent
+        nonisolated private static func displayImageOffMain(native: NativePixels, width: Int, height: Int,
+                                                            range: ClosedRange<Float>?) async -> DisplayImage? {
+            MetalEngine.shared.device.makeDisplayImage(native: native, width: width, height: height, range: range)
         }
 
         func rebuildLUTIfNeeded() {
@@ -279,7 +356,7 @@ public struct MetalImageView {
             let engine = MetalEngine.shared
             if rgbaTexture != nil {
                 encoder.setRenderPipelineState(engine.displayRGBAPSO)
-            } else if dataTexture != nil, lutTexture != nil {
+            } else if dataImage != nil, lutTexture != nil {
                 encoder.setRenderPipelineState(engine.displayPSO)
             } else {
                 encoder.endEncoding()
@@ -301,7 +378,13 @@ public struct MetalImageView {
                 var display = SIMD4<Float>(displayRange.x, displayRange.y, gamma, 0)
                 encoder.setFragmentBytes(
                     &display, length: MemoryLayout<SIMD4<Float>>.stride, index: 0)
-                encoder.setFragmentTexture(dataTexture, index: 0)
+                if let dataImage {
+                    encoder.setFragmentBuffer(dataImage.buffer, offset: 0, index: 1)
+                    var size = SIMD2<UInt32>(UInt32(dataImage.width), UInt32(dataImage.height))
+                    encoder.setFragmentBytes(&size, length: MemoryLayout<SIMD2<UInt32>>.stride, index: 2)
+                    var parameters = dataImage.parameters
+                    encoder.setFragmentBytes(&parameters, length: MemoryLayout<SIMD4<Float>>.stride, index: 3)
+                }
                 encoder.setFragmentTexture(lutTexture, index: 1)
             }
             encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)

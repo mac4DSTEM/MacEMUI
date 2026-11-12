@@ -365,4 +365,21 @@ nonisolated final class EDXRoomTests: XCTestCase {
     func testEveryMapModeNamesItsUnit() {
         XCTAssertEqual(EDXMapMode.allCases.map(\.unit), ["net counts", "wt%", "at%", "kg/m²"])
     }
+
+    /// The save panel offers the type each export writes: the MSA export's type missing from the document's types made the panel propose the CSV name
+    /// and the "Comma-Separated Values" format (#106).
+    @MainActor func testEveryExportTypeIsOneTheExportFileWrites() {
+        for kind in EDXExportKind.allCases {
+            XCTAssertTrue(EDXExportFile.readableContentTypes.contains(kind.contentType), "\(kind.title)")
+        }
+        XCTAssertEqual(EDXExportKind.spectrumMSA.contentType.preferredFilenameExtension, "msa")
+    }
+
+    /// A tile's name sits on a dark plate, readable on any map, a white one too (macTEM#563: the ZLP-shift map near 0 eV drawn white
+    /// hid its white name, which had only a shadow).
+    func testATilesNameSitsOnADarkPlate() throws {
+        let tile = squeezed(try source("Sources/ShellSpectroscopy/MapTileView.swift"))
+        XCTAssertTrue(tile.contains(".lineLimit(1) // On a dark plate"), "the name's plate follows its line limit")
+        XCTAssertTrue(tile.contains(".background(Color.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 3))"))
+    }
 }
