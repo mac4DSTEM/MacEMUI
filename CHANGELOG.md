@@ -2,6 +2,21 @@
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). MacEMUI follows semantic versioning; before 1.0.0 a minor version may break the API, and its Migration paragraph says how.
 
+## [0.9.0](https://github.com/mac4DSTEM/MacEMUI/compare/0.8.0...0.9.0) (2026-11-12)
+
+
+### Features
+
+* agent door speaks MCP 2026-07-28 and 2025-11-25, with structured results ([#109](https://github.com/mac4DSTEM/MacEMUI/issues/109)) ([75c3d62](https://github.com/mac4DSTEM/MacEMUI/commit/75c3d62ecf90b08d2e932b7822413af6e140654a))
+* agent door tools for the shared EDS room ([#110](https://github.com/mac4DSTEM/MacEMUI/issues/110)) ([816954b](https://github.com/mac4DSTEM/MacEMUI/commit/816954b6b95c1b2072fbbcb6e883c50fee939cb3))
+* the image display draws images over 16384 px and can take raw pixels without a normalised copy; Spectrum as MSA proposes .msa; map tile names stay readable ([#107](https://github.com/mac4DSTEM/MacEMUI/issues/107)) ([4542444](https://github.com/mac4DSTEM/MacEMUI/commit/4542444e254e765365dd410088be38192ed8d169))
+
+
+### Bug Fixes
+
+* the Absorption switch is off and disabled for a file without detector geometry ([#113](https://github.com/mac4DSTEM/MacEMUI/issues/113)) ([5dae498](https://github.com/mac4DSTEM/MacEMUI/commit/5dae498eedf5d4581b688c85ea55e910a707e02d)), closes [#112](https://github.com/mac4DSTEM/MacEMUI/issues/112)
+* the EDS spectrum's count axis has round ticks and labels that fit ([#115](https://github.com/mac4DSTEM/MacEMUI/issues/115)) ([34281dc](https://github.com/mac4DSTEM/MacEMUI/commit/34281dcad2db4b3f1e4f991dd995597baa7307dd)), closes [#114](https://github.com/mac4DSTEM/MacEMUI/issues/114)
+
 ## [0.8.0](https://github.com/mac4DSTEM/MacEMUI/compare/0.7.0...0.8.0) (2026-11-12)
 
 
