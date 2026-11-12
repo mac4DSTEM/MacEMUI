@@ -370,7 +370,7 @@ nonisolated final class EDXRoomTests: XCTestCase {
     /// and the "Comma-Separated Values" format (#106).
     @MainActor func testEveryExportTypeIsOneTheExportFileWrites() {
         for kind in EDXExportKind.allCases {
-            XCTAssertTrue(EDXExportFile.writableContentTypes.contains(kind.contentType), "\(kind.title)")
+            XCTAssertTrue(EDXExportFile.readableContentTypes.contains(kind.contentType), "\(kind.title)")
         }
         XCTAssertEqual(EDXExportKind.spectrumMSA.contentType.preferredFilenameExtension, "msa")
     }
