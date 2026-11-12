@@ -2,6 +2,7 @@
 // land in, the exports only one app makes, and the marks only one app draws over the maps. Each app builds it from its own window
 // state; the room holds none of it.
 import Foundation
+import ShellEDXModel
 import SwiftUI
 
 /// The window's side of the shared EDS room's views, built by the app on the main actor. The views keep it, so its closures capture the
@@ -23,11 +24,21 @@ public struct EDXRoomActions {
     /// `EDXGridItem.mixID`) and the tile's `MapTileOverlayContext`; nil draws nothing. Read it only from values (no `@Observable`
     /// app state in the closure), or every tile redraws on any change of that state.
     public var mapOverlay: ((_ tileID: String, _ context: MapTileOverlayContext) -> AnyView)?
+    /// The app's one Open, for a file picked with the room's own Open button: an app that routes every door through one Open (Open
+    /// Recent, its other rooms, its results) sets it, and the room's session is opened by that Open, not by the button. nil opens the
+    /// room's session itself, as before (#90).
+    public var open: ((URL) -> Void)?
 
     public init(report: @escaping (String) -> Void, present: @escaping (any Error) -> Void, exportDirectory: @escaping () -> URL? = { nil },
                 exportCompositionByClass: (() async -> Void)? = nil,
-                mapOverlay: ((_ tileID: String, _ context: MapTileOverlayContext) -> AnyView)? = nil) {
+                mapOverlay: ((_ tileID: String, _ context: MapTileOverlayContext) -> AnyView)? = nil,
+                open: ((URL) -> Void)? = nil) {
         self.report = report; self.present = present; self.exportDirectory = exportDirectory
-        self.exportCompositionByClass = exportCompositionByClass; self.mapOverlay = mapOverlay
+        self.exportCompositionByClass = exportCompositionByClass; self.mapOverlay = mapOverlay; self.open = open
+    }
+
+    /// The room's Open button picked `url`: the app's Open when it gave one (`open`), else `session` opens it.
+    @MainActor package func openPicked(_ url: URL, in session: EDXSession) {
+        if let open { open(url) } else { session.open(url: url) }
     }
 }
