@@ -70,13 +70,14 @@ public enum EDXAgentTools {
                 guard unknown.isEmpty else {
                     return .refusal(status: 400, message: "Not element symbols: \(unknown.joined(separator: ", ")).")
                 }
+                // Taken out first, so "remove all, add these" in one call ends with these.
+                for symbol in symbols("remove") where s.picks.contains(where: { $0.symbol == symbol }) { s.toggle(symbol) }
                 for symbol in symbols("add") {
                     if let reason = EDXElements.unavailableReason(symbol: symbol) {
                         return .refusal(status: 409, message: "\(symbol): \(reason)")
                     }
                     if !s.picks.contains(where: { $0.symbol == symbol }) { s.toggle(symbol) }
                 }
-                for symbol in symbols("remove") where s.picks.contains(where: { $0.symbol == symbol }) { s.toggle(symbol) }
                 for (key, role) in [("fit_only", EDXRole.fitOnly), ("quantify", .quantify)] {
                     for symbol in symbols(key) {
                         guard s.picks.contains(where: { $0.symbol == symbol }) else {
