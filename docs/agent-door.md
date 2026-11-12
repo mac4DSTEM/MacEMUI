@@ -15,6 +15,35 @@ and the App Store build has the whole door. Tools look; a tool that acts runs on
   `claude mcp add --transport http <app> http://127.0.0.1:<port>/mcp --header "Authorization: Bearer <token>"`, pasted into
   Terminal once.
 
+## Connecting Codex
+
+Codex (the ChatGPT desktop app, the Codex CLI and the IDE extension) reads its MCP servers from one file,
+`~/.codex/config.toml`, so one entry serves all three. The door is a Streamable HTTP server with a bearer token, which Codex
+takes from the config file, not from `codex mcp add` (that documents OAuth only). Settings > Agents > Copy Connection Command
+gives the URL and the token; put them in the file by hand:
+
+```toml
+[mcp_servers.mac4dstem]
+url = "http://127.0.0.1:47811/mcp"
+http_headers = { "Authorization" = "Bearer <token from Settings > Agents>" }
+
+[mcp_servers.macem]
+url = "http://127.0.0.1:47812/mcp"
+http_headers = { "Authorization" = "Bearer <token from Settings > Agents>" }
+```
+
+- The token sits in a file only this user reads, like an API key. `bearer_token_env_var = "MAC4DSTEM_TOKEN"` keeps it out of
+  the file, but a Mac app started from the Dock does not see variables set in a shell profile, so the desktop app may not find
+  it; the CLI started from Terminal does. New Token in the app shuts out the old line; paste the new one.
+- If the port in Settings > Agents is not the app's own (another program held it), use the one shown there.
+- Acting tools are marked `readOnlyHint: false`; `default_tools_approval_mode = "prompt"` makes Codex ask the person before
+  each call, whatever the client's default.
+- Codex compacts a tool's input schema above `tool_input_schema_max_bytes` (5,000 bytes by default); the door's largest
+  schemas (`set_disk_detection`, `set_phase_mapping`) are the ones to check if a parameter goes missing.
+- Not checked yet (MacEMUI#104): whether Codex hands the door's picture answers (MCP image content) to the model, and that it
+  takes the door's plain JSON answers without an event stream. If pictures do not reach the model, the agent judges by
+  numbers: `get_pattern_values`, `get_detected_disks`, `get_window`.
+
 ## Security
 
 - Off by default. The switch is in the app's Settings > Agents and says what an agent can and cannot do.
