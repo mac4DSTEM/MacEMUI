@@ -67,7 +67,7 @@ http_headers = { "Authorization" = "Bearer <token from Settings > Agents>" }
 
 | Path | Answer |
 |------|--------|
-| `POST /mcp` | MCP, JSON-RPC 2.0, one message per request, one JSON answer: `initialize`, `ping`, `tools/list`, `tools/call` (a picture as image content, a refusal as a result with `isError`); a notification gets 202; `GET` is 405 (no event stream) |
+| `POST /mcp` | MCP, JSON-RPC 2.0, one message per request, one JSON answer. Revision 2026-07-28 (no handshake: `_meta` names the revision and the client's capabilities, the `MCP-Protocol-Version`, `Mcp-Method` and `Mcp-Name` headers must agree with the body): `server/discover`, `tools/list`, `tools/call`, each result with `resultType`. Revisions 2025-11-25, 2025-06-18 and 2025-03-26: `initialize`, `ping`, `tools/list`, `tools/call`. A picture comes back as image content, JSON as text plus `structuredContent`, a refusal as a result with `isError`; a notification gets 202; `GET` is 405 (no event stream) |
 | `GET /v1` | the app, its version, the API version, the tools' names |
 | `GET /v1/tools` | the tools in MCP's shape: name, title, description, input schema (with each tool's parameters), annotations (read-only, or acting and not destructive) |
 | `GET /v1/tools/<name>?window=w1&scale=2` | one tool's answer: JSON, or a PNG; a refusal is `{"error": "..."}` with 404 (nothing yet), 409 (name a window) |
