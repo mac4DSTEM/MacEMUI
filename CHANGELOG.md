@@ -2,6 +2,13 @@
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). MacEMUI follows semantic versioning; before 1.0.0 a minor version may break the API, and its Migration paragraph says how.
 
+## [0.9.1](https://github.com/mac4DSTEM/MacEMUI/compare/0.9.0...0.9.1) (2026-11-12)
+
+
+### Bug Fixes
+
+* the Auto ID button writes a status line ([#117](https://github.com/mac4DSTEM/MacEMUI/issues/117)) ([a644a1e](https://github.com/mac4DSTEM/MacEMUI/commit/a644a1eea1a477da4220c5eebd4b84984e3575a1))
+
 ## [0.9.0](https://github.com/mac4DSTEM/MacEMUI/compare/0.8.0...0.9.0) (2026-11-12)
 
 
