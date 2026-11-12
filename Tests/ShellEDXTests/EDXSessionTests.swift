@@ -434,6 +434,25 @@ nonisolated final class EDXSessionTests: XCTestCase {
         XCTAssertTrue(session.dismissed.isEmpty)
     }
 
+    /// The Auto ID button's run writes a status line; the automatic runs do not. Red under: no line (the button finished in silence).
+    @MainActor func testTheAutoIDButtonWritesItsLine() async {
+        let session = await openRoom()
+        var lines: [String] = []
+        session.onEvent = { lines.append($0) }
+        session.toggle("Al")
+        await session.runAutoID()?.value
+        await session.settled()
+        XCTAssertFalse(lines.contains { $0.hasPrefix("Auto ID") }, "an automatic run is silent: \(lines)")
+        await session.runAutoID(explicit: true)?.value
+        await session.settled()
+        let line = lines.last { $0.hasPrefix("Auto ID") } ?? ""
+        XCTAssertTrue(line.hasPrefix("Auto ID \u{2713}  added ") && line.contains("Al"), "\(lines)")
+        XCTAssertEqual(EDXSession.autoIDStatusLine(added: [], region: "Whole map", failure: nil), "Auto ID \u{2713}  no new element \u{00B7} Whole map")
+        XCTAssertEqual(EDXSession.autoIDStatusLine(added: ["Mg", "Si"], region: "Region 1", failure: nil), "Auto ID \u{2713}  added Mg, Si \u{00B7} Region 1")
+        XCTAssertEqual(EDXSession.autoIDStatusLine(added: [], region: "Whole map", failure: "Auto ID could not fit this spectrum: x"),
+                       "Auto ID could not fit this spectrum: x")
+    }
+
     /// mac4DSTEM#108: a small phase's element (Mg in beta'' in Al) can fail the proposer's bar in the whole map's sum, so Auto ID
     /// also searches each phase region's own spectrum. What a phase adds names the phase; an element found already keeps its reason.
     /// Red under: the phase regions not searched (no `alsoSearched`, no `adding`).
