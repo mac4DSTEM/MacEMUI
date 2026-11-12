@@ -81,7 +81,7 @@ public struct EDXRoom: View {
         .onChange(of: session.fileName) { state.window = nil; state.soloTile = nil; state.appearance = MapAppearance() }
         .fileImporter(isPresented: $showImporter, allowedContentTypes: Self.importTypes(for: openExtensions), allowsMultipleSelection: false) { result in
             switch result {
-            case .success(let urls): if let url = urls.first { session.open(url: url) }
+            case .success(let urls): if let url = urls.first { actions.openPicked(url, in: session) }
             case .failure(let error): actions.present(error)
             }
         }
