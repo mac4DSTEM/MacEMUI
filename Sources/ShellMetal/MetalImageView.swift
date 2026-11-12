@@ -10,6 +10,8 @@ import MetalKit
 /// - `pixels` is already normalised (`FloatImage.normalized` /
 ///   `DiffractionPattern.normalized`). Masked pixels are the negative
 ///   `FloatImage.invalidDisplayValue` sentinel and render as neutral gray.
+///   With `pixelScale: .raw(range:)` they are the raw values instead, normalised by the view on upload (a large image then
+///   needs no full-size normalised copy, macTEM#562).
 /// - `contentVersion` MUST change whenever `pixels` or `rgba` changes: the
 ///   coordinator re-uploads the texture only on a version change, which is
 ///   what keeps zooming and panning free. Passing a literal `0` here is the
@@ -69,7 +71,17 @@ public struct MetalImageView {
         }
     }
 
-    public var pixels: [Float]          // normalised [0, 1], row-major
+    public var pixels: [Float]          // normalised [0, 1], row-major (or raw, `pixelScale`)
+    /// What `pixels` hold: normalised display values (the default), or the raw values with their finite range, which the view
+    /// normalises itself into the texture a strip at a time (`MTLDevice.makeNormalizedTexture`), so the caller keeps no
+    /// full-size normalised copy beside its raw pixels. The texture is the same either way.
+    public var pixelScale: PixelScale = .normalized
+
+    public enum PixelScale: Equatable, Sendable {
+        case normalized
+        /// Raw values and their finite range (nil: no finite value, every pixel drawn masked).
+        case raw(range: ClosedRange<Float>?)
+    }
     public var width: Int
     public var height: Int
     public var contentVersion: Int
@@ -100,8 +112,10 @@ public struct MetalImageView {
         rgba: [UInt8]? = nil,
         displayLo: Float = 0,
         displayHi: Float = 1,
-        gamma: Float = 1
+        gamma: Float = 1,
+        pixelScale: PixelScale = .normalized
     ) {
+        self.pixelScale = pixelScale
         self.pixels = pixels
         self.width = width
         self.height = height
@@ -159,7 +173,7 @@ public struct MetalImageView {
         coordinator.colormap = colormap
         coordinator.updateContentIfNeeded(
             pixels: pixels, rgba: rgba,
-            width: width, height: height, version: contentVersion
+            width: width, height: height, version: contentVersion, scale: pixelScale
         )
         coordinator.displayRange = SIMD2<Float>(displayLo, displayHi)
         coordinator.gamma = max(gamma, 0.05)
@@ -224,12 +238,14 @@ public struct MetalImageView {
         private var lutTexture: MTLTexture?
         private(set) var lutDirty = true
         private var version = Int.min
+        private var scale: PixelScale = .normalized
 
         func updateContentIfNeeded(
-            pixels: [Float], rgba: [UInt8]?, width: Int, height: Int, version v: Int
+            pixels: [Float], rgba: [UInt8]?, width: Int, height: Int, version v: Int, scale s: PixelScale = .normalized
         ) {
-            guard v != version else { return }
+            guard v != version || s != scale else { return }
             version = v
+            scale = s
             guard width > 0, height > 0 else {
                 dataTexture = nil
                 rgbaTexture = nil
@@ -240,8 +256,14 @@ public struct MetalImageView {
                     rgba: rgba, width: width, height: height)
                 dataTexture = nil
             } else if pixels.count == width * height {
-                dataTexture = MetalEngine.shared.device.makeFloatTexture(
-                    pixels: pixels, width: width, height: height)
+                switch s {
+                case .normalized:
+                    dataTexture = MetalEngine.shared.device.makeFloatTexture(
+                        pixels: pixels, width: width, height: height)
+                case .raw(let range):
+                    dataTexture = MetalEngine.shared.device.makeNormalizedTexture(
+                        raw: pixels, width: width, height: height, range: range)
+                }
                 rgbaTexture = nil
             } else {
                 dataTexture = nil
