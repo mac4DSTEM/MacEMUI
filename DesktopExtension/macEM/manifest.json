@@ -1,0 +1,45 @@
+{
+  "manifest_version": "0.3",
+  "name": "macem",
+  "display_name": "macEM",
+  "version": "1.0.0",
+  "description": "Lets Claude look at what macEM's windows show on this Mac: images, results and the output log. It runs analyses only when you allow that in macEM's Settings > Agents.",
+  "long_description": "macEM is the MCP server itself, on this Mac only (127.0.0.1). This extension carries Claude's requests to it. In macEM, turn on Settings > Agents, press Copy Connection Command and paste the copied line below. The extension talks to no other computer.",
+  "author": { "name": "macEM", "url": "https://github.com/mac4DSTEM" },
+  "homepage": "https://github.com/mac4DSTEM/MacEMUI",
+  "server": {
+    "type": "node",
+    "entry_point": "server/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/server/index.js"],
+      "env": {
+        "MACEM_DOOR_APP": "macEM",
+        "MACEM_DOOR_PORT": "47812",
+        "MACEM_DOOR_CONNECTION": "${user_config.connection}"
+      }
+    }
+  },
+  "user_config": {
+    "connection": {
+      "type": "string",
+      "title": "Connection command",
+      "description": "In macEM: Settings > Agents > Copy Connection Command, then paste it here.",
+      "sensitive": true,
+      "required": true
+    }
+  },
+  "tools": [
+    { "name": "list_windows", "description": "The open windows, each with an id and a one-line summary." },
+    { "name": "get_window", "description": "What one window shows: the room, the open files, calibration." },
+    { "name": "get_image", "description": "The shown image as Export Image draws it." },
+    { "name": "get_results", "description": "The finished measurements as Export Results writes them." },
+    { "name": "get_log", "description": "The window's Output lines." }
+  ],
+  "tools_generated": true,
+  "compatibility": {
+    "platforms": ["darwin"],
+    "runtimes": { "node": ">=18.0.0" }
+  },
+  "license": "GPL-3.0-only"
+}

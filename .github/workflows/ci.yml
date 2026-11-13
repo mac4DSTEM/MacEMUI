@@ -1,4 +1,4 @@
-# MacEMUI CI: `swift test -c release --parallel`, a scan for private references, the shared lint job and, on a tag, the
+# MacEMUI CI: `swift test -c release --parallel`, the Claude desktop extension's Node tests and pack, a scan for private references, the shared lint job and, on a tag, the
 # CHANGELOG version check.
 #
 # Two toolchains, each Xcode pinned. `macos-26` with Xcode 26.6 (Swift 6.3) is what the apps' CI builds MacEMUI with, so it
@@ -69,6 +69,20 @@ jobs:
           xcrun -sdk macosx metal --version
       - name: swift test -c release --parallel
         run: swift test -c release --parallel
+
+  desktop-extension:
+    name: Claude desktop extension (Node tests, pack)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: node --test (the runner's Node; Claude desktop brings its own)
+        run: node --version && node --test DesktopExtension/test/server.test.js
+      - name: Pack macEM.mcpb and mac4DSTEM.mcpb
+        run: DesktopExtension/pack.sh "$RUNNER_TEMP/mcpb"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: claude-desktop-extensions
+          path: ${{ runner.temp }}/mcpb/*.mcpb
 
   version:
     name: CHANGELOG version matches the tag
