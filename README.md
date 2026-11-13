@@ -3,7 +3,7 @@
 # MacEMUI
 
 The shared user interface of the macEM apps, [mac4DSTEM](https://github.com/macEMSuite/mac4DSTEM) and
-[macTEM](https://github.com/macEMSuite/macTEM): the window shell, the controls, the inspector rows, the Metal image view
+[macEM](https://github.com/macEMSuite/macEM): the window shell, the controls, the inspector rows, the Metal image view
 and the spectroscopy room's pieces, as a Swift package. SwiftUI and Metal, with AppKit only where SwiftUI cannot do the
 job (each such place is named in the code). It holds no numerics: the science lives in the macEM kits, and MacEMUI only
 draws what an app hands it.
