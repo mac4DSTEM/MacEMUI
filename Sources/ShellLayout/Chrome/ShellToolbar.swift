@@ -143,7 +143,7 @@ public nonisolated enum ToolbarDisplayFormat {
         let reading = metrics(date)
         let text = busy(operation: operation, elapsed: reading?.elapsed, eta: reading?.eta)
         return BusyTick(text: text, accessibilityLabel: text,
-                        accessibilityValue: progress.map { "\(Int($0 * 100)) percent" } ?? "")
+                        accessibilityValue: OperationMetricsFormat.percent(progress))
     }
 }
 

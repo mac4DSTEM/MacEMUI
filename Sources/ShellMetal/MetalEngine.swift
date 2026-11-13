@@ -13,7 +13,7 @@
 import Foundation
 import Metal
 
-public nonisolated enum MetalError: LocalizedError {
+public nonisolated enum MetalError: LocalizedError, Sendable {
     case noDevice
     case noLibrary
     case functionMissing(String)
@@ -32,7 +32,19 @@ public nonisolated enum MetalError: LocalizedError {
 
 public nonisolated final class MetalEngine: Sendable {  // DEVIATION: `: Sendable` — Swift 6 refuses a non-Sendable `static let shared`; this subset holds only Sendable Metal objects
 
-    public static let shared = MetalEngine()
+    /// The engine, or why Metal could not start (no GPU, no queue, no shader library, no pipeline). Built once, at first use.
+    public static let startup: Result<MetalEngine, MetalError> = Result { try MetalEngine() }.mapError { $0 as? MetalError ?? .noDevice }
+
+    /// The engine when Metal started, nil when it did not. The shell's panes use this and show why instead of crashing.
+    public static var available: MetalEngine? { try? startup.get() }
+
+    /// The engine. Traps when Metal did not start; a caller that can carry on without the GPU uses `available` (MacEMUI#124).
+    public static var shared: MetalEngine {
+        switch startup {
+        case .success(let engine): return engine
+        case .failure(let error): fatalError(error.localizedDescription)
+        }
+    }
 
     public let device: MTLDevice
     public let queue: MTLCommandQueue
@@ -43,31 +55,27 @@ public nonisolated final class MetalEngine: Sendable {  // DEVIATION: `: Sendabl
     let displayPSO: MTLRenderPipelineState
     let displayRGBAPSO: MTLRenderPipelineState
 
-    private init() {
-        guard let dev = MTLCreateSystemDefaultDevice() else {
-            fatalError(MetalError.noDevice.localizedDescription)
-        }
-        guard let q = dev.makeCommandQueue() else {
-            fatalError("Could not create a Metal command queue.")
-        }
+    private init() throws {
+        guard let dev = MTLCreateSystemDefaultDevice() else { throw MetalError.noDevice }
+        guard let q = dev.makeCommandQueue() else { throw MetalError.noDevice }
         let lib: MTLLibrary
-        do { lib = try Self.loadLibrary(dev) }
-        catch { fatalError("\(MetalError.noLibrary.localizedDescription) \(Bundle.module.bundlePath): \(error)") }
+        do { lib = try Self.loadLibrary(dev) } catch { throw MetalError.noLibrary }
         self.device = dev
         self.queue = q
         self.library = lib
 
         // Display render pipelines (fullscreen triangle; LUT and RGBA fragments).
-        func display(fragment: String) -> MTLRenderPipelineState {
+        func display(fragment: String) throws -> MTLRenderPipelineState {
             let desc = MTLRenderPipelineDescriptor()
-            desc.vertexFunction = lib.makeFunction(name: "displayVertex")
-            desc.fragmentFunction = lib.makeFunction(name: fragment)
+            guard let vertex = lib.makeFunction(name: "displayVertex") else { throw MetalError.functionMissing("displayVertex") }
+            guard let shader = lib.makeFunction(name: fragment) else { throw MetalError.functionMissing(fragment) }
+            desc.vertexFunction = vertex
+            desc.fragmentFunction = shader
             desc.colorAttachments[0].pixelFormat = .bgra8Unorm   // MTKView default
-            do { return try dev.makeRenderPipelineState(descriptor: desc) }
-            catch { fatalError("Display pipeline (\(fragment)) build failed: \(error)") }
+            do { return try dev.makeRenderPipelineState(descriptor: desc) } catch { throw MetalError.dispatchFailed("display pipeline \(fragment)") }
         }
-        self.displayPSO = display(fragment: "colormapFragment")
-        self.displayRGBAPSO = display(fragment: "rgbaFragment")
+        self.displayPSO = try display(fragment: "colormapFragment")
+        self.displayRGBAPSO = try display(fragment: "rgbaFragment")
 
         print("[MetalEngine] GPU: \(dev.name), maxWorkingSet ≈ \(dev.recommendedMaxWorkingSetSize / 1_048_576) MB")
     }

@@ -74,7 +74,8 @@ fragment float4 colormapFragment(VOut in [[stage_in]],
     // Invalid/masked pixels arrive as a negative sentinel (see
     // FloatImage.invalidDisplayValue). They get a dedicated neutral gray,
     // never a colormap entry — "no data" must not look like a value.
-    if (raw < 0.0) {
+    // A NaN is masked too. Tested on the bits: Metal compiles with fast math, where isnan() may be folded to false.
+    if (raw < 0.0 || (as_type<uint>(raw) & 0x7fffffffu) > 0x7f800000u) {
         return float4(0.32, 0.32, 0.34, 1.0);
     }
     float v = clamp(raw, 0.0, 1.0);

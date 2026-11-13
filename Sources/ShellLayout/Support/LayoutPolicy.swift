@@ -308,10 +308,18 @@ public nonisolated enum OperationMetricsFormat {
     /// format that grows a field is a format whose width is not bounded by the
     /// sweep that measures it.
     public static func duration(_ seconds: TimeInterval) -> String {
-        let total = max(0, Int(seconds.rounded()))
+        // An ETA from a zero rate is infinite and one from no samples NaN: "–", never `Int(NaN)`. Past Int it is capped.
+        guard !seconds.isNaN else { return "–" }
+        let total = Int(min(max(seconds, 0), 1e12).rounded())
         return total >= 60
             ? String(format: "%d:%02d", total / 60, total % 60)
             : "\(total) s"
+    }
+
+    /// A fraction 0...1 spoken as "37 percent"; a NaN or infinite progress is "", as no progress.
+    public static func percent(_ fraction: Double?) -> String {
+        guard let fraction, fraction.isFinite else { return "" }
+        return "\(Int(min(max(fraction, 0), 1) * 100)) percent"
     }
 
     /// A rate with the unit the app names for its operation ("patterns/s", "positions/s"). Which unit an

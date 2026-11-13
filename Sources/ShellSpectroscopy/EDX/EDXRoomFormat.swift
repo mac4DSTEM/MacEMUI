@@ -53,7 +53,7 @@ public nonisolated enum EDXRoomFormat {
 
     /// 1 234 567: a thin space between thousands, whatever the locale.
     public static func counts(_ v: Double) -> String {
-        guard v.isFinite else { return "–" }
+        guard v.isFinite, v.magnitude < 1e18 else { return "–" }   // past Int is no count a detector holds
         let digits = String(Int(v.rounded().magnitude))
         var out = ""
         for (i, c) in digits.reversed().enumerated() {
