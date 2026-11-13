@@ -358,7 +358,7 @@ public struct InfobarRunReadout: View {
                 ProgressView(value: progress)
                     .frame(width: LayoutPolicy.inlineProgressWidth)
                     .accessibilityLabel(operation ?? "Progress")
-                    .accessibilityValue(progress.map { "\(Int($0 * 100)) percent" } ?? "")
+                    .accessibilityValue(OperationMetricsFormat.percent(progress))
                 Text(text)
                     .font(.callout.monospacedDigit())
                     .foregroundStyle(.secondary)

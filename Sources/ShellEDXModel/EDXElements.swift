@@ -9,7 +9,8 @@ package nonisolated enum EDXElements {
         + "Hf Ta W Re Os Ir Pt Au Hg Tl Pb Bi Po At Rn Fr Ra Ac Th Pa U Np Pu Am Cm Bk Cf Es Fm Md No Lr "
         + "Rf Db Sg Bh Hs Mt Ds Rg Cn Nh Fl Mc Lv Ts Og").split(separator: " ").map(String.init)
 
-    public static func symbol(z: Int) -> String { symbols[z - 1] }
+    /// The symbol of element `z`; "Z=\(z)" outside 1...118 (a damaged method or file), never an index out of range.
+    public static func symbol(z: Int) -> String { symbols.indices.contains(z - 1) ? symbols[z - 1] : "Z=\(z)" }
     package static func z(of symbol: String) -> Int? { symbols.firstIndex(of: symbol).map { $0 + 1 } }
 
     /// Why an element cannot be picked: no usable line at an EDX detector window below Z = 5, and none for an element the line

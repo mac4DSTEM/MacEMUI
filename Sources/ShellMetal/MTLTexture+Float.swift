@@ -127,6 +127,9 @@ nonisolated extension MTLDevice {
     /// Build an `.rgba8Unorm` 2D texture from packed RGBA bytes
     /// (row-major, length == width*height*4). Sampled by rgbaFragment.
     func makeRGBATexture(rgba: [UInt8], width: Int, height: Int) -> MTLTexture? {
+        // A texture side past the GPU's limit (16384 on Apple GPUs) cannot be made: nil, which the pane shows as too large.
+        guard width > 0, height > 0, width <= MetalImageFailure.maximumTextureSide, height <= MetalImageFailure.maximumTextureSide,
+              rgba.count == width * height * 4 else { return nil }
         let desc = MTLTextureDescriptor.texture2DDescriptor(
             pixelFormat: .rgba8Unorm, width: width, height: height, mipmapped: false)
         desc.usage = [.shaderRead]

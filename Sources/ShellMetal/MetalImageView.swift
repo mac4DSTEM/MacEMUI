@@ -161,6 +161,10 @@ public struct MetalImageView {
         var effectiveGamma: Float
         var hasRGBA: Bool
         var displayTransform: MetalDisplayTransform?
+        /// How the pixels are scaled, and whether they came at their own bit depth: a change of either alone rebuilds the image,
+        /// so it must redraw too (without them a scale-only change left the old frame up).
+        var pixelScale: PixelScale
+        var hasNativePixels: Bool
     }
 
     /// The state this view asks the coordinator to show.
@@ -169,11 +173,13 @@ public struct MetalImageView {
             contentVersion: contentVersion, width: width, height: height,
             colormap: colormap, displayLo: displayLo, displayHi: displayHi,
             effectiveGamma: max(gamma, 0.05), hasRGBA: rgba != nil,
-            displayTransform: displayTransform)
+            displayTransform: displayTransform, pixelScale: pixelScale, hasNativePixels: nativePixels != nil)
     }
 
     fileprivate func makeMetalView(_ coordinator: Coordinator) -> MTKView {
-        let view = ScaleAwareMTKView(frame: .zero, device: MetalEngine.shared.device)
+        // Without Metal the pane is an empty view that says so (MacEMUI#124: the engine no longer traps at start-up).
+        let view = ScaleAwareMTKView(frame: .zero, device: MetalEngine.available?.device)
+        if case .failure(let error) = MetalEngine.startup { view.show(.noMetal(error.localizedDescription)) }
         view.colorPixelFormat = .bgra8Unorm            // must match displayPSO
         view.clearColor = MTLClearColor(red: 0.06, green: 0.06, blue: 0.07, alpha: 1)
         view.framebufferOnly = true
@@ -234,6 +240,34 @@ public struct MetalImageView {
             super.viewDidChangeBackingProperties()
             matchWindowScale()
         }
+
+        /// AppKit: the failure line sits inside the MTKView this representable owns, so every pane that shows an image says why
+        /// it cannot, without a SwiftUI wrapper its callers would have to adopt.
+        /// True once the failure line exists (it is made the first time there is something to say).
+        private var hasFailureLabel = false
+        private lazy var failureLabel: NSTextField = {
+            hasFailureLabel = true
+            let label = NSTextField(wrappingLabelWithString: "")
+            label.alignment = .center
+            label.textColor = .secondaryLabelColor
+            label.font = .preferredFont(forTextStyle: .callout)
+            label.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(label)
+            NSLayoutConstraint.activate([
+                label.centerXAnchor.constraint(equalTo: centerXAnchor),
+                label.centerYAnchor.constraint(equalTo: centerYAnchor),
+                label.widthAnchor.constraint(lessThanOrEqualTo: widthAnchor, multiplier: 0.8),
+            ])
+            return label
+        }()
+
+        /// Shows why the pane is empty, or hides the line (nil).
+        func show(_ failure: MetalImageFailure?) {
+            guard failure != nil || hasFailureLabel else { return }
+            failureLabel.stringValue = failure?.text ?? ""
+            failureLabel.isHidden = failure == nil
+            setAccessibilityLabel(failure?.text)
+        }
     }
 
     // MARK: - Coordinator (the MTKView delegate / renderer)
@@ -265,6 +299,12 @@ public struct MetalImageView {
         private(set) var lutDirty = true
         private var version = Int.min
         private var scale: PixelScale = .normalized
+        /// The off-main build in flight: a newer update cancels it, so superseded builds of a large image do not pile up.
+        private var build: Task<Void, Never>?
+        /// Why the pane shows nothing, shown on it; nil when it draws.
+        private(set) var failure: MetalImageFailure? {
+            didSet { if failure != oldValue { (view as? ScaleAwareMTKView)?.show(failure) } }
+        }
 
         func updateContentIfNeeded(
             pixels: [Float], rgba: [UInt8]?, width: Int, height: Int, version v: Int, scale s: PixelScale = .normalized,
@@ -274,61 +314,91 @@ public struct MetalImageView {
             version = v
             scale = s
             generation += 1
+            build?.cancel()
+            build = nil
             // The old resource goes first, so a new large image is not built while the previous one is still held.
             dataImage = nil
             rgbaTexture = nil
+            failure = nil
             guard width > 0, height > 0 else { return }
-            let device = MetalEngine.shared.device
+            guard let device = MetalEngine.available?.device else {
+                if case .failure(let error) = MetalEngine.startup { failure = .noMetal(error.localizedDescription) }
+                return
+            }
+            let tooLarge = MetalImageFailure.tooLarge(width: width, height: height)
             if let rgba, rgba.count == width * height * 4 {
                 rgbaTexture = device.makeRGBATexture(rgba: rgba, width: width, height: height)
+                if rgbaTexture == nil { failure = tooLarge }
             } else if let native, native.count == width * height, case .raw(let range) = s {
                 if native.count < Self.backgroundBuildPixels {
                     dataImage = device.makeDisplayImage(native: native, width: width, height: height, range: range)
+                    if dataImage == nil { failure = tooLarge }
                 } else {
-                    land(generation) { await Self.displayImageOffMain(native: native, width: width, height: height, range: range) }
+                    land(generation, tooLarge) { await Self.displayImageOffMain(native: native, width: width, height: height, range: range) }
                 }
             } else if pixels.count == width * height {
                 switch s {
+                case .normalized where pixels.count < Self.backgroundBuildPixels:
+                    dataImage = Self.normalizedImage(device, pixels: pixels, width: width, height: height)
+                    if dataImage == nil { failure = tooLarge }
                 case .normalized:
-                    dataImage = device.makeImageBuffer(pixels: pixels, width: width, height: height).map {
-                        DisplayImage(buffer: $0, width: width, height: height, encoding: .normalizedFloat, low: 0, span: 1)
-                    }
+                    // A large normalised image is copied off the main actor too (it was built on it at any size).
+                    land(generation, tooLarge) { await Self.normalizedImageOffMain(pixels: pixels, width: width, height: height) }
                 case .raw(let range) where pixels.count < Self.backgroundBuildPixels:
                     dataImage = device.makeDisplayImage(raw: pixels, width: width, height: height, range: range)
+                    if dataImage == nil { failure = tooLarge }
                 case .raw(let range):
                     // Off the main actor: a blocked window while a 375-megapixel image packs fails the bar (12 Nov, the SEM TIFF's tab
                     // would not switch for about 40 s while the old per-pixel pack ran on the main thread).
-                    land(generation) { await Self.displayImageOffMain(raw: pixels, width: width, height: height, range: range) }
+                    land(generation, tooLarge) { await Self.displayImageOffMain(raw: pixels, width: width, height: height, range: range) }
                 }
             }
         }
 
-        /// Builds the image off the main actor and, back on it, keeps it and asks the view to draw, unless a newer update came first.
-        private func land(_ asked: Int, _ build: @escaping @Sendable () async -> DisplayImage?) {
-            Task { @MainActor [weak self] in
-                let image = await build()
-                guard let self, self.generation == asked else { return }
+        /// Builds the image off the main actor and, back on it, keeps it and asks the view to draw, unless a newer update came first
+        /// (which cancels this build: a cancelled build that has not started never allocates). A build that gives nothing (past
+        /// the GPU's buffer limit) shows `failed` on the pane.
+        private func land(_ asked: Int, _ failed: MetalImageFailure, _ make: @escaping @Sendable () async -> DisplayImage?) {
+            build = Task { @MainActor [weak self] in
+                let image = await make()
+                guard !Task.isCancelled, let self, self.generation == asked else { return }
                 self.dataImage = image
+                if image == nil { self.failure = failed }
+                self.build = nil
                 self.lastApplied = nil   // the next update redraws too, whatever it carries
                 self.view?.needsDisplay = true
             }
         }
 
+        nonisolated private static func normalizedImage(_ device: MTLDevice, pixels: [Float], width: Int, height: Int) -> DisplayImage? {
+            device.makeImageBuffer(pixels: pixels, width: width, height: height).map {
+                DisplayImage(buffer: $0, width: width, height: height, encoding: .normalizedFloat, low: 0, span: 1)
+            }
+        }
+
+        @concurrent
+        nonisolated private static func normalizedImageOffMain(pixels: [Float], width: Int, height: Int) async -> DisplayImage? {
+            guard !Task.isCancelled, let device = MetalEngine.available?.device else { return nil }
+            return normalizedImage(device, pixels: pixels, width: width, height: height)
+        }
+
         @concurrent
         nonisolated private static func displayImageOffMain(raw: [Float], width: Int, height: Int,
                                                             range: ClosedRange<Float>?) async -> DisplayImage? {
-            MetalEngine.shared.device.makeDisplayImage(raw: raw, width: width, height: height, range: range)
+            guard !Task.isCancelled, let device = MetalEngine.available?.device else { return nil }
+            return device.makeDisplayImage(raw: raw, width: width, height: height, range: range)
         }
 
         @concurrent
         nonisolated private static func displayImageOffMain(native: NativePixels, width: Int, height: Int,
                                                             range: ClosedRange<Float>?) async -> DisplayImage? {
-            MetalEngine.shared.device.makeDisplayImage(native: native, width: width, height: height, range: range)
+            guard !Task.isCancelled, let device = MetalEngine.available?.device else { return nil }
+            return device.makeDisplayImage(native: native, width: width, height: height, range: range)
         }
 
         func rebuildLUTIfNeeded() {
-            guard lutDirty || lutTexture == nil else { return }
-            lutTexture = MetalEngine.shared.device.makeLUTTexture(
+            guard lutDirty || lutTexture == nil, let engine = MetalEngine.available else { return }
+            lutTexture = engine.device.makeLUTTexture(
                 rgba: Colormaps.lutRGBA(colormap, count: 256))
             lutDirty = false
         }
@@ -342,9 +412,10 @@ public struct MetalImageView {
         public func draw(in view: MTKView) {
             rebuildLUTIfNeeded()
 
-            guard let descriptor = view.currentRenderPassDescriptor,
+            guard let engine = MetalEngine.available,
+                  let descriptor = view.currentRenderPassDescriptor,
                   let drawable = view.currentDrawable,
-                  let buffer = MetalEngine.shared.queue.makeCommandBuffer(),
+                  let buffer = engine.queue.makeCommandBuffer(),
                   let encoder = buffer.makeRenderCommandEncoder(descriptor: descriptor)
             else {
                 // Nothing was presented (no window or drawable yet): forget the
@@ -353,7 +424,6 @@ public struct MetalImageView {
                 return
             }
 
-            let engine = MetalEngine.shared
             if rgbaTexture != nil {
                 encoder.setRenderPipelineState(engine.displayRGBAPSO)
             } else if dataImage != nil, lutTexture != nil {
