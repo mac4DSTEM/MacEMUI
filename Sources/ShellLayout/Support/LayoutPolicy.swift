@@ -310,7 +310,7 @@ public nonisolated enum OperationMetricsFormat {
     public static func duration(_ seconds: TimeInterval) -> String {
         // An ETA from a zero rate is infinite and one from no samples NaN: "–", never `Int(NaN)`. Past Int it is capped.
         guard !seconds.isNaN else { return "–" }
-        let total = max(0, Int(min(seconds, 1e12).rounded()))
+        let total = Int(min(max(seconds, 0), 1e12).rounded())
         return total >= 60
             ? String(format: "%d:%02d", total / 60, total % 60)
             : "\(total) s"
