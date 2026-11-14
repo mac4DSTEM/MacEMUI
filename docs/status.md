@@ -7,8 +7,9 @@ What is live. 0.5.1 (2026-11-05) is tagged; both apps take MacEMUI by version ra
 - The controls (`ShellControls`, `ShellInspector`): zoom and pan, `NumericField` (typing the shown text over a finer stored
   value sets it), `PaneFooter`, `ScaleBar`, colorbar, `HistogramChart`, `SegmentedControl` and `SegmentedPicker` (a segment can be
   disabled, with its reason), the inspector row kit.
-- The Metal image view (`ShellMetal`): `MetalEngine`, `MetalImageView`, `MetalDisplayTransform`, the shared colormaps and
-  their shader (compiled from source when the bundle has no metallib); `ImageViewport`, one zoomable container for every room picture.
+- The Metal image view (`ShellMetal`): `MetalEngine`, `MetalImageView` (raw pixels at their own bit depth, a linear or log
+  display transfer drawn in the shader), `MetalDisplayTransform`, the shared colormaps and their shader (compiled from source
+  when the bundle has no metallib); `ImageViewport`, one zoomable container for every room picture.
 - The spectroscopy room (`ShellSpectroscopy`): map tiles (with an overlay slot) and the fitted map grid, the colour mix, regions
   (draw, edit, list, a keyboard route; Esc returns to the arrow tool), spectrum and profile panes, the periodic table, the map display popover.
 - The shared EDS room (`ShellEDXModel` and `EDXRoom` in `ShellSpectroscopy`, 0.4.0): the model and session (`EDXSession`, regions,
