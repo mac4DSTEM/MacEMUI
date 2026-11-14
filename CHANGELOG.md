@@ -2,6 +2,18 @@
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). MacEMUI follows semantic versioning; before 1.0.0 a minor version may break the API, and its Migration paragraph says how.
 
+## [0.10.0](https://github.com/macEMSuite/MacEMUI/compare/0.9.1...0.10.0) (2026-11-13)
+
+
+### Features
+
+* Claude desktop extension for the agent door (macEM.mcpb, mac4DSTEM.mcpb) ([#95](https://github.com/macEMSuite/MacEMUI/issues/95)) ([119c03c](https://github.com/macEMSuite/MacEMUI/commit/119c03c870d4d5dde3ce6c46a5d476a4f8f08fe8))
+
+
+### Bug Fixes
+
+* say why an image pane is empty instead of trapping or staying blank ([#132](https://github.com/macEMSuite/MacEMUI/issues/132)) ([72f6f54](https://github.com/macEMSuite/MacEMUI/commit/72f6f54d8cb6d2939f355cc42c9a743ea47ccb3b))
+
 ## [0.9.1](https://github.com/mac4DSTEM/MacEMUI/compare/0.9.0...0.9.1) (2026-11-12)
 
 
