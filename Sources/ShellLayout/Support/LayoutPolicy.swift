@@ -171,6 +171,17 @@ public nonisolated enum LayoutPolicy {
     /// (2026-10-22) drops the name, so the slot can shrink once the new text is measured. Not measured yet.
     public static let statusGlanceWidth: CGFloat = 250
 
+    /// The glance's floor: its `memorychip` icon at the callout font (15 pt) and the label spacing: AX measured the icon-only glance at 22 pt (2026-11-14), plus 2. A constant, so no figure
+    /// moves it (the constraint-loop rule). It was `compressibleSlotMinimum` (0): the infobar then gave the run slot the width the
+    /// icon still drew in, and the icon lay under the run's Cancel at a narrow window (#139).
+    public static let statusGlanceMinimumWidth: CGFloat = 24
+
+    /// The infobar's give-way order (Paul, 2026-11-14): the status words keep their width longest (truncating with … only when
+    /// nothing else is left), then the run's numbers, then the memory glance. Idle, the "Last run" line gives way with the glance.
+    public static func infobarPriorities(isRunning: Bool) -> (status: Double, run: Double, glance: Double) {
+        isRunning ? (status: 0, run: -1, glance: -2) : (status: 0, run: -1, glance: -1)
+    }
+
     /// The live run's readout in the infobar — done / total · rate · elapsed
     /// · ETA — at 12-pt monospaced digits, the `operationReadoutWidth` rule.
     /// **396, measured 2026-09-22, not chosen:** the widest line
@@ -386,6 +397,20 @@ public nonisolated enum OperationMetricsFormat {
             parts.append(line(elapsed: elapsed, eta: eta))
         }
         return parts.joined(separator: " · ")
+    }
+
+    /// The run line and the shorter lines a narrow infobar falls back to, longest first (Paul, 2026-11-14): the last part goes first,
+    /// so ETA, then elapsed (and the rate where a line has one), then the count, and last an empty line beside the bar. Pure, so the
+    /// order is tested; the readout draws the first that fits.
+    public static func runLineFallbacks(_ line: String) -> [String] {
+        var parts = line.components(separatedBy: " · ").filter { !$0.isEmpty }
+        var lines: [String] = []
+        while !parts.isEmpty {
+            lines.append(parts.joined(separator: " · "))
+            parts.removeLast()
+        }
+        lines.append("")
+        return lines
     }
 
     /// The status strip's memory glance: app memory — the
