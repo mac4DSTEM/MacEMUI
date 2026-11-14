@@ -171,6 +171,11 @@ public nonisolated enum LayoutPolicy {
     /// (2026-10-22) drops the name, so the slot can shrink once the new text is measured. Not measured yet.
     public static let statusGlanceWidth: CGFloat = 250
 
+    /// The glance's floor: its `memorychip` icon at the callout font (15 pt) and the label spacing: AX measured the icon-only glance at 22 pt (2026-11-14), plus 2. A constant, so no figure
+    /// moves it (the constraint-loop rule). It was `compressibleSlotMinimum` (0): the infobar then gave the run slot the width the
+    /// icon still drew in, and the icon lay under the run's Cancel at a narrow window (#139).
+    public static let statusGlanceMinimumWidth: CGFloat = 24
+
     /// The live run's readout in the infobar — done / total · rate · elapsed
     /// · ETA — at 12-pt monospaced digits, the `operationReadoutWidth` rule.
     /// **396, measured 2026-09-22, not chosen:** the widest line

@@ -448,7 +448,7 @@ public struct InfobarGlance: View {
             // fixed 250 pt floored the strip — and so the detail column —
             // at ~432 pt, and the inspector drew over the right science
             // pane .
-            .frame(minWidth: LayoutPolicy.compressibleSlotMinimum,
+            .frame(minWidth: LayoutPolicy.statusGlanceMinimumWidth,
                    idealWidth: LayoutPolicy.statusGlanceWidth,
                    maxWidth: LayoutPolicy.statusGlanceWidth, alignment: .trailing)
             .help(help ?? "")
