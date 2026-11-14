@@ -87,6 +87,18 @@ public struct MetalImageView {
     /// values): an 8-bit image is one byte a pixel in the app and on the GPU, as ImageJ, GMS and Velox keep it (macTEM#566).
     public var nativePixels: NativePixels?
 
+    /// How the shader maps a raw value to the colormap before the window and gamma. Applies to raw pixels
+    /// (`pixelScale: .raw(range:)`); normalised pixels are drawn as they are.
+    public var transfer: DisplayTransfer
+
+    public nonisolated enum DisplayTransfer: Equatable, Sendable {
+        /// The value over the raw range, as it is.
+        case linear
+        /// log10(1 + max(v, 0)) of the raw value, over the same of the raw range: a diffraction pattern's decades, drawn
+        /// from the file's own pixels with no log copy of them (ImagoKit's `DisplayNormalization.normalizedLog`; macEM#580).
+        case log
+    }
+
     public nonisolated enum NativePixels: Sendable {
         case uint8([UInt8])
         case uint16([UInt16])
@@ -130,10 +142,12 @@ public struct MetalImageView {
         displayHi: Float = 1,
         gamma: Float = 1,
         pixelScale: PixelScale = .normalized,
-        nativePixels: NativePixels? = nil
+        nativePixels: NativePixels? = nil,
+        transfer: DisplayTransfer = .linear
     ) {
         self.pixelScale = pixelScale
         self.nativePixels = nativePixels
+        self.transfer = transfer
         self.pixels = pixels
         self.width = width
         self.height = height
@@ -165,6 +179,8 @@ public struct MetalImageView {
         /// so it must redraw too (without them a scale-only change left the old frame up).
         var pixelScale: PixelScale
         var hasNativePixels: Bool
+        /// A change of transfer redraws the same image: nothing is rebuilt.
+        var transfer: DisplayTransfer
     }
 
     /// The state this view asks the coordinator to show.
@@ -173,7 +189,8 @@ public struct MetalImageView {
             contentVersion: contentVersion, width: width, height: height,
             colormap: colormap, displayLo: displayLo, displayHi: displayHi,
             effectiveGamma: max(gamma, 0.05), hasRGBA: rgba != nil,
-            displayTransform: displayTransform, pixelScale: pixelScale, hasNativePixels: nativePixels != nil)
+            displayTransform: displayTransform, pixelScale: pixelScale, hasNativePixels: nativePixels != nil,
+            transfer: transfer)
     }
 
     fileprivate func makeMetalView(_ coordinator: Coordinator) -> MTKView {
@@ -202,6 +219,7 @@ public struct MetalImageView {
         )
         coordinator.displayRange = SIMD2<Float>(displayLo, displayHi)
         coordinator.gamma = max(gamma, 0.05)
+        coordinator.transfer = transfer
         coordinator.displayTransform = displayTransform
         // Redraw only when something the pane shows changed (a size or scale
         // change redraws through `drawableSizeWillChange` and the window hooks).
@@ -284,6 +302,7 @@ public struct MetalImageView {
         var lastApplied: AppliedState?
         var displayRange = SIMD2<Float>(0, 1)
         var gamma: Float = 1
+        var transfer: DisplayTransfer = .linear
         var displayTransform: MetalDisplayTransform?
 
         private var dataImage: DisplayImage?
@@ -396,6 +415,13 @@ public struct MetalImageView {
             return device.makeDisplayImage(native: native, width: width, height: height, range: range)
         }
 
+        /// The shader's transfer parameters (kind, rangeLow, rangeSpan, 0): the log transfer needs the raw range, so it applies
+        /// to raw pixels with a finite range only; everything else draws linear.
+        nonisolated static func transferParameters(_ transfer: DisplayTransfer, scale: PixelScale) -> SIMD4<Float> {
+            guard transfer == .log, case .raw(let range?) = scale else { return SIMD4<Float>(0, 0, 1, 0) }
+            return SIMD4<Float>(1, range.lowerBound, range.upperBound - range.lowerBound, 0)
+        }
+
         func rebuildLUTIfNeeded() {
             guard lutDirty || lutTexture == nil, let engine = MetalEngine.available else { return }
             lutTexture = engine.device.makeLUTTexture(
@@ -455,6 +481,8 @@ public struct MetalImageView {
                     var parameters = dataImage.parameters
                     encoder.setFragmentBytes(&parameters, length: MemoryLayout<SIMD4<Float>>.stride, index: 3)
                 }
+                var transferParameters = Self.transferParameters(transfer, scale: scale)
+                encoder.setFragmentBytes(&transferParameters, length: MemoryLayout<SIMD4<Float>>.stride, index: 4)
                 encoder.setFragmentTexture(lutTexture, index: 1)
             }
             encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)

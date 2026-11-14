@@ -108,12 +108,62 @@ nonisolated final class MetalEngineDisplayTests: XCTestCase {
         bind(DisplayImage(buffer: data, width: width, height: height, encoding: .normalizedFloat, low: 0, span: 1), encoder)
     }
 
-    private static func bind(_ image: DisplayImage, _ encoder: MTLRenderCommandEncoder) {
+    private static func bind(_ image: DisplayImage, _ encoder: MTLRenderCommandEncoder,
+                             transfer: SIMD4<Float> = SIMD4<Float>(0, 0, 1, 0)) {
         encoder.setFragmentBuffer(image.buffer, offset: 0, index: 1)
         var size = SIMD2<UInt32>(UInt32(image.width), UInt32(image.height))
         encoder.setFragmentBytes(&size, length: MemoryLayout<SIMD2<UInt32>>.stride, index: 2)
         var parameters = image.parameters
         encoder.setFragmentBytes(&parameters, length: MemoryLayout<SIMD4<Float>>.stride, index: 3)
+        var transfer = transfer
+        encoder.setFragmentBytes(&transfer, length: MemoryLayout<SIMD4<Float>>.stride, index: 4)
+    }
+
+    /// The log transfer draws raw pixels as their log display values (macEM#580): 0, 9 and 99 of 0…99 are log10(1 + v) = 0, 1
+    /// and 2 over 0…2, so black, mid gray and white, as the Float32 values 0, 0.5 and 1 draw. One byte, two bytes and
+    /// Float32 (a fraction keeps it Float32) all draw it, and a linear transfer on the same image draws it linear.
+    @MainActor func testTheLogTransferDrawsRawPixelsAsTheirLogDisplayValues() throws {
+        let engine = MetalEngine.shared
+        let lut = try XCTUnwrap(engine.device.makeLUTTexture(rgba: Colormaps.lutRGBA(.gray, count: 256)))
+        func draw(_ image: DisplayImage, transfer: SIMD4<Float>) throws -> [UInt8] {
+            try Self.render(engine.displayPSO, width: image.width, height: 1) { encoder in
+                var display = SIMD4<Float>(0, 1, 1, 0)
+                encoder.setFragmentBytes(&display, length: MemoryLayout<SIMD4<Float>>.stride, index: 0)
+                Self.bind(image, encoder, transfer: transfer)
+                encoder.setFragmentTexture(lut, index: 1)
+            }
+        }
+        func reference(_ values: [Float]) throws -> [UInt8] {
+            let float = try XCTUnwrap(engine.device.makeImageBuffer(pixels: values, width: values.count, height: 1))
+            return try draw(DisplayImage(buffer: float, width: values.count, height: 1, encoding: .normalizedFloat, low: 0, span: 1),
+                            transfer: SIMD4<Float>(0, 0, 1, 0))
+        }
+        let log = MetalImageView.Coordinator.transferParameters(.log, scale: .raw(range: 0...99))
+        XCTAssertEqual(log, SIMD4<Float>(1, 0, 99, 0))
+        let bytes = try XCTUnwrap(engine.device.makeDisplayImage(raw: [0, 9, 99], width: 3, height: 1, range: 0...99))
+        XCTAssertEqual(bytes.encoding, .uint8)
+        let want = try reference([0, 0.5, 1])
+        func close(_ a: [UInt8], _ b: [UInt8], _ what: String) {
+            XCTAssertEqual(a.count, b.count, what)
+            for (x, y) in zip(a, b) { XCTAssertLessThanOrEqual(abs(Int(x) - Int(y)), 1, "\(what): \(a) against \(b)") }
+        }
+        close(try draw(bytes, transfer: log), want, "one byte")
+        let wide = try XCTUnwrap(engine.device.makeDisplayImage(native: .uint16([0, 9, 99]), width: 3, height: 1, range: 0...99))
+        XCTAssertEqual(wide.encoding, .uint16)
+        close(try draw(wide, transfer: log), want, "two bytes")
+        let float = try XCTUnwrap(engine.device.makeDisplayImage(raw: [0, 9, 99, 0.5], width: 4, height: 1, range: 0...99))
+        XCTAssertEqual(float.encoding, .normalizedFloat)
+        close(try draw(float, transfer: log), try reference([0, 0.5, 1, Float(log10(1.5) / 2)]), "Float32")
+        close(try draw(bytes, transfer: SIMD4<Float>(0, 0, 1, 0)), try reference([0, 9.0 / 99, 1]), "linear")
+    }
+
+    /// The log transfer needs a finite raw range; normalised pixels and a range of none draw linear.
+    func testTheLogTransferAppliesToRawPixelsWithARangeOnly() {
+        typealias C = MetalImageView.Coordinator
+        XCTAssertEqual(C.transferParameters(.linear, scale: .raw(range: 0...99)), SIMD4<Float>(0, 0, 1, 0))
+        XCTAssertEqual(C.transferParameters(.log, scale: .normalized), SIMD4<Float>(0, 0, 1, 0))
+        XCTAssertEqual(C.transferParameters(.log, scale: .raw(range: nil)), SIMD4<Float>(0, 0, 1, 0))
+        XCTAssertEqual(C.transferParameters(.log, scale: .raw(range: -2...6)), SIMD4<Float>(1, -2, 8, 0))
     }
 
     func testTheRGBAPipelineDrawsItsTextureUnchanged() throws {
