@@ -2,6 +2,19 @@
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). MacEMUI follows semantic versioning; before 1.0.0 a minor version may break the API, and its Migration paragraph says how.
 
+## [0.11.0](https://github.com/macEMSuite/MacEMUI/compare/0.10.0...0.11.0) (2026-11-14)
+
+
+### Features
+
+* MetalImageView draws a log display transfer in the shader ([#137](https://github.com/macEMSuite/MacEMUI/issues/137)) ([e9949c0](https://github.com/macEMSuite/MacEMUI/commit/e9949c03ca562f83ad48e8b240a179f7eb8c7f8d))
+
+
+### Bug Fixes
+
+* a narrow infobar keeps the task words, drops run times first, and the glance keeps room for its icon ([#140](https://github.com/macEMSuite/MacEMUI/issues/140)) ([50afd2d](https://github.com/macEMSuite/MacEMUI/commit/50afd2dad3d4db68875e98cdc61f1f4e96436f3f))
+* the infobar's pane toggles keep their place and size ([#135](https://github.com/macEMSuite/MacEMUI/issues/135)) ([bf4b546](https://github.com/macEMSuite/MacEMUI/commit/bf4b5469522c27dbb2dfa6a38318b654e4a16e10))
+
 ## [0.10.0](https://github.com/macEMSuite/MacEMUI/compare/0.9.1...0.10.0) (2026-11-13)
 
 
