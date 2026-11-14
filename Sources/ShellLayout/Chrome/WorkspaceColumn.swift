@@ -277,23 +277,29 @@ struct Infobar<Run: View, Glance: View>: View {
                 .layoutPriority(-1)
 
             if hasDocument {
-                ForEach(tabs, id: \.id) { tab in
-                    Toggle(isOn: paneBinding(tab.id)) {
-                        Image(systemName: tab.systemImage)
+                // The pane toggles stay put (mac4DSTEM#361): pinned to the trailing edge at their own size, highest priority, so only
+                // the status part to their left gives way when the window narrows.
+                HStack(spacing: LayoutPolicy.infobarItemSpacing) {
+                    ForEach(tabs, id: \.id) { tab in
+                        Toggle(isOn: paneBinding(tab.id)) {
+                            Image(systemName: tab.systemImage)
+                        }
+                        .toggleStyle(.button)
+                        .help("\(tab.title) pane")
+                        .accessibilityLabel("Toggle the \(tab.title) pane")
+                        .accessibilityIdentifier("status.footer.toggle\(tab.title)")
+                    }
+                    Toggle(isOn: processAreaToggleBinding) {
+                        Image(systemName: "rectangle.bottomthird.inset.filled")
                     }
                     .toggleStyle(.button)
-                    .help("\(tab.title) pane")
-                    .accessibilityLabel("Toggle the \(tab.title) pane")
-                    .accessibilityIdentifier("status.footer.toggle\(tab.title)")
+                    .help(navigation.showProcessArea
+                          ? "Hide the bottom pane" : "Show the bottom pane")
+                    .accessibilityLabel("Toggle bottom pane")
+                    .accessibilityIdentifier("status.footer.toggleLog")
                 }
-                Toggle(isOn: processAreaToggleBinding) {
-                    Image(systemName: "rectangle.bottomthird.inset.filled")
-                }
-                .toggleStyle(.button)
-                .help(navigation.showProcessArea
-                      ? "Hide the bottom pane" : "Show the bottom pane")
-                .accessibilityLabel("Toggle bottom pane")
-                .accessibilityIdentifier("status.footer.toggleLog")
+                .fixedSize()
+                .layoutPriority(2)
             }
         }
         .controlSize(.small)
