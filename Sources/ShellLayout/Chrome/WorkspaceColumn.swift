@@ -248,6 +248,8 @@ struct Infobar<Run: View, Glance: View>: View {
             .onEnded { _ in fractionAtDragStart = nil }
     }
 
+    private var priorities: (status: Double, run: Double, glance: Double) { LayoutPolicy.infobarPriorities(isRunning: isRunning) }
+
     var body: some View {
         HStack(spacing: LayoutPolicy.infobarItemSpacing) {
             // One line, truncating — the message never dictates the bar's
@@ -257,12 +259,11 @@ struct Infobar<Run: View, Glance: View>: View {
                 .lineLimit(1)
                 .truncationMode(.tail)
                 .help(statusText)
-                // The message is the line that says what just happened, so it keeps its width longest after the run's
-                // numbers: under compression the order is the run's numbers (1), this message (0), then
-                // the "Last run" line and the standing glance (-1) give way (mac4DSTEM design review 2026-10-21: the message was
-                // the part cut, "Strain ✓ 89%…", while the machine column kept its full width). `.help` carries the rest.
+                // The message is the line that says what is happening, so it keeps its width longest (Paul, 2026-11-14, over the
+                // 2026-10-21 order that put the run's numbers first): under compression the run's numbers give way first, ETA, then
+                // elapsed, then the count (`runLineFallbacks`), and the glance before them (`infobarPriorities`). `.help` carries the rest.
                 // Priorities are constant per state, so nothing here changes the strip's own minimum (the constraint-loop rule).
-                .layoutPriority(0)
+                .layoutPriority(priorities.status)
                 .accessibilityIdentifier("status.bar")
 
             Spacer(minLength: LayoutPolicy.infobarItemSpacing)
@@ -271,10 +272,10 @@ struct Infobar<Run: View, Glance: View>: View {
             // done / total, elapsed · ETA and Stop while a run is in
             // flight; the last run while idle.
             run
-                .layoutPriority(isRunning ? 1 : -1)
+                .layoutPriority(priorities.run)
 
             glance
-                .layoutPriority(-1)
+                .layoutPriority(priorities.glance)
 
             if hasDocument {
                 // The pane toggles stay put (mac4DSTEM#361): pinned to the trailing edge at their own size, highest priority, so only
@@ -365,11 +366,17 @@ public struct InfobarRunReadout: View {
                     .frame(width: LayoutPolicy.inlineProgressWidth)
                     .accessibilityLabel(operation ?? "Progress")
                     .accessibilityValue(OperationMetricsFormat.percent(progress))
-                Text(text)
-                    .font(.callout.monospacedDigit())
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
+                // The longest line that fits (`runLineFallbacks`): a narrow bar drops ETA, then elapsed, then the count, instead of
+                // cutting the line mid-figure. VoiceOver reads the whole line.
+                ViewThatFits(in: .horizontal) {
+                    ForEach(OperationMetricsFormat.runLineFallbacks(text), id: \.self) { candidate in
+                        Text(candidate)
+                            .font(.callout.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .fixedSize()
+                    }
+                }
                     // Constant minimum, ideal and maximum, like the glance:
                     // none depends on the text, so nothing ticks, yet a
                     // narrow window compresses the slot instead of the
